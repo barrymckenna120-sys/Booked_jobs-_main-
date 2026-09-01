@@ -213,6 +213,9 @@ async function resolveTarget(
         pdf_url: quote.pdf_url,
         quote_number: quote.quote_number,
         customer_id: quote.customer_id,
+        // This resend owns the attempt record, so the send path must not open a
+        // second one for the same delivery.
+        skip_delivery_tracking: true,
       },
     };
   }

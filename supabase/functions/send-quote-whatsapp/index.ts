@@ -19,6 +19,8 @@ serve(async (req) => {
   }
 
   try {
+    const reqBody = await req.json();
+
     const {
       quote_id,
       customer_name,
@@ -33,7 +35,12 @@ serve(async (req) => {
       quote_number,
       customer_id,
       sent_by_user_id,
-    } = await req.json();
+    } = reqBody;
+
+    // A resend owns its own attempt record, so this path must not open a second
+    // one for the same delivery.
+    const skipTracking =
+      reqBody?.skip_delivery_tracking === true;
 
     // IDOR guard: prove the caller belongs to the quote's organisation before
     // acting with that tenant's WhatsApp credentials.
@@ -472,8 +479,9 @@ YES ${refNumber}`;
       supabaseKey!
     );
 
-    const deliveryHandle =
-      await beginDelivery(
+    const deliveryHandle = skipTracking
+      ? null
+      : await beginDelivery(
         trackingClient,
         {
           organisationId: orgId,
@@ -531,24 +539,37 @@ YES ${refNumber}`;
       };
     }
 
-    await completeDelivery(
-      trackingClient,
-      {
-        handle: deliveryHandle,
-        channel: "whatsapp",
-        ok: !!result.success,
-        providerError: result.success
-          ? null
-          : `[${response.status}] ${resultText.substring(0, 500)}`,
-        recipient: cleanNumber,
-      }
-    );
+    // 360Messenger returns 201 + success:true when it ACCEPTS the request. That
+    // is queue acceptance, not delivery — recorded as `accepted`, and only a
+    // real provider callback may promote it to `delivered`.
+    const providerMessageId: string | null =
+      result?.data?.id ?? null;
 
-    // Update message_log status
+    const accepted = !!result?.success;
+
+    if (!skipTracking) {
+      await completeDelivery(
+        trackingClient,
+        {
+          handle: deliveryHandle,
+          channel: "whatsapp",
+          ok: accepted,
+          providerError: accepted
+            ? null
+            : `[${response.status}] ${resultText.substring(0, 500)}`,
+          providerMessageId,
+          providerStatus: accepted ? "accepted" : null,
+          recipient: cleanNumber,
+        }
+      );
+    }
+
+    // Update message_log status. `accepted` — the provider took the request; it
+    // is not a delivery confirmation.
     if (logId) {
       const updateBody =
-        result.success
-          ? { status: "sent" }
+        accepted
+          ? { status: "accepted" }
           : {
               status: "failed",
               error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(
@@ -738,9 +759,15 @@ YES ${refNumber}`;
     return new Response(
       JSON.stringify({
         success:
-          result.success,
+          accepted,
+        status: accepted
+          ? "accepted"
+          : "failed",
+        provider_message_id:
+          providerMessageId,
+        recipient: cleanNumber,
         error_detail:
-          result.success
+          accepted
             ? undefined
             : `360Messenger HTTP ${response.status}: ${resultText.substring(
                 0,
