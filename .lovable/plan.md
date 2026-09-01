@@ -1,26 +1,32 @@
-# Post-fix verification: follow-ups
+# Approved fixes: #1 notification refetch, #2 residual full-`user` deps
 
-The two shipped fixes verified clean (details in chat). Three items remain open. None are regressions from the shipped fixes; all are adjacent findings surfaced while verifying.
+Scope: the two approved items only. #3 (Cavan Gas test login) stays out of scope — the token-refresh and sign-in checks remain marked code-verified, not behaviour-verified, until that login exists.
 
-## 1. Notification refetch on every navigation (investigate, then fix)
+## 1. Notification refetch on every navigation
 
-Observed in the browser: two `[useNotifications] fetch` round trips fire on each office page change (Jobs, Customers, Finance), even though the shell no longer remounts. Cause not yet confirmed — the initial-fetch effect depends on the full `user` object and on the `fetchNotifications` callback (`[user, applyRoleScope, surface]`), so any change in `user` identity re-runs it, but the trigger on navigation is unproven.
+Observed: two `[useNotifications] fetch` round trips on each office page change, even though the shell no longer remounts. Cause unconfirmed — the initial-fetch effect depends on the full `user` object and on the `fetchNotifications` callback (`[user, applyRoleScope, surface]`).
 
-Step 1 is to confirm the trigger (temporary instrumentation of the effect's dependency identities in dev only), then apply the minimal fix — most likely keying the effect on `user?.id` the same way the realtime channel already is. Do not change what the fetch queries or how notifications are scoped.
+Steps:
+1. Confirm the trigger first with temporary dev-only instrumentation of the effect's dependency identities, then re-run the navigation test in the browser to see which dependency changes.
+2. Apply the minimal fix — expected to be keying the initial-fetch effect on `user?.id` (and stabilising `fetchNotifications` / `refreshUnreadCount` the same way) so navigation and hourly token refresh stop re-triggering it.
+3. Remove the instrumentation, re-run the same navigation test, and confirm the fetch count drops to one per session rather than two per navigation.
 
-## 2. Full-`user` dependencies left elsewhere
+No change to what the fetch queries, to role scoping, or to the realtime channel (already keyed on `user?.id`).
 
-`src/pages/Finance.tsx` fetch effect (`[user, orgId]`), `useNotifications` initial-fetch and sound-preference effects, and the foreground-recheck effect all still depend on the whole `user` object, so an hourly `TOKEN_REFRESHED` still triggers redundant reads on those paths. Same one-line treatment as the shipped fixes: depend on `user?.id`. Low risk, no behaviour change.
+## 2. Residual full-`user` dependencies
 
-## 3. Verification gaps that need a credentialled session
+Switch to `user?.id` in:
+- `src/pages/Finance.tsx` fetch effect (`[user, orgId]`)
+- `src/hooks/useNotifications.ts` sound-preference effect and foreground-recheck effect
 
-Two checks could not be completed in this pass and should not be recorded as passes:
+Same one-line pattern as the shipped fixes; no behaviour change, only fewer redundant reads on `TOKEN_REFRESHED`.
 
-- Forcing a real `TOKEN_REFRESHED` event: calling `refreshSession()` on the injected preview session fails ("Refresh token is not valid") and signs the session out, so the no-churn claim rests on code review only.
-- Sign-in end to end: no test credentials are available in this environment, only session injection.
+## Verification
 
-Both become testable with a dedicated non-privileged test login (Cavan Gas tenant). Until then, treat the token-refresh no-churn behaviour as code-verified, not behaviour-verified.
+- `tsgo` typecheck clean.
+- Browser: sign in via injected session, navigate Dashboard → Jobs → Customers → Finance, confirm shell node identity unchanged, notification fetch count reduced, Finance still loads with data, and no new console errors.
+- No payment, messaging-send, or data-mutating actions.
 
-## Not proposed
+## Not touched
 
-No change to `vite.config.ts`, service-worker config, or `PWAUpdateBanner.tsx`. The pre-existing "Function components cannot be given refs" dev warnings are unrelated to these fixes and out of scope here.
+`vite.config.ts`, service-worker config, `PWAUpdateBanner.tsx`. The pre-existing "Function components cannot be given refs" dev warnings stay out of scope.
