@@ -8,6 +8,8 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+
 
 
 Deno.serve(async (req) => {
