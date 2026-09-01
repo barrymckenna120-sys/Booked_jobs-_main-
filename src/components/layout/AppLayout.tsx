@@ -225,7 +225,7 @@ const AppLayoutInner = () => {
       </aside>
 
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-30">
+      <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30">
         <div className="flex items-center gap-2">
           <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
         </div>

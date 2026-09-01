@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 import { Volume2, X } from "lucide-react";
 import { isAudioUnlocked, unlockAudioNow, playDoubleBeep } from "@/utils/audio";
 import { toast } from "sonner";
@@ -42,9 +44,10 @@ const EnableSoundBanner = () => {
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed left-1/2 -translate-x-1/2 z-[60] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 w-[min(92vw,420px)] rounded-2xl border border-border bg-background shadow-xl p-3 flex items-center gap-3"
+      className="fixed left-1/2 -translate-x-1/2 z-[2000] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 w-[min(92vw,420px)] rounded-2xl border border-border bg-background shadow-xl p-3 flex items-center gap-3"
+      style={{ pointerEvents: "auto" }}
       role="status"
     >
       <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
@@ -60,7 +63,7 @@ const EnableSoundBanner = () => {
         type="button"
         onClick={handleEnable}
         disabled={busy}
-        className="px-3 py-2 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 min-h-[40px]"
+        className="px-3 py-2 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 min-h-[44px] touch-manipulation"
       >
         {busy ? "Enabling…" : "Enable"}
       </button>
@@ -68,12 +71,14 @@ const EnableSoundBanner = () => {
         type="button"
         aria-label="Dismiss"
         onClick={() => setDismissed(true)}
-        className="p-2 text-muted-foreground hover:text-foreground min-h-[40px] min-w-[40px] flex items-center justify-center"
+        className="p-2 text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
       >
-        <X className="w-4 h-4" />
+        <X className="w-5 h-5" />
       </button>
-    </div>
+    </div>,
+    document.body,
   );
+
 };
 
 export default EnableSoundBanner;
