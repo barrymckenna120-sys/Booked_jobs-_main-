@@ -5,6 +5,7 @@ import {
   isDuplicateRenewalSend,
 } from "../_shared/renewalSendGuard.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import {
   consentSkipBody,
@@ -229,6 +230,18 @@ Deno.serve(async (req) => {
     const logId = logRow?.id;
     console.log("message_log id:", logId);
 
+    // Delivery tracking (office badge + failure alert + resend history).
+    const deliveryHandle = await beginDelivery(supabase, {
+      organisationId: orgId as string,
+      customerId: customer_id,
+      commType: "service_reminder",
+      channel: "whatsapp",
+      relatedType: "renewal",
+      relatedId: customer_id,
+      relatedReference: renewal_date ?? null,
+      recipient: cleanPhone,
+    });
+
     // Send via 360 Messenger API
     const formData = new FormData();
     formData.append("phonenumber", cleanPhone);
@@ -252,6 +265,16 @@ Deno.serve(async (req) => {
     } catch (_e) {
       result = { success: false, raw: resultText };
     }
+
+    await completeDelivery(supabase, {
+      handle: deliveryHandle,
+      channel: "whatsapp",
+      ok: !!result.success,
+      providerError: result.success
+        ? null
+        : `[${response.status}] ${resultText.substring(0, 500)}`,
+      recipient: cleanPhone,
+    });
 
     if (result.success) {
       console.log("SUCCESS — updating message_log and customer record");
