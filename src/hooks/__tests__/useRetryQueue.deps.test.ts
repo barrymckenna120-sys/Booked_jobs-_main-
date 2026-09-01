@@ -17,6 +17,8 @@ const store = new Map<string, string>();
 
 // Per-table failure control for the mocked Supabase client.
 const failing = new Set<string>();
+/** Tables whose UPDATE returns no error but zero rows (row-level filtered). */
+const zeroRow = new Set<string>();
 const attempted: string[] = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -24,11 +26,12 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: (table: string) => {
       const result = () => {
         attempted.push(table);
-        return { error: failing.has(table) ? { message: `boom:${table}` } : null };
+        if (failing.has(table)) return { data: null, error: { message: `boom:${table}` } };
+        return { data: zeroRow.has(table) ? [] : [{ id: "row-1" }], error: null };
       };
       return {
         insert: async () => result(),
-        update: () => ({ eq: async () => result() }),
+        update: () => ({ eq: () => ({ select: async () => result() }) }),
       };
     },
   },
