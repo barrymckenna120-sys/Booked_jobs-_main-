@@ -17,9 +17,15 @@ import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import { formatWhatsApp } from "@/lib/whatsappLink";
+import { withRequestTimeout, queryRetryDelay } from "@/lib/queryDefaults";
 
 
 const PAGE_SIZE = 15;
+/** Collapse bursts of service_calls events into a single refetch. */
+const REALTIME_DEBOUNCE_MS = 1500;
+/** Hard cap so a failing connection can't loop the three list queries forever. */
+const MAX_FETCH_RETRIES = 2;
+
 
 type Job = {
   id: string;
