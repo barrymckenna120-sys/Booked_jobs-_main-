@@ -804,6 +804,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
   const [date, setDate] = useState(prefilledDate || todayISO);
   const [block, setBlock] = useState(prefilledBlock || "9–11");
   const [engineer, setEngineer] = useState(prefilledEngineer || "");
+  const [assists, setAssists] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ date?: boolean; block?: boolean; engineer?: boolean }>({});
   const [holidayBlock, setHolidayBlock] = useState<{ engineerName: string } | null>(null);
 
