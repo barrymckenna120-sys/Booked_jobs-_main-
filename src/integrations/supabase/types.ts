@@ -3838,12 +3838,15 @@ export type Database = {
       get_delivery_attempts: {
         Args: { p_delivery_id: string }
         Returns: {
+          accepted_at: string
           attempt_number: number
           attempted_at: string
           completed_at: string
+          delivered_at: string
           failure_reason_public: string
           id: string
           outcome: string
+          recipient: string
           trigger_source: string
         }[]
       }
