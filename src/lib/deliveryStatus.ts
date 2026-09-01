@@ -4,9 +4,23 @@
  * The Office App never shows raw provider errors — only the stored
  * `failure_reason_public` written by the backend. Pure functions so the copy and
  * the resend rules are unit-tested.
+ *
+ * Honesty rules baked in here:
+ *  - provider acceptance (`accepted`) is NOT a delivery — it reads "Sending…"
+ *  - `delivery_unknown` means no confirmation arrived; it must never claim the
+ *    message failed
+ *  - only `failed` (an authoritative provider/API failure) says "Not delivered"
+ *  - only `delivered` (a real provider confirmation) claims success
  */
 
-export type DeliveryStatus = "pending" | "sent" | "failed" | "opted_out";
+export type DeliveryStatus =
+  | "pending"
+  | "accepted"
+  | "sent"
+  | "delivered"
+  | "delivery_unknown"
+  | "failed"
+  | "opted_out";
 
 export type CommunicationDelivery = {
   id: string;
@@ -36,12 +50,17 @@ export function deliveryBadgeLabel(
   channel: string | null | undefined,
 ): string {
   switch (status) {
+    case "delivered":
+      return `Delivered · ${channelLabel(channel)}`;
     case "sent":
       return `Sent · ${channelLabel(channel)}`;
+    case "delivery_unknown":
+      return "Delivery not confirmed";
     case "failed":
       return "Not delivered";
     case "opted_out":
       return "Opted out";
+    case "accepted":
     case "pending":
       return "Sending…";
     default:
@@ -52,12 +71,16 @@ export function deliveryBadgeLabel(
 /** Tailwind classes using the existing status palette (no hardcoded hex). */
 export function deliveryBadgeClasses(status: string | null | undefined): string {
   switch (status) {
+    case "delivered":
     case "sent":
       return "bg-emerald-100 text-emerald-700";
     case "failed":
       return "bg-rose-100 text-rose-700";
+    case "delivery_unknown":
+      return "bg-amber-100 text-amber-700";
     case "opted_out":
       return "bg-slate-200 text-slate-600";
+    case "accepted":
     case "pending":
       return "bg-blue-100 text-blue-700";
     default:
@@ -72,13 +95,23 @@ export function deliveryDetailLine(
     "delivery_status" | "channel" | "failure_reason_public" | "attempt_count"
   >,
 ): string {
+  const attempts =
+    delivery.attempt_count > 1 ? ` · ${delivery.attempt_count} attempts` : "";
+
   if (delivery.delivery_status === "failed") {
     const reason =
       delivery.failure_reason_public?.trim() ||
       `${channelLabel(delivery.channel)} could not be delivered`;
-    return delivery.attempt_count > 1
-      ? `${reason} · ${delivery.attempt_count} attempts`
-      : reason;
+    return `${reason}${attempts}`;
+  }
+  if (delivery.delivery_status === "delivery_unknown") {
+    const reason =
+      delivery.failure_reason_public?.trim() ||
+      `${channelLabel(delivery.channel)} was accepted by the provider but no delivery confirmation was received`;
+    return `${reason}${attempts}`;
+  }
+  if (delivery.delivery_status === "accepted") {
+    return `Accepted by ${channelLabel(delivery.channel)} — awaiting delivery confirmation`;
   }
   if (delivery.delivery_status === "opted_out") {
     return (
@@ -89,9 +122,34 @@ export function deliveryDetailLine(
   return "";
 }
 
-/** Resend is only ever offered for a real failure. */
+/** Resend is offered for a real failure and for an unconfirmed delivery. */
 export function canResendDelivery(status: string | null | undefined): boolean {
-  return status === "failed";
+  return status === "failed" || status === "delivery_unknown";
+}
+
+/** Whether to nudge the office to check the number they actually sent to. */
+export function shouldCheckRecipient(status: string | null | undefined): boolean {
+  return status === "failed" || status === "delivery_unknown";
+}
+
+/** Attempt-history label for a single attempt outcome. */
+export function attemptOutcomeLabel(outcome: string | null | undefined): string {
+  switch (outcome) {
+    case "delivered":
+      return "Delivered";
+    case "sent":
+      return "Sent";
+    case "accepted":
+      return "Accepted by provider";
+    case "delivery_unknown":
+      return "Delivery not confirmed";
+    case "failed":
+      return "Failed";
+    case "opted_out":
+      return "Opted out";
+    default:
+      return "Pending";
+  }
 }
 
 /** DD/MM/YY HH:mm in Europe/Dublin — the project-wide date format. */
