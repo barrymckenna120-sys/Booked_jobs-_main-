@@ -97,6 +97,17 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
       return (data || []).map((r: any) => ({ name: r.job_tags?.name, colour: r.job_tags?.colour })).filter((t: any) => t.name);
     },
   });
+  const { data: assistingEngineers = [] } = useQuery({
+    queryKey: ["job-assisting-engineers", job.id],
+    enabled: !!job.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("job_engineers")
+        .select("engineer_id, engineers(name)")
+        .eq("job_id", job.id);
+      return (data || []).map((r: any) => r.engineers?.name).filter(Boolean) as string[];
+    },
+  });
   const isDone = job.status === "Completed" || job.status === "Cancelled" || job.status === "no_show";
   const isActive = ["En Route", "On Site", "In Progress"].includes(job.status);
   const isPartsStatus = job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived";
@@ -249,6 +260,15 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
             <span className="font-bold text-foreground">{lastService?.engineerName || "—"}</span>
           </div>
         </div>
+
+        {assistingEngineers.length > 0 && (
+          <div className="flex gap-4 mb-3 text-xs">
+            <div>
+              <span className="text-muted-foreground/60 font-semibold">Assisting: </span>
+              <span className="font-bold text-foreground">{assistingEngineers.join(", ")}</span>
+            </div>
+          </div>
+        )}
 
         {/* Boiler model / location from customer record */}
         {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim() || customer?.boiler_location?.trim()) && (
