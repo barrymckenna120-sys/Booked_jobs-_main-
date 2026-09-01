@@ -84,14 +84,19 @@ export function deliveryStatusLabel(
 ): string {
   const label = channelLabel(channel);
   switch (status) {
+    case "delivered":
+      return `Delivered by ${label}`;
     case "sent":
       return `Sent by ${label}`;
+    case "delivery_unknown":
+      return `Delivery not confirmed — ${label}`;
     case "failed":
       return `Not delivered — ${label}`;
     case "opted_out":
       return commType === "service_reminder"
         ? "Reminder not sent – customer opted out"
         : "Not sent – customer opted out";
+    case "accepted":
     case "pending":
       return "Sending…";
     default:
@@ -101,5 +106,6 @@ export function deliveryStatusLabel(
 
 /** Whether a Resend action should be offered for this status. */
 export function canResend(status: string | null | undefined): boolean {
-  return status === "failed";
+  return status === "failed" || status === "delivery_unknown";
 }
+

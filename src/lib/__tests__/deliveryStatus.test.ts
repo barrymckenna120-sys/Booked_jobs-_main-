@@ -11,20 +11,29 @@ import {
 
 describe("delivery badge presentation", () => {
   it("labels each state consistently", () => {
-    expect(deliveryBadgeLabel("sent", "whatsapp")).toBe("Sent · WhatsApp");
+    expect(deliveryBadgeLabel("delivered", "whatsapp")).toBe("Delivered · WhatsApp");
     expect(deliveryBadgeLabel("sent", "email")).toBe("Sent · Email");
     expect(deliveryBadgeLabel("failed", "whatsapp")).toBe("Not delivered");
+    expect(deliveryBadgeLabel("delivery_unknown", "whatsapp")).toBe("Delivery not confirmed");
     expect(deliveryBadgeLabel("opted_out", "whatsapp")).toBe("Opted out");
     expect(deliveryBadgeLabel("pending", "whatsapp")).toBe("Sending…");
     expect(deliveryBadgeLabel(null, "whatsapp")).toBe("Not sent");
   });
 
-  it("only offers resend for failures", () => {
+  it("never claims delivery for a provider acceptance", () => {
+    expect(deliveryBadgeLabel("accepted", "whatsapp")).toBe("Sending…");
+    expect(deliveryBadgeLabel("accepted", "whatsapp")).not.toContain("Delivered");
+    expect(deliveryBadgeLabel("delivery_unknown", "whatsapp")).not.toContain("Not delivered");
+  });
+
+  it("offers resend for failures and unconfirmed deliveries only", () => {
     expect(canResendDelivery("failed")).toBe(true);
-    for (const s of ["sent", "opted_out", "pending", null, undefined]) {
+    expect(canResendDelivery("delivery_unknown")).toBe(true);
+    for (const s of ["sent", "delivered", "accepted", "opted_out", "pending", null, undefined]) {
       expect(canResendDelivery(s as string)).toBe(false);
     }
     expect(canResend("failed")).toBe(true);
+    expect(canResend("delivery_unknown")).toBe(true);
     expect(canResend("opted_out")).toBe(false);
   });
 
@@ -48,6 +57,18 @@ describe("delivery badge presentation", () => {
     ).toBe("This number is not on WhatsApp · 3 attempts");
   });
 
+  it("explains an unconfirmed delivery without asserting failure", () => {
+    const line = deliveryDetailLine({
+      delivery_status: "delivery_unknown",
+      channel: "whatsapp",
+      failure_reason_public: null,
+      attempt_count: 2,
+    });
+    expect(line).toContain("no delivery confirmation was received");
+    expect(line).toContain("2 attempts");
+    expect(line).not.toContain("failed");
+  });
+
   it("explains opt-out without calling it a failure", () => {
     expect(
       deliveryDetailLine({
@@ -59,10 +80,10 @@ describe("delivery badge presentation", () => {
     ).toBe("Not sent – customer opted out of messages");
   });
 
-  it("shows nothing extra for successful sends", () => {
+  it("shows nothing extra for confirmed deliveries", () => {
     expect(
       deliveryDetailLine({
-        delivery_status: "sent",
+        delivery_status: "delivered",
         channel: "whatsapp",
         failure_reason_public: null,
         attempt_count: 1,
@@ -70,6 +91,7 @@ describe("delivery badge presentation", () => {
     ).toBe("");
   });
 });
+
 
 describe("humanFailureReason never leaks provider noise", () => {
   it("maps common provider failures to office-readable copy", () => {
