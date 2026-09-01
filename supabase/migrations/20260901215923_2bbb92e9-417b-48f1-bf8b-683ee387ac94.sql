@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.sweep_stale_accepted_deliveries() FROM service_role;

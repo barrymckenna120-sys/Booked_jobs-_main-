@@ -3910,6 +3910,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sweep_stale_accepted_deliveries: { Args: never; Returns: number }
       verify_impersonation_token: { Args: { _token: string }; Returns: Json }
     }
     Enums: {
