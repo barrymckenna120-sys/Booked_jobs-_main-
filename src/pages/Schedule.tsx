@@ -120,6 +120,7 @@ export type ScheduleJob = {
   confirmed_at?: string | null;
   source?: string | null;
   customer_status_at_booking?: string | null;
+  possible_duplicate?: boolean | null;
 };
 
 const Schedule = () => {
@@ -240,6 +241,7 @@ const Schedule = () => {
         confirmed_at: j.confirmed_at || null,
         source: j.source || null,
         customer_status_at_booking: j.customer_status_at_booking ?? null,
+        possible_duplicate: j.possible_duplicate ?? false,
       })) as ScheduleJob[];
     },
     enabled: !!user && ready,

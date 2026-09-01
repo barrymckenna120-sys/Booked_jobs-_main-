@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CalendarDays, Clock, X, ArrowUpDown, Camera, RotateCw } from "lucide-react";
 import { format, isToday } from "date-fns";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 
 type Props = {
   jobs: ScheduleJob[];
@@ -152,6 +153,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
                   </span>
                 )}
                 <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+                <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
               </div>
               {onJobClick ? (
                 <button

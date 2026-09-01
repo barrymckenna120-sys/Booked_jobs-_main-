@@ -9,6 +9,7 @@ import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
+import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 
 type Props = {
   weekDays: Date[];
@@ -237,6 +238,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                                 {jobTypeBadge(job.job_type)}
                                 {mediaBadge(job.media_count)}
                                 <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+                                <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
                               {selectedEngineer === "all" && renderTeam(job)}
@@ -293,6 +295,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             {jobTypeBadge(job.job_type)}
                             {mediaBadge(job.media_count)}
                             <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+                            <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>
