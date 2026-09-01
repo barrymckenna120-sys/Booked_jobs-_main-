@@ -325,12 +325,24 @@ export function useNotifications(
 
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
   // backgrounded, so returning to the app is the only chance to alert.
+  // Both listeners are deliberate (the two events are not interchangeable on
+  // iOS), but a normal tab switch fires both — so throttle the *work* to one
+  // refresh per foreground, not one per event.
   useEffect(() => {
     if (!userId) return;
 
-
     const onForeground = () => {
       if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (
+        !shouldRunForegroundRefresh(
+          lastForegroundRefreshRef.current,
+          now
+        )
+      ) {
+        return;
+      }
+      lastForegroundRefreshRef.current = now;
       fetchNotificationsRef.current?.();
       refreshUnreadCountRef.current?.();
     };
@@ -355,6 +367,7 @@ export function useNotifications(
       );
     };
   }, [userId]);
+
 
 
 
