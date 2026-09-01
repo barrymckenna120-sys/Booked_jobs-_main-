@@ -933,8 +933,31 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
     if (!engineer) e.engineer = true;
     setErrors(e);
     if (Object.keys(e).length > 0 || isOnLeave || isSlotFull || (date && date < todayISO)) return;
-    onNext({ date, timeBlock: block, engineerId: engineer });
+    onNext({ date, timeBlock: block, engineerId: engineer, assistEngineerIds: assists });
   };
+
+  const toggleEngineer = (id: string) => {
+    setErrors((prev) => ({ ...prev, engineer: false }));
+    if (engineer === id) {
+      // Deselect lead → promote first assist, or clear
+      setEngineer(assists[0] || "");
+      setAssists((a) => a.slice(1));
+      return;
+    }
+    if (assists.includes(id)) {
+      setAssists((a) => a.filter((x) => x !== id));
+      return;
+    }
+    if (!engineer) { setEngineer(id); return; }
+    if (assists.length < 2) setAssists((a) => [...a, id]);
+  };
+
+  const makeLead = (id: string) => {
+    const currentLead = engineer;
+    setAssists((a) => a.map((x) => (x === id ? currentLead : x)).filter(Boolean));
+    setEngineer(id);
+  };
+
 
   const loadColor = (n: number) => n >= 2 ? "text-destructive" : n >= 1 ? "text-warning" : "text-success";
   const loadBg = (n: number) => n >= 2 ? "bg-destructive/10 border-destructive/30" : n >= 1 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/30";
