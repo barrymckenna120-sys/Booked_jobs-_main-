@@ -1,39 +1,35 @@
-# BJ-0090c-fix — Remaining Verification Run
+# BJ-0090 fix: show the full assigned team on the Jobs list card
 
-Verification only. No application code changes. Two items touch the database temporarily (item 3 flag toggle, item 4 bulk update) and both are reverted or are normal office behaviour on scratch data.
+## What's wrong
 
-## Already confirmed before this plan (read-only)
+Confirmed in the database: KN-533 (Aoife Walsh, Installation) has Barry as the lead on the job row and Karl + nicole recorded as assists in the assists table. So the data is correct.
 
-- All four `service_calls` policies (SELECT / INSERT / UPDATE / DELETE) currently show `roles = {authenticated}` in `pg_policies`. Item 6 therefore looks already applied; the run will restate this with raw output and locate the migration timestamp.
-- `useRetryQueue` uses `MAX_ATTEMPTS = 3` with two exhaustion branches — item 5 will report actual runtime behaviour, not just the constant.
+The Jobs list only ever reads the single lead-engineer name stored on the job itself. It never loads the assists table, so Karl and nicole cannot appear anywhere on the card. Today the engineer-side job card is the only place that reads assists.
 
-## What will be executed, item by item
+## What will change (Jobs list only)
 
-1. **Probe 1 — engineer denied on a colleague's job**
-   REST PATCH as the K&N test engineer (role `engineer`, `can_access_office = false`) against a scratch job assigned to a different engineer. Report full request line and raw response body/status, plus a SQL read-back proving no field changed.
+Both layouts of the Jobs list get the whole team instead of one name:
 
-2. **Probe 5 — cross-tenant denial**
-   REST PATCH as the Dublin Gas engineer against a K&N scratch job. Report raw request/response and SQL read-back.
+- Mobile/tablet job card, the engineer row: replace the single name with a stacked list, one line per person:
+  - `Barry — Lead`
+  - `Karl — Assistant`
+  - `nicole — Assistant`
+  The existing initials avatar stays on the lead line; assist lines are a smaller muted line beneath. Unassigned jobs still read "Unassigned".
+- Desktop table, Engineer column: lead name on the first line with a small `Lead` label, assists listed underneath as `Name — Assistant`. Jobs with no assists look exactly as they do now (single name, no label noise).
 
-3. **Probe 4 — `can_access_office` escalation (Cavan Gas only)**
-   Set `can_access_office = true` on a Cavan test engineer row, PATCH a Cavan job not assigned to them as that engineer, expect success with raw output, then revert the flag and post a read-back of the row showing `false`.
+Labels are purely job-role based: the lead is `Lead`, everyone in the assists table is `Assistant`, regardless of their Team settings role.
 
-4. **Probe 6 — bulk boiler_brand update unaffected**
-   As office/admin, run the same `customer_id`-scoped `boiler_brand` update `CustomerDetail.tsx` issues. Report row count before, the exact request, the response, and row count after.
+Nothing else on the card changes — status, payment, badges, dates, contact links, ordering and filters all stay as-is. No other screen is touched in this task.
 
-5. **Retry-queue UI check**
-   Drive the real engineer app in the browser as the test engineer and force probe 1's denied update through the UI. Report literally what appears on screen (toast text, silent success, nothing), then inspect `localStorage` retry-queue state: whether the write was queued, the attempts counter across retries, whether `MAX_ATTEMPTS` stops it, and the queue entry's end state.
+## Technical notes
 
-6. **`TO authenticated` deployment confirmation**
-   Report applied yes/no, method, and timestamp from the migration record plus a live `pg_policies` read including the `roles` column. Only if a policy is still `{public}` will a migration be raised for approval.
+- Add one batched lookup in `src/pages/Jobs.tsx`: a single `job_engineers` select joined to `engineers` filtered by `job_id in (visible job ids)`, keyed in React Query on the sorted id list, then grouped into a `Map<jobId, {id, name}[]>`. One request per page of jobs, not one per card.
+- Render helper local to `Jobs.tsx` used by both `renderJobsTable` and the mobile card, so the two layouts can't drift.
+- Cards render immediately; assists appear when the lookup resolves (no loading spinner, no layout jump beyond the added lines).
+- Assist rows are already readable by office/admin under the existing `job_engineers` policies, so no migration and no policy change is needed.
+- Regression test: a small unit test for the grouping/label helper (lead-only job yields one line with no assist lines; lead + 2 assists yields three correctly labelled lines).
 
-7. **Origin of the original narrowed policy**
-   Inspect the migration list and any available migration history for a matching statement and timestamp. If the records cannot distinguish "auto-applied when SQL was pasted into chat" from "deliberate separate action", that will be stated explicitly as undeterminable rather than guessed.
+## Verification
 
-**Deployment status section** will be reported separately from test results: what changed in the live database, by what method, at what timestamp (expected: nothing, or item 6 only if it turns out unapplied; item 3's flag toggle listed as reverted).
-
-**Scratch data**: KN-527 / KN-528 / KN-529 and the CA-001 note stay in place. No cleanup.
-
-## Reporting format
-
-Each of the seven items reported individually with pass/fail and raw, unparaphrased output (request line, HTTP status, response body, SQL read-back).
+- Typecheck plus the new unit test.
+- Live check on KN-533 in the Jobs list (desktop table and mobile card) showing Barry — Lead, Karl — Assistant, nicole — Assistant, and a lead-only job nearby still showing a single name.
