@@ -45,12 +45,15 @@ Note: step 1 alone should already remove the Jobs bursts you saw, so its verific
 Not changing: the realtime debounce, retry caps, query shapes, the parts badge poll, or the service-worker config.
 
 
-## Verification
+## Verification (step 1 first, on its own)
 
-- Playwright on a real session: load `/jobs`, then hide/show the tab 5 times and count REST calls. Expect **0** new `service_calls` / `customers` / `quotes` calls per tab return (currently 1 full burst each, more on slow links), and at most one `notifications` GET+HEAD pair.
-- Same tab-switch loop on `/dashboard`, `/schedule`, `/customers` to confirm the auth-level fix quietened the whole shell.
+- Playwright on a real session: load `/jobs`, then hide/show the tab 5 times and count REST calls. Expect **0** new `service_calls` / `customers` / `quotes` calls per tab return (currently one full burst each, more on slow links).
+- Force a real token refresh and confirm no re-render storm, no subscription teardown, and that the session still refreshes correctly (token expiry advances, no sign-out).
+- Sign-in / sign-out / password-recovery redirects still behave — these are the paths that depend on `setUser` firing, so each is exercised explicitly.
 - Regression pass on an office/superadmin account across the office routes plus `/engineer/today`, checking data still refreshes after a real job change (realtime) and after coming back online.
-- `tsgo --noEmit` plus the existing test suite; add a unit test for the "same user id -> no state update" rule and for the foreground dedupe window.
+- `tsgo --noEmit` plus the existing suite; add a unit test for the "same user id -> no state update, different id or null -> state updates" rule.
+- Report the remaining per-tab-return call counts so we can size steps 2-4 before they ship.
+
 
 ## Technical notes
 
