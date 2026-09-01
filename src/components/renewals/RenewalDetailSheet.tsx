@@ -77,7 +77,11 @@ const RenewalDetailSheet = ({ customer, status, daysUntil, reminderSent, open, o
             </div>
           </div>
 
+          {/* Delivery status for the last reminder we tried to send */}
+          <DeliveryStatusBadge commType="service_reminder" relatedId={customer.id} />
+
           {/* Actions */}
+
           <div className="space-y-2.5">
             {!reminderSent ? (
               <Button className="w-full" onClick={() => { onSendReminder(); onClose(); }}>
