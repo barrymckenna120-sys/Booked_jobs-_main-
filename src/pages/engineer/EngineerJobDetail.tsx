@@ -30,6 +30,7 @@ import type { LucideIcon } from "lucide-react";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
+import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -1126,8 +1127,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
+        {/* BJ-0090 — Assists see a static row instead of job-progressing actions. */}
+        {!isLeadEngineer && !isDone && (
+          <div className="w-full text-center text-sm font-semibold text-slate-500 py-3">
+            Assisting {leadName}
+          </div>
+        )}
+
         {/* Primary actions */}
-        {(job.status === "Scheduled" || job.status === "Booked") && (
+        {isLeadEngineer && (job.status === "Scheduled" || job.status === "Booked") && (
           <div className="space-y-2.5">
             <Button
               className="w-full h-14 text-lg font-extrabold gap-2"
@@ -1158,7 +1166,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           </div>
         )}
 
-        {job.status === "In Progress" && (
+        {isLeadEngineer && job.status === "In Progress" && (
           <div className="space-y-2.5">
             <Button
               className="w-full h-14 text-lg font-extrabold gap-2 bg-success hover:bg-success/90 text-success-foreground"
