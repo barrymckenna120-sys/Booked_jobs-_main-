@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format, isToday } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
 import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
@@ -110,6 +112,44 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
     );
   };
 
+  // BJ-0090 — one batched assists lookup for the jobs currently on the grid.
+  const jobIds = useMemo(
+    () => Array.from(new Set(jobs.map((j) => j.id))).sort(),
+    [jobs]
+  );
+
+  const { data: assistsByJob = {} } = useQuery({
+    queryKey: ["schedule-job-assists", jobIds],
+    enabled: jobIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("job_engineers")
+        .select("job_id, engineer_id, engineers(name)")
+        .in("job_id", jobIds);
+      return groupJobAssists(data as any);
+    },
+  });
+
+  /** Shared team display for both the desktop grid card and the mobile card. */
+  const renderTeam = (job: ScheduleJob) => {
+    const lines = buildJobTeamLines(job.assigned_engineer, assistsByJob[job.id]);
+    if (lines.length === 0) return null;
+    const showRoles = lines.length > 1;
+    return (
+      <div className="text-[10px] text-muted-foreground mt-0.5">
+        {lines.map((l) => (
+          <div key={l.key} className={l.role === "Lead" ? "" : "text-muted-foreground/80"}>
+            {l.name}
+            {showRoles && <span> — {l.role}</span>}
+          </div>
+        ))}
+        <div>{renderMessageBtn(job)}</div>
+      </div>
+    );
+  };
+
+
+
   return (
     <>
       {/* Desktop Grid */}
@@ -199,12 +239,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                                 <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
-                              {selectedEngineer === "all" && job.assigned_engineer && (
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                  {job.assigned_engineer}
-                                  <div>{renderMessageBtn(job)}</div>
-                                </div>
-                              )}
+                              {selectedEngineer === "all" && renderTeam(job)}
                             </button>
                           ))}
                         </div>
@@ -261,12 +296,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>
-                        {selectedEngineer === "all" && job.assigned_engineer && (
-                          <div className="text-[10px] text-muted-foreground">
-                            {job.assigned_engineer}
-                            <div>{renderMessageBtn(job)}</div>
-                          </div>
-                        )}
+                        {selectedEngineer === "all" && renderTeam(job)}
                       </button>
                     ))
                   ) : (
