@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
 
     if (access.kind === "user") {
       const role = (access.role || "").toLowerCase();
-      if (!["office", "admin", "superadmin"].includes(role)) {
+      if (!["office", "admin", "owner", "superadmin"].includes(role)) {
         return json({ error: "Forbidden" }, 403);
       }
     }
