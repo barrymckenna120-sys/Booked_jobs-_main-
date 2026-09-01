@@ -212,7 +212,6 @@ const RouteFallback = () => (
 
 function AppContent() {
   const { loading } = useAuth("");
-  const location = useLocation();
 
   if (loading) {
     return <RouteFallback />;
@@ -221,9 +220,14 @@ function AppContent() {
   return (
     <Suspense fallback={<RouteFallback />}>
       {/* Outer boundary covers the standalone routes that render without a
-          layout (auth, password reset, public receipts/redirects). Routes
-          inside AppLayout / EngineerLayout have their own nested boundary. */}
-      <ErrorBoundary key={location.pathname} name="app-shell" homePath="/">
+          layout (auth, password reset, public receipts/redirects). It is
+          deliberately NOT keyed to the pathname: keying it would remount the
+          whole tree — including AppLayout / EngineerLayout chrome, role checks
+          and the realtime notification channel — on every navigation. Routes
+          inside those layouts have their own pathname-keyed boundary around
+          <Outlet /> for per-route error reset. */}
+      <ErrorBoundary name="app-shell" homePath="/">
+
       <Routes>
 
         <Route path="/" element={<RootRoute />} />
