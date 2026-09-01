@@ -16,6 +16,27 @@ import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCi
 import * as XLSX from "xlsx-js-style";
 import ImportRunHistory from "@/components/import/ImportRunHistory";
 import type { ImportRunRowDetail } from "@/components/import/importRunTypes";
+import DuplicateReviewPanel, {
+  type ExistingHistory,
+  type ExistingMatchRow,
+} from "@/components/import/DuplicateReviewPanel";
+import {
+  findInFileDuplicateGroups,
+  matchExistingCustomers,
+  buildMergePayload,
+  normaliseGprnKey,
+  normalisePhoneKey,
+  type ExistingCustomerLite,
+  type ExistingMatchResult,
+} from "@/lib/importDuplicates";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 /** Normalise a header cell for alias comparison: trim, collapse internal
  *  whitespace runs to a single space, lower-case. */
@@ -166,13 +187,6 @@ type ParsedRow = {
   isValid: boolean;
 };
 
-/** An existing customer that matches an incoming row's phone. */
-type ExistingMatch = {
-  id: string;
-  name: string | null;
-  address: string | null;
-};
-
 const ImportCustomers = () => {
   const { user, loading: authLoading } = useAuth();
   const { orgId } = useOrgId();
@@ -191,6 +205,8 @@ const ImportCustomers = () => {
     imported: number;
     updated: number;
     skipped: number;
+    skippedExisting: number;
+    excluded: number;
     failedRows: { name: string; reason: string }[];
   } | null>(null);
 
@@ -210,10 +226,21 @@ const ImportCustomers = () => {
   const [selectedRowNums, setSelectedRowNums] = useState<Set<number>>(new Set());
   const [selectionDirty, setSelectionDirty] = useState(false);
 
-  // Existing customers for this organisation, keyed by normalised phone. Populated by
-  // one batched lookup per file. A phone can map to MORE THAN ONE customer — real data
-  // contains shared numbers — so the value is a list, not a boolean.
-  const [existingByPhone, setExistingByPhone] = useState<Map<string, ExistingMatch[]> | null>(null);
+  // Existing customers for this organisation that could match a row in this file.
+  // Fetched once per file, always scoped to organisation_id, then matched locally on
+  // GPRN / phone / name+address. `null` means "lookup not resolved yet".
+  const [existingCandidates, setExistingCandidates] = useState<ExistingCustomerLite[] | null>(null);
+  // Full existing rows keyed by id, used to compute merge payloads.
+  const [existingById, setExistingById] = useState<Map<string, Record<string, any>>>(new Map());
+  // Linked history counts per existing customer id.
+  const [historyCounts, setHistoryCounts] = useState<Map<string, ExistingHistory>>(new Map());
+
+  // Duplicate-review decisions. `excluded` holds spreadsheet rows the operator (or the
+  // pre-selection) drops; `decisions` holds Skip/Merge per row matching an existing customer.
+  const [excludedRowNums, setExcludedRowNums] = useState<Set<number>>(new Set());
+  const [excludeDirty, setExcludeDirty] = useState(false);
+  const [decisions, setDecisions] = useState<Record<number, "skip" | "merge">>({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const effectiveColMap = useMemo(
     () => ({ ...autoColMap, ...manualMap }),
