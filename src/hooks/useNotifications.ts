@@ -125,6 +125,12 @@ export function useNotifications(
   );
 
   const { user } = useAuth();
+  // Depend on user?.id rather than the full user object: every mount of
+  // another useAuth() consumer re-emits an auth event, which hands this hook
+  // a fresh (but identical) user object and would otherwise re-fetch on every
+  // navigation and on every hourly TOKEN_REFRESHED.
+  const userId = user?.id;
+
 
   const [notifications, setNotifications] =
     useState<AppNotification[]>([]);
@@ -160,7 +166,7 @@ export function useNotifications(
 
   const refreshUnreadCount = useCallback(
     async () => {
-      if (!user) return;
+      if (!userId) return;
 
       const q = applyRoleScope(
         supabase
@@ -169,7 +175,7 @@ export function useNotifications(
             count: "exact",
             head: true,
           })
-          .eq("recipient_user_id", user.id)
+          .eq("recipient_user_id", userId)
           .eq("is_read", false)
       );
 
@@ -177,8 +183,9 @@ export function useNotifications(
 
       setUnreadCount(count || 0);
     },
-    [user, applyRoleScope]
+    [userId, applyRoleScope]
   );
+
 
   const refreshUnreadCountRef =
     useRef(refreshUnreadCount);
@@ -191,14 +198,15 @@ export function useNotifications(
   // Fetch existing notifications
   const fetchNotifications = useCallback(
     async () => {
-      if (!user) return;
+      if (!userId) return;
 
       const q = applyRoleScope(
         supabase
           .from("notifications")
           .select("*")
-          .eq("recipient_user_id", user.id)
+          .eq("recipient_user_id", userId)
       );
+
 
       const { data } = await q
         .order("created_at", {
@@ -214,7 +222,7 @@ export function useNotifications(
       console.log(
         "[useNotifications] fetch",
         {
-          userId: user.id,
+          userId,
           rows: rows.length,
           unread: rows.filter(
             (n) => !n.is_read
@@ -225,9 +233,10 @@ export function useNotifications(
       // Catch-up alert: rows that landed while realtime was asleep
       // (backgrounded PWA) would otherwise update the bell silently.
       const key = alertMarkerKey(
-        user.id,
+        userId,
         surface
       );
+
 
       let marker: string | null = null;
       try {
@@ -289,7 +298,7 @@ export function useNotifications(
 
       setLoading(false);
     },
-    [user, applyRoleScope, surface]
+    [userId, applyRoleScope, surface]
   );
 
   const fetchNotificationsRef = useRef(
@@ -302,20 +311,23 @@ export function useNotifications(
   }, [fetchNotifications]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     fetchNotifications();
     refreshUnreadCount();
   }, [
-    user,
+    userId,
     fetchNotifications,
     refreshUnreadCount,
   ]);
 
+
+
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
   // backgrounded, so returning to the app is the only chance to alert.
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
+
 
     const onForeground = () => {
       if (document.visibilityState !== "visible") return;
@@ -342,19 +354,21 @@ export function useNotifications(
         onForeground
       );
     };
-  }, [user]);
+  }, [userId]);
+
 
 
   // Fetch sound preference
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     let cancelled = false;
 
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
+
       .single()
       .then(({ data }) => {
         if (cancelled) return;
@@ -380,14 +394,12 @@ export function useNotifications(
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   // Real-time subscription — supabase-js uses WebSocket
-  // under the hood and auto-reconnects.
-  //
-  // Depend on user?.id rather than the full user object so
+  // under the hood and auto-reconnects. Keyed on `userId` (declared above) so
   // token-refresh events don't tear down and rebuild the subscription.
-  const userId = user?.id;
+
 
   useEffect(() => {
     if (!userId) return;
