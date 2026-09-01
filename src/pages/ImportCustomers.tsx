@@ -1317,6 +1317,7 @@ const ImportCustomers = () => {
   }
 
   // Blocked rows no longer gate the file: only an empty selection disables the commit.
+  const reviewCount = dupGroups.length + existingMatchRows.length;
   const importLabel = importBlocked
     ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
     : selectedCount === 0
@@ -1507,6 +1508,28 @@ const ImportCustomers = () => {
               </div>
             )}
 
+            {/* Duplicate review — must be read before anything is committed */}
+            {!importBlocked && parsedRows.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-bold">Duplicate review</h2>
+                {existingCandidates === null ? (
+                  <p className="text-xs text-muted-foreground">
+                    Checking this file against your existing customers…
+                  </p>
+                ) : (
+                  <DuplicateReviewPanel
+                    groups={dupGroups}
+                    rowsByNum={rowsByNum}
+                    excluded={excludedRowNums}
+                    onToggleExclude={toggleExclude}
+                    existingMatches={existingMatchRows}
+                    decisions={decisions}
+                    onDecision={setDecision}
+                  />
+                )}
+              </div>
+            )}
+
             {/* Preview table */}
             {parsedRows.length > 0 && (
               <Card>
@@ -1683,6 +1706,54 @@ const ImportCustomers = () => {
         </div>
       </div>
 
+      {/* Final pre-commit summary — nothing is written until Confirm Import */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm import</DialogTitle>
+            <DialogDescription>
+              Review the summary below. Nothing has been written to your customer list yet.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>New customers to create</span>
+              <strong>{commitPlan.create}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Existing customers to merge into</span>
+              <strong>{commitPlan.merge}</strong>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Existing customers left unchanged (Skip)</span>
+              <strong>{commitPlan.skipExisting}</strong>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Duplicate rows excluded</span>
+              <strong>{commitPlan.exclude}</strong>
+            </div>
+            {commitPlan.blocked > 0 && (
+              <div className="flex justify-between text-destructive">
+                <span>Rows blocked by an ambiguous match</span>
+                <strong>{commitPlan.blocked}</strong>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground pt-2">
+              Every create, merge, skip and exclusion is recorded in the import history for this
+              organisation.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Back to review
+            </Button>
+            <Button onClick={handleImport} disabled={importing}>
+              Confirm Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Sticky footer summary */}
       {validated && parsedRows.length > 0 && !importing && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-40">
@@ -1691,14 +1762,22 @@ const ImportCustomers = () => {
               <Badge className="bg-success/10 text-success border border-success/30">
                 Selected: {selectedCount} of {validCount} ready
               </Badge>
+              {excludedRowNums.size > 0 && (
+                <Badge className="bg-warning/10 text-warning border border-warning/30">
+                  {excludedRowNums.size} duplicate{excludedRowNums.size === 1 ? "" : "s"} excluded
+                </Badge>
+              )}
+              {reviewCount > 0 && (
+                <Badge variant="outline">{reviewCount} to review</Badge>
+              )}
               {errorCount > 0 && (
                 <Badge className="bg-destructive/10 text-destructive border border-destructive/30">
                   {errorCount} blocked — still needs fixing
                 </Badge>
               )}
             </div>
-            <Button onClick={handleImport} disabled={importDisabled}>
-              {importLabel}
+            <Button onClick={() => setConfirmOpen(true)} disabled={importDisabled}>
+              {importBlocked || selectedCount === 0 ? importLabel : "Review & Confirm Import"}
             </Button>
           </div>
         </div>
