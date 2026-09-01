@@ -434,7 +434,7 @@ const Finance = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, orgId]);
+  }, [userId, orgId]);
 
 
 
