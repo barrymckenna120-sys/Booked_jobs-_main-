@@ -323,7 +323,7 @@ const Schedule = () => {
     return count >= getSlotMaxJobs(timeBlock);
   };
 
-  const handleAssign = async (jobId: string, date: Date, timeBlock: string, engineerName: string) => {
+  const handleAssign = async (jobId: string, date: Date, timeBlock: string, engineerName: string, assistEngineerIds: string[] = []) => {
     // Check capacity
     if (isSlotFull(date, timeBlock, engineerName)) {
       const max = getSlotMaxJobs(timeBlock);
