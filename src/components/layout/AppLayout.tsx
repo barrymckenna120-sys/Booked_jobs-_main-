@@ -64,7 +64,7 @@ const MOBILE_NAV = [
 ];
 
 const AppLayoutInner = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { isSuperAdmin } = useAdminViewAs();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   // Show "Switch to Engineer View" for office/admin users (owners/managers)
