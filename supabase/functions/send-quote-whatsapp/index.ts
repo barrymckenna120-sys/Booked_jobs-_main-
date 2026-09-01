@@ -479,8 +479,9 @@ YES ${refNumber}`;
       supabaseKey!
     );
 
-    const deliveryHandle =
-      await beginDelivery(
+    const deliveryHandle = skipTracking
+      ? null
+      : await beginDelivery(
         trackingClient,
         {
           organisationId: orgId,
