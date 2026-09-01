@@ -116,17 +116,33 @@ Deno.serve(async (req) => {
       .eq("integration_type", "whatsapp")
       .maybeSingle();
 
-    const tenantDomain = (waIntegration as any)?.config?.domain;
-    if (!tenantDomain) {
-      console.warn(`invite-team-member: missing whatsapp.config.domain for org ${resolvedOrgId}`);
+    // Prefer the configured tenant domain; fall back to the origin the admin is
+    // actually using (tenants without a custom domain yet, e.g. test tenants).
+    const configuredDomain = (waIntegration as any)?.config?.domain as string | undefined;
+    let tenantBaseUrl: string | null = configuredDomain ? `https://${configuredDomain}` : null;
+
+    if (!tenantBaseUrl) {
+      const rawOrigin = req.headers.get("origin") || req.headers.get("referer") || "";
+      try {
+        const parsed = new URL(rawOrigin);
+        if (parsed.protocol === "https:" || parsed.hostname === "localhost") {
+          tenantBaseUrl = parsed.origin;
+        }
+      } catch (_e) {
+        // ignore unparsable origin
+      }
+    }
+
+    if (!tenantBaseUrl) {
+      console.warn(`invite-team-member: no tenant domain or usable origin for org ${resolvedOrgId}`);
       return new Response(JSON.stringify({ error: "Tenant domain not configured for this organisation" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const tenantBaseUrl = `https://${tenantDomain}`;
     const tenantAuthRedirect = `${tenantBaseUrl}/auth`;
+
 
 
     // Check if user already exists with this email
