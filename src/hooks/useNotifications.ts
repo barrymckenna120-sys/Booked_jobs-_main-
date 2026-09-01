@@ -99,6 +99,20 @@ async function playForNotificationType(type: string) {
  * "office" excludes engineer-scoped rows so users who are both office and
  * engineer do not get duplicate notifications.
  */
+
+/**
+ * A tab switch fires both `visibilitychange` and `focus`, which previously ran
+ * the foreground catch-up twice (4 requests per return instead of 2). The first
+ * event wins; a second one inside this window is a no-op.
+ */
+export const FOREGROUND_REFRESH_WINDOW_MS = 2000;
+
+export const shouldRunForegroundRefresh = (
+  lastRunAt: number,
+  now: number,
+  windowMs: number = FOREGROUND_REFRESH_WINDOW_MS
+): boolean => now - lastRunAt >= windowMs;
+
 export function useNotifications(
   surface?: "engineer" | "office"
 ) {
