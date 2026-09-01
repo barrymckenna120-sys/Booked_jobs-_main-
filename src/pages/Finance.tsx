@@ -403,20 +403,33 @@ const Finance = () => {
 
   useEffect(() => {
     if (!user || !orgId) return;
+    let cancelled = false;
     const fetchAll = async () => {
       setLoading(true);
-      const [jobsRes, custRes, quotesRes] = await Promise.all([
-        supabase.from("service_calls").select("*, customers(name)").eq("organisation_id", orgId),
-        supabase.from("customers").select("*").eq("organisation_id", orgId),
-        supabase.from("quotes").select("*, customers(name)").eq("organisation_id", orgId),
-      ]);
-      if (jobsRes.data) setJobs(jobsRes.data);
-      if (custRes.data) setCustomers(custRes.data);
-      if (quotesRes.data) setQuotes(quotesRes.data);
-      setLoading(false);
+      try {
+        const [jobsRes, custRes, quotesRes] = await withRequestTimeout(Promise.all([
+          supabase.from("service_calls").select("*, customers(name)").eq("organisation_id", orgId),
+          supabase.from("customers").select("*").eq("organisation_id", orgId),
+          supabase.from("quotes").select("*, customers(name)").eq("organisation_id", orgId),
+        ]));
+        if (cancelled) return;
+        if (jobsRes.data) setJobs(jobsRes.data);
+        if (custRes.data) setCustomers(custRes.data);
+        if (quotesRes.data) setQuotes(quotesRes.data);
+      } catch (err) {
+        // Hung/failed fetch must not leave the loader spinning forever —
+        // fall back to whatever data is already in state (empty on first load).
+        console.warn("[Finance] data fetch failed or timed out:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     fetchAll();
+    return () => {
+      cancelled = true;
+    };
   }, [user, orgId]);
+
 
 
   const now = new Date();
