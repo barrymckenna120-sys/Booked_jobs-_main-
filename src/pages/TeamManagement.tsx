@@ -313,18 +313,11 @@ const TeamManagement = () => {
         toast({ title: `${inviteForm.name} added — invite email sent to ${email}` });
       }
 
-      // Send branded welcome email via Resend
-      supabase.functions.invoke("send-email", {
-        body: {
-          type: "welcome",
-          data: {
-            name: inviteForm.name.trim(),
-            email,
-            role: inviteForm.role,
-            loginUrl: `${window.location.origin}/auth`,
-          },
-        },
-      }).catch(() => {}); // fire-and-forget
+      // Note: invite-team-member already sends the branded welcome email with the
+      // password-set link. Do not fire a second send-email "welcome" here — it
+      // duplicated the email and failed the recipient/org check when the caller's
+      // own organisation differs from the org the member was created in.
+
     } else {
       toast({ title: `${inviteForm.name} added as ${ROLES[inviteForm.role]?.label}` });
     }
