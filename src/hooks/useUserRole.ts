@@ -37,14 +37,13 @@ const SIGNED_OUT: ResolvedRole = {
 
 const resolveRole = async (userId: string): Promise<ResolvedRole> => {
   try {
-    // 1) Check profiles first for superadmin short-circuit
-    const { data: profile } = await withRequestTimeout(
-      supabase.from("profiles").select("role").eq("user_id", userId).maybeSingle()
-    );
+    // 1) Check profiles first for superadmin short-circuit (shared cached read)
+    const profile = await withRequestTimeout(fetchProfile(userId));
 
-    if ((profile as any)?.role === "superadmin") {
+    if (profile?.role === "superadmin") {
       return { role: "admin", engineerId: null, engineerName: null, canAccessOffice: true };
     }
+
 
     // 2) Fall through to the engineers lookup
     const { data } = await withRequestTimeout(
