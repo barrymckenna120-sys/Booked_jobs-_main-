@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { paidJobsInPeriod, completedJobsInPeriod, collectedAmount, outstandingTotal, completionDate, isoDay } from "@/lib/financeMetrics";
+import { withRequestTimeout } from "@/lib/queryDefaults";
 
 
 import { Card, CardContent } from "@/components/ui/card";
