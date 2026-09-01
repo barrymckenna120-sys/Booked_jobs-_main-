@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { updateServiceCallRow, JOB_WRITE_BLOCKED_MESSAGE } from "@/lib/serviceCallWrite";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { printReceipt } from "@/lib/printReceipt";
@@ -151,7 +152,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
-        await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
+        const { error: invUpdErr, blocked: invUpdBlocked } = await updateServiceCallRow(
+          job.id,
+          sanitizeServiceCallUpdatePayload(updatePayload as any),
+        );
+        if (invUpdBlocked) throw new Error(JOB_WRITE_BLOCKED_MESSAGE);
+        if (invUpdErr) throw invUpdErr;
         setProcStep(2);
 
         // Navigate to invoice preview screen
@@ -276,13 +282,16 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         updatePayload.completed_at = paidAtIso;
       }
 
-      const { error: updateError } = await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload(updatePayload as any))
-        .eq("id", job.id);
+      const { error: updateError, blocked: updateBlocked } = await updateServiceCallRow(
+        job.id,
+        sanitizeServiceCallUpdatePayload(updatePayload as any),
+      );
       // Nothing downstream may run on a failed write — no activity row, no
-      // ledger row, no PDF, no WhatsApp, no navigation to the receipt.
+      // ledger row, no PDF, no WhatsApp, no navigation to the receipt. A write
+      // that changed zero rows counts as failed.
+      if (updateBlocked) throw new Error(JOB_WRITE_BLOCKED_MESSAGE);
       if (updateError) throw updateError;
+
 
       // Append-only payment ledger. Payment is already recorded on the job, so
       // a failure here is loud but non-blocking.

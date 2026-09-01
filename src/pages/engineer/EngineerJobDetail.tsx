@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
+import { updateServiceCallRow, JOB_WRITE_BLOCKED_MESSAGE } from "@/lib/serviceCallWrite";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -368,7 +369,18 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
     console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
-    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
+    const { error, blocked } = await updateServiceCallRow(job.id, safeDbPatch);
+    if (blocked) {
+      // Zero rows changed: refused write. No retry queue (retrying cannot help),
+      // no audit entry, no success toast, no local state change.
+      console.error("[updateJob:detail] job update affected 0 rows — not applied:", job.id);
+      toast({
+        title: "Couldn't update this job",
+        description: JOB_WRITE_BLOCKED_MESSAGE,
+        variant: "destructive",
+      });
+      return false;
+    }
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
       const jobItemId = addToQueue({
@@ -659,12 +671,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") {
       patch.status = "Scheduled";
     }
-    const { error } = await supabase
-      .from("service_calls")
-      .update(sanitizeServiceCallUpdatePayload(patch as any))
-      .eq("id", job.id);
+    const { error, blocked } = await updateServiceCallRow(
+      job.id,
+      sanitizeServiceCallUpdatePayload(patch as any),
+    );
     setActionLoading(false);
-    if (error) {
+    if (blocked) {
+      console.error("[handleReschedule] job update affected 0 rows — not applied:", job.id);
+      toast({ title: "Couldn't update this job", description: JOB_WRITE_BLOCKED_MESSAGE, variant: "destructive" });
+    } else if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_rescheduled", entity_type: "service_call", entity_id: job.id, detail: `Rescheduled by engineer to ${rescheduleDate} ${rescheduleTime || ""}`.trim() });

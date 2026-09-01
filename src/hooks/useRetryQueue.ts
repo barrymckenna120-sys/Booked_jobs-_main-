@@ -97,12 +97,21 @@ export const processQueue = async (): Promise<void> => {
 
       try {
         let error: any = null;
+        // A request that returns no error but changes zero rows was refused by
+        // the database — replaying it can never succeed, so it is dropped
+        // (never counted as a successful mutation) instead of burning retries.
+        let refused = false;
         if (item.operation === "update" && item.filter) {
           const res = await supabase
             .from(item.table as any)
             .update(item.payload as any)
-            .eq(item.filter.column, item.filter.value);
+            .eq(item.filter.column, item.filter.value)
+            .select("id");
           error = res.error;
+          if (!error) {
+            const rows = Array.isArray(res.data) ? res.data : res.data ? [res.data] : [];
+            refused = rows.length === 0;
+          }
         } else if (item.operation === "insert") {
           const res = await supabase.from(item.table as any).insert(item.payload as any);
           error = res.error;
@@ -110,7 +119,10 @@ export const processQueue = async (): Promise<void> => {
           error = new Error("Invalid queue item shape");
         }
 
-        if (error) {
+        if (refused) {
+          dropped.add(item.id);
+          console.error("[retry-queue] dropping item — update affected 0 rows:", item);
+        } else if (error) {
           const next = { ...item, attempts: item.attempts + 1 };
           if (next.attempts >= MAX_ATTEMPTS) {
             dropped.add(item.id);

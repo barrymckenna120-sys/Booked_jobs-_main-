@@ -17,6 +17,8 @@ const store = new Map<string, string>();
 
 // Per-table failure control for the mocked Supabase client.
 const failing = new Set<string>();
+/** Tables whose UPDATE returns no error but zero rows (row-level filtered). */
+const zeroRow = new Set<string>();
 const attempted: string[] = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -24,11 +26,12 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: (table: string) => {
       const result = () => {
         attempted.push(table);
-        return { error: failing.has(table) ? { message: `boom:${table}` } : null };
+        if (failing.has(table)) return { data: null, error: { message: `boom:${table}` } };
+        return { data: zeroRow.has(table) ? [] : [{ id: "row-1" }], error: null };
       };
       return {
         insert: async () => result(),
-        update: () => ({ eq: async () => result() }),
+        update: () => ({ eq: () => ({ select: async () => result() }) }),
       };
     },
   },
@@ -127,5 +130,56 @@ describe("useRetryQueue — dependent item semantics", () => {
     await processQueue();
     expect(queue()).toHaveLength(0); // dropped after 3
     expect(attempted).toHaveLength(3);
+  });
+});
+
+// BJ-NEW-11 — a queued UPDATE that returns no error but changes zero rows was
+// refused by the database. It must never be recorded as a successful mutation.
+describe("useRetryQueue — zero-row (refused) updates", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    failing.clear();
+    zeroRow.clear();
+    attempted.length = 0;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("drops a refused update immediately instead of counting it as success", async () => {
+    zeroRow.add("service_calls");
+    addToQueue({
+      table: "service_calls",
+      operation: "update",
+      payload: { status: "In Progress" },
+      filter: { column: "id", value: "job-1" },
+    });
+
+    await processQueue();
+
+    expect(attempted).toEqual(["service_calls"]); // sent exactly once, no retries
+    expect(queue()).toHaveLength(0);
+  });
+
+  it("drops the dependent ledger row when the job update is refused", async () => {
+    zeroRow.add("service_calls");
+    enqueuePair();
+
+    await processQueue();
+
+    expect(attempted).not.toContain("job_payments");
+    expect(queue()).toHaveLength(0);
+  });
+
+  it("still retries genuine transport failures", async () => {
+    failing.add("service_calls");
+    addToQueue({
+      table: "service_calls",
+      operation: "update",
+      payload: { status: "In Progress" },
+      filter: { column: "id", value: "job-1" },
+    });
+
+    await processQueue();
+
+    expect(queue()[0].attempts).toBe(1); // queued for another attempt
   });
 });
