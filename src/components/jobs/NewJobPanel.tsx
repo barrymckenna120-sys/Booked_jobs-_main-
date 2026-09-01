@@ -1128,7 +1128,7 @@ const StepSchedule = ({ prefilledDate, prefilledBlock, prefilledEngineer, onNext
 
       <div className="px-5 pt-4 pb-2 border-t border-border flex gap-2.5">
         <Button variant="outline" onClick={onBack} className="font-bold">← Back</Button>
-        <Button className="flex-1 h-12 font-extrabold text-base" disabled={isOnLeave || isSlotFull || availableTimeBlocks.length === 0} onClick={handleNext}>
+        <Button className="flex-1 h-12 font-extrabold text-base" disabled={!engineer || isOnLeave || isSlotFull || availableTimeBlocks.length === 0} onClick={handleNext}>
           Set payment →
         </Button>
       </div>
