@@ -271,7 +271,15 @@ const AssignJobModal = ({
             {/* Engineer */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Engineer</Label>
-              <Select value={selectedEngineer} onValueChange={(v) => { setSelectedEngineer(v); setErrors((e) => ({ ...e, engineer: false })); }}>
+              <Select
+                value={selectedEngineer}
+                onValueChange={(v) => {
+                  setSelectedEngineer(v);
+                  setErrors((e) => ({ ...e, engineer: false }));
+                  const newLeadId = engineers.find((e) => e.name === v)?.id;
+                  if (newLeadId) setAssistIds((prev) => prev.filter((id) => id !== newLeadId));
+                }}
+              >
                 <SelectTrigger className={validationBorderClass(showError("engineer"))}>
                   <SelectValue placeholder="Select engineer" />
                 </SelectTrigger>
@@ -282,7 +290,61 @@ const AssignJobModal = ({
                 </SelectContent>
               </Select>
               <ValidationMessage show={showError("engineer")} />
+
+              {/* Assist engineers */}
+              {assistEngineers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {assistEngineers.map((eng) => (
+                    <span
+                      key={eng.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 pl-2.5 pr-1 py-0.5 text-xs"
+                    >
+                      Assist · {eng.name}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${eng.name} from assists`}
+                        onClick={() => setAssistIds((prev) => prev.filter((id) => id !== eng.id))}
+                        className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {assistIds.length < MAX_ASSISTS && availableAssistEngineers.length > 0 && (
+                showAssistPicker ? (
+                  <Select
+                    value=""
+                    open
+                    onOpenChange={(o) => { if (!o) setShowAssistPicker(false); }}
+                    onValueChange={(v) => {
+                      setAssistIds((prev) => (prev.includes(v) || prev.length >= MAX_ASSISTS ? prev : [...prev, v]));
+                      setShowAssistPicker(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select assist engineer" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {availableAssistEngineers.map((eng) => (
+                        <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAssistPicker(true)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    + Add assist engineer
+                  </button>
+                )
+              )}
             </div>
+
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
