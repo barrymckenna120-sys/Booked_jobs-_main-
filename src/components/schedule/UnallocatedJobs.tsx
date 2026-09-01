@@ -152,6 +152,7 @@ const UnallocatedJobs = ({ jobs, onAssign, onJobClick, onRemove }: Props) => {
                   </span>
                 )}
                 <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+                <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
               </div>
               {onJobClick ? (
                 <button
