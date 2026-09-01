@@ -19,6 +19,8 @@ import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
 import { formatWhatsApp } from "@/lib/whatsappLink";
 import { withRequestTimeout, queryRetryDelay } from "@/lib/queryDefaults";
+import { useQuery } from "@tanstack/react-query";
+import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 
 
 const PAGE_SIZE = 15;
@@ -87,6 +89,24 @@ const Jobs = () => {
   const [loadFailed, setLoadFailed] = useState(false);
   const realtimeTimer = useRef<number | null>(null);
   const retryCount = useRef(0);
+
+  // BJ-0090: assist engineers for the loaded jobs — one batched request for the
+  // whole list (never one per card), so cards can show Lead + Assistants.
+  const jobIds = jobs.map((j) => j.id).sort();
+  const { data: assistsMap = {} } = useQuery({
+    queryKey: ["jobs-list-assists", jobIds],
+    enabled: !!user && ready && jobIds.length > 0,
+    staleTime: 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await withRequestTimeout(
+        supabase.from("job_engineers").select("job_id, engineer_id, engineers(name)").in("job_id", jobIds)
+      );
+      if (error) throw error;
+      return groupJobAssists(data as any);
+    },
+  });
+
 
 
 
@@ -350,6 +370,10 @@ const Jobs = () => {
   const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   const eur = (n: number) => `€${n.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  /** BJ-0090 — Lead + Assistant lines, shared by the table and the mobile card. */
+  const teamLines = (j: Job) => buildJobTeamLines(j.assigned_engineer, assistsMap[j.id]);
+
+
   const renderJobsTable = (rows: Job[], rowBorderClass?: string) => (
     <Table>
       <TableHeader>
@@ -404,7 +428,23 @@ const Jobs = () => {
                   `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
                 ) : "—"}
               </TableCell>
-              <TableCell className="hidden md:table-cell">{j.assigned_engineer || "—"}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                {(() => {
+                  const lines = teamLines(j);
+                  if (lines.length === 0) return "—";
+                  const showRoles = lines.length > 1;
+                  return (
+                    <div className="space-y-0.5">
+                      {lines.map((l) => (
+                        <div key={l.key} className={l.role === "Lead" ? "text-sm" : "text-xs text-muted-foreground"}>
+                          {l.name}
+                          {showRoles && <span className="text-muted-foreground"> — {l.role}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
                   {statusBadge(j.status)}
@@ -510,13 +550,32 @@ const Jobs = () => {
         </span>
       </div>
 
-      {/* Row 3: Engineer + Payment */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Row 3: Assigned team + Payment */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
           <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <span className="text-[10px] font-bold text-primary">{getEngineerInitials(j.assigned_engineer)}</span>
           </div>
-          <span className="text-xs text-foreground truncate">{j.assigned_engineer || "Unassigned"}</span>
+          {(() => {
+            const lines = teamLines(j);
+            if (lines.length === 0) {
+              return <span className="text-xs text-foreground truncate">Unassigned</span>;
+            }
+            const showRoles = lines.length > 1;
+            return (
+              <div className="min-w-0 space-y-0.5">
+                {lines.map((l) => (
+                  <div
+                    key={l.key}
+                    className={`truncate ${l.role === "Lead" ? "text-xs text-foreground" : "text-[11px] text-muted-foreground"}`}
+                  >
+                    {l.name}
+                    {showRoles && <span className="text-muted-foreground"> — {l.role}</span>}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
         {paymentStatusBadge(j)}
       </div>
