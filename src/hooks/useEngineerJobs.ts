@@ -172,10 +172,32 @@ export const useEngineerJobs = () => {
       let completedQuery = supabase.from("service_calls").select("*").eq("status", "Completed").order("updated_at", { ascending: false }).limit(30);
 
       if (engineerId) {
-        todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
-        upcomingQuery = upcomingQuery.eq("assigned_engineer_id", engineerId);
-        completedQuery = completedQuery.eq("assigned_engineer_id", engineerId);
+        // BJ-0090: engineers also see jobs where they are an assist (job_engineers)
+        let assistJobIds: string[] = [];
+        try {
+          const { data: assistRows } = await supabase
+            .from("job_engineers")
+            .select("job_id")
+            .eq("engineer_id", engineerId);
+          assistJobIds = [...new Set((assistRows || []).map((r: any) => r.job_id).filter(Boolean))];
+        } catch (e) {
+          console.warn("[useEngineerJobs] assist lookup failed", e);
+        }
+
+        if (assistJobIds.length > 0) {
+          // Single OR filter => Postgres dedupes by row, and ORDER BY/LIMIT are
+          // applied after the union, so the 20/30 caps stay meaningful.
+          const orFilter = `assigned_engineer_id.eq.${engineerId},id.in.(${assistJobIds.join(",")})`;
+          todayQuery = todayQuery.or(orFilter);
+          upcomingQuery = upcomingQuery.or(orFilter);
+          completedQuery = completedQuery.or(orFilter);
+        } else {
+          todayQuery = todayQuery.eq("assigned_engineer_id", engineerId);
+          upcomingQuery = upcomingQuery.eq("assigned_engineer_id", engineerId);
+          completedQuery = completedQuery.eq("assigned_engineer_id", engineerId);
+        }
       }
+
 
       const [todayRes, upcomingRes, completedRes] = await Promise.all([
         todayQuery,
