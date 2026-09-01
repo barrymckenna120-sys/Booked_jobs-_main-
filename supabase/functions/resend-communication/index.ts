@@ -225,6 +225,16 @@ async function resolveTarget(
     return { fn: "send-whatsapp-receipt", payload: { job_id: id } };
   }
 
+  if (delivery.comm_type === "booking_confirmation" && id) {
+    // This resend owns the attempt record, so the send path must not open a
+    // second one for the same delivery.
+    return {
+      fn: "send-booking-confirmation",
+      payload: { service_call_id: id, skip_delivery_tracking: true },
+    };
+  }
+
+
   if (delivery.comm_type === "service_reminder" && delivery.customer_id) {
     const { data: customer } = await supabase
       .from("customers")
