@@ -128,6 +128,8 @@ Deno.serve(async (req) => {
     // its own tenant checks exactly as it does for a normal office send.
     let ok = false;
     let providerError: string | null = null;
+    let providerMessageId: string | null = null;
+    let recipient: string | null = null;
     try {
       const res = await fetch(`${supabaseUrl}/functions/v1/${target.fn}`, {
         method: "POST",
@@ -149,6 +151,10 @@ Deno.serve(async (req) => {
         parsed = null;
       }
       ok = res.ok && parsed?.success !== false && !parsed?.error;
+      providerMessageId = typeof parsed?.provider_message_id === "string"
+        ? parsed.provider_message_id
+        : null;
+      recipient = typeof parsed?.recipient === "string" ? parsed.recipient : null;
       if (!ok) providerError = `[${res.status}] ${text}`.slice(0, 2000);
     } catch (e) {
       providerError = e instanceof Error ? e.message : String(e);
@@ -156,7 +162,7 @@ Deno.serve(async (req) => {
 
     if (!handle) {
       // Tracking row unavailable — still report the real outcome.
-      return json({ success: ok, status: ok ? "sent" : "failed" });
+      return json({ success: ok, status: ok ? "accepted" : "failed" });
     }
 
     if (!ok && providerError === null) await abandonDelivery(supabase, handle);
@@ -166,9 +172,13 @@ Deno.serve(async (req) => {
       channel: delivery.channel,
       ok,
       providerError,
+      providerMessageId,
+      recipient,
+      providerStatus: ok ? "accepted" : null,
     });
 
     return json({ success: ok, status: result.status, reason: result.reason });
+
   } catch (e) {
     console.error("resend-communication error", e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
