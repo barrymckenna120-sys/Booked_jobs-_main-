@@ -384,7 +384,19 @@ export const useEngineerJobs = () => {
 
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
-    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
+    const { error, blocked } = await updateServiceCallRow(jobId, safeDbPatch);
+
+    if (blocked) {
+      // Zero rows changed: the write was refused, so nothing downstream may run
+      // (no queue, no local state, no activity) or the UI would lie.
+      console.error("[useEngineerJobs] job update affected 0 rows — not applied:", jobId);
+      toast({
+        title: "Couldn't update this job",
+        description: JOB_WRITE_BLOCKED_MESSAGE,
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (error) {
       const jobUpdateQueueId = addToQueue({

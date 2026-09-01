@@ -368,7 +368,19 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
     console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
-    const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", job.id);
+    const { error, blocked } = await updateServiceCallRow(job.id, safeDbPatch);
+    if (blocked) {
+      // Zero rows changed: refused write. No retry queue (retrying cannot help),
+      // no audit entry, no success toast, no local state change.
+      console.error("[updateJob:detail] job update affected 0 rows — not applied:", job.id);
+      setActionLoading(false);
+      toast({
+        title: "Couldn't update this job",
+        description: JOB_WRITE_BLOCKED_MESSAGE,
+        variant: "destructive",
+      });
+      return false;
+    }
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
       const jobItemId = addToQueue({
