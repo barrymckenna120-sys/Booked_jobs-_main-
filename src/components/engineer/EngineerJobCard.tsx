@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import { insertPartsRequest, priorityRank } from "@/lib/partsRequests";
+import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
@@ -74,6 +75,7 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
   const [paymentForcedFullyPaid, setPaymentForcedFullyPaid] = useState(false);
 
   const { data: lastService } = useLastCompletedService(job.customer_id, job.id);
+  const { isLeadEngineer, leadName } = useJobLeadRole(job);
 
   const { data: officeOwnerId } = useQuery({
     queryKey: ["org-owner", job.organisation_id],
@@ -341,6 +343,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
               onCancel={() => setShowCancel(true)}
               onNoShow={() => setShowNoShow(true)}
               onPartsNeeded={() => setShowPartsNeeded(true)}
+              isLeadEngineer={isLeadEngineer}
+              leadName={leadName}
             />
           </div>
         )}
@@ -368,8 +372,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         )}
 
-        {/* Take Payment button for Completed / In Progress */}
-        {["Completed", "In Progress"].includes(job.status) && (
+        {/* Take Payment button for Completed / In Progress — Lead only (BJ-0090) */}
+        {isLeadEngineer && ["Completed", "In Progress"].includes(job.status) && (
           <div className="mt-3" onClick={stopProp}>
             {job.receipt_number ? (
               <button

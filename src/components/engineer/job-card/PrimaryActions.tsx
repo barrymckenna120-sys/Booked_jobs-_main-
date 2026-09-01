@@ -9,10 +9,24 @@ interface PrimaryActionsProps {
   onCancel: () => void;
   onNoShow?: () => void;
   onPartsNeeded?: () => void;
+  /** BJ-0090 — false when the logged-in engineer is only an Assist on this job. */
+  isLeadEngineer?: boolean;
+  /** Name of the Lead engineer, shown to Assists in place of the action buttons. */
+  leadName?: string;
 }
 
-const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow, onPartsNeeded }: PrimaryActionsProps) => {
+const PrimaryActions = ({ status, onStatusChange, onComplete, onCancel, onNoShow, onPartsNeeded, isLeadEngineer = true, leadName }: PrimaryActionsProps) => {
   const [showCantComplete, setShowCantComplete] = useState(false);
+
+  // Assist engineers get a static row instead of any job-progressing action.
+  if (!isLeadEngineer) {
+    return (
+      <div className="w-full text-center text-sm font-semibold text-slate-500 py-3 mt-1">
+        Assisting {leadName || "the lead engineer"}
+      </div>
+    );
+  }
+
   if (status === "Scheduled" || status === "Booked") {
     return (
       <Button className="w-full h-[52px] text-base font-extrabold gap-2 mt-1" onClick={() => onStatusChange("En Route")}>
