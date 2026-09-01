@@ -282,13 +282,16 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
         updatePayload.completed_at = paidAtIso;
       }
 
-      const { error: updateError } = await supabase
-        .from("service_calls")
-        .update(sanitizeServiceCallUpdatePayload(updatePayload as any))
-        .eq("id", job.id);
+      const { error: updateError, blocked: updateBlocked } = await updateServiceCallRow(
+        job.id,
+        sanitizeServiceCallUpdatePayload(updatePayload as any),
+      );
       // Nothing downstream may run on a failed write — no activity row, no
-      // ledger row, no PDF, no WhatsApp, no navigation to the receipt.
+      // ledger row, no PDF, no WhatsApp, no navigation to the receipt. A write
+      // that changed zero rows counts as failed.
+      if (updateBlocked) throw new Error(JOB_WRITE_BLOCKED_MESSAGE);
       if (updateError) throw updateError;
+
 
       // Append-only payment ledger. Payment is already recorded on the job, so
       // a failure here is loud but non-blocking.
