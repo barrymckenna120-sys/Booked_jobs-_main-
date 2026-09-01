@@ -75,6 +75,11 @@ const Jobs = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [jobQuotesMap, setJobQuotesMap] = useState<Record<string, string>>({});
   const [showCompleted, setShowCompleted] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const realtimeTimer = useRef<number | null>(null);
+  const retryCount = useRef(0);
+
+
 
   useEffect(() => {
     if (user && ready) fetchJobs();
