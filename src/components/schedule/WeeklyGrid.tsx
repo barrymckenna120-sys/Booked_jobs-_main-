@@ -239,12 +239,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                                 <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
                                 {job.revenue && <span className="text-muted-foreground">€{job.revenue}</span>}
                               </div>
-                              {selectedEngineer === "all" && job.assigned_engineer && (
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                  {job.assigned_engineer}
-                                  <div>{renderMessageBtn(job)}</div>
-                                </div>
-                              )}
+                              {selectedEngineer === "all" && renderTeam(job)}
                             </button>
                           ))}
                         </div>
@@ -301,12 +296,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>
-                        {selectedEngineer === "all" && job.assigned_engineer && (
-                          <div className="text-[10px] text-muted-foreground">
-                            {job.assigned_engineer}
-                            <div>{renderMessageBtn(job)}</div>
-                          </div>
-                        )}
+                        {selectedEngineer === "all" && renderTeam(job)}
                       </button>
                     ))
                   ) : (
