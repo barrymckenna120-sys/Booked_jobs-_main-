@@ -15,16 +15,12 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
 import ImportRunHistory from "@/components/import/ImportRunHistory";
-import type { ImportRunRowDetail } from "@/components/import/importRunTypes";
 import DuplicateReviewPanel, {
   type ExistingHistory,
   type ExistingMatchRow,
 } from "@/components/import/DuplicateReviewPanel";
 import {
   findInFileDuplicateGroups,
-  matchExistingCustomers,
-  buildMergePayload,
-  type ExistingCustomerLite,
   type ExistingMatchResult,
 } from "@/lib/importDuplicates";
 import {
@@ -224,14 +220,16 @@ const ImportCustomers = () => {
   const [selectedRowNums, setSelectedRowNums] = useState<Set<number>>(new Set());
   const [selectionDirty, setSelectionDirty] = useState(false);
 
-  // Existing customers for this organisation that could match a row in this file.
-  // Fetched once per file, always scoped to organisation_id, then matched locally on
-  // GPRN / phone / name+address. `null` means "lookup not resolved yet".
-  const [existingCandidates, setExistingCandidates] = useState<ExistingCustomerLite[] | null>(null);
-  // Full existing rows keyed by id, used to compute merge payloads.
-  const [existingById, setExistingById] = useState<Map<string, Record<string, any>>>(new Map());
-  // Linked history counts per existing customer id.
+  // BJ-0131 Phase 2: existing-customer matching now happens in the
+  // preview-customer-import Edge Function, which derives the organisation from
+  // the caller's profile server-side. The browser only renders what it is told.
+  // `null` means "preview not resolved yet"; matches are keyed by spreadsheet row.
+  const [previewMatches, setPreviewMatches] =
+    useState<Map<number, ExistingMatchResult[]> | null>(null);
+  // Linked history counts per existing customer id, also from the preview.
   const [historyCounts, setHistoryCounts] = useState<Map<string, ExistingHistory>>(new Map());
+  // Preview failure blocks committing entirely — see the guard in handleImport.
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   // Duplicate-review decisions. `excluded` holds spreadsheet rows the operator (or the
   // pre-selection) drops; `decisions` holds Skip/Merge per row matching an existing customer.
@@ -539,22 +537,12 @@ const ImportCustomers = () => {
     });
   };
 
-  const cleanData = (raw: Record<string, any>): Record<string, any> => {
-    const required = ["name", "phone", "address", "eircode"];
-    const cleaned: Record<string, any> = {};
-    for (const [key, value] of Object.entries(raw)) {
-      if (required.includes(key)) {
-        cleaned[key] = value;
-      } else if (value !== null && value !== undefined && value !== "") {
-        cleaned[key] = value;
-      }
-    }
-    return cleaned;
-  };
-
   const handleImport = async () => {
     if (!user) return;
     if (missingRequired.length > 0) return;
+    // A failed preview means we never established what is a duplicate, so
+    // committing could create duplicates. Refuse rather than guess.
+    if (previewError || previewMatches === null) return;
     setConfirmOpen(false);
     // Partition rather than filter: ambiguous rows and rows excluded as duplicates are
     // never committed, but they must still be logged instead of vanishing from the audit
@@ -567,235 +555,66 @@ const ImportCustomers = () => {
     if (validRows.length === 0 && ambiguousRows.length === 0 && excludedRows.length === 0) return;
 
     setImporting(true);
-    setImportProgress(0);
-    let imported = 0;
-    let updated = 0;
-    let skipped = 0;
-    let skippedExisting = 0;
-    let excluded = 0;
-    const failedRows: { name: string; reason: string }[] = [];
-    // Audit trail for this commit — appended wherever a counter is incremented.
-    const rowDetails: ImportRunRowDetail[] = [];
+    // The server commits in one call, so there is no per-row client progress to
+    // report. Indeterminate-but-moving beats a bar frozen at 0%.
+    setImportProgress(10);
 
-    // Logged up front: these rows never enter the commit loop, so no customer
-    // write can result from them.
-    for (const row of ambiguousRows) {
-      const count = existingCandidates
-        ? matchExistingCustomers(row.data, existingCandidates).length
-        : 0;
-      const reason = `Matches ${count} existing customers — resolve the duplicates first`;
-      skipped++;
-      failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
-      rowDetails.push({
-        row_number: row.rowNum,
-        outcome: "skipped_ambiguous",
-        customer_id: null,
-        error_message: reason,
-      });
-    }
+    // Everything the server needs to reproduce the operator's review. Row data is
+    // sent as parsed; the server re-sanitises it against its own allow-list and
+    // re-runs matching, so nothing here is trusted as an instruction to write.
+    const payloadRows = [...validRows, ...excludedRows, ...ambiguousRows].map((r) => ({
+      rowNum: r.rowNum,
+      data: r.data,
+      isValid: r.isValid,
+      selected: true,
+      groupRowNums: dupGroups.find((g) => g.rowNums.includes(r.rowNum))?.rowNums ?? null,
+      target_customer_id: (previewMatches.get(r.rowNum) ?? []).length === 1
+        ? previewMatches.get(r.rowNum)![0].customer.id
+        : null,
+    }));
 
-    // Duplicate rows the operator chose to drop. Logged, never written.
-    for (const row of excludedRows) {
-      const group = dupGroups.find((g) => g.rowNums.includes(row.rowNum));
-      const reason = group
-        ? `Excluded as a duplicate of row${group.rowNums.filter((n) => n !== row.rowNum).length === 1 ? "" : "s"} ${group.rowNums
-            .filter((n) => n !== row.rowNum)
-            .join(", ")}`
-        : "Excluded from this import by the operator";
-      excluded++;
-      rowDetails.push({
-        row_number: row.rowNum,
-        outcome: "excluded_duplicate",
-        customer_id: null,
-        error_message: reason,
-      });
-    }
-
-
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      const advance = () =>
-        setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
-      try {
-        const cleaned = cleanData(row.data);
-
-        // The reviewed match set the operator saw in the preview. Committing follows
-        // that review, so what gets written is exactly what was confirmed.
-        const reviewed = existingCandidates
-          ? matchExistingCustomers(row.data, existingCandidates)
-          : [];
-
-        if (reviewed.length > 1) {
-          skipped++;
-          const reason = `Matches ${reviewed.length} existing customers — resolve the duplicates first`;
-          failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
-          rowDetails.push({
-            row_number: row.rowNum,
-            outcome: "skipped_ambiguous",
-            customer_id: null,
-            error_message: reason,
-          });
-          advance();
-          continue;
-        }
-
-        if (reviewed.length === 1) {
-          const targetId = reviewed[0].customer.id;
-          const decision = decisions[row.rowNum] ?? "skip";
-
-          if (decision === "skip") {
-            skippedExisting++;
-            rowDetails.push({
-              row_number: row.rowNum,
-              outcome: "skipped_existing",
-              customer_id: targetId,
-              error_message: "Existing customer kept unchanged (Skip)",
-            });
-            advance();
-            continue;
-          }
-
-          const mergePayload = buildMergePayload(cleaned, existingById.get(targetId) || {});
-          if (Object.keys(mergePayload).length === 0) {
-            skippedExisting++;
-            rowDetails.push({
-              row_number: row.rowNum,
-              outcome: "skipped_existing",
-              customer_id: targetId,
-              error_message: "Nothing new to merge — existing record already complete",
-            });
-            advance();
-            continue;
-          }
-
-          const { error } = await supabase
-            .from("customers")
-            .update(mergePayload)
-            .eq("id", targetId)
-            .eq("organisation_id", orgId!);
-          if (error) throw error;
-          updated++;
-          rowDetails.push({
-            row_number: row.rowNum,
-            outcome: "merged",
-            customer_id: targetId,
-            error_message: `Merged fields: ${Object.keys(mergePayload).join(", ")}`,
-          });
-          advance();
-          continue;
-        }
-
-        // No reviewed match — re-check by phone immediately before inserting so a
-        // customer created since the preview can't be duplicated by this run.
-        const { data: existingRows, error: lookupError } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("phone", cleaned.phone)
-          .eq("organisation_id", orgId);
-        if (lookupError) throw lookupError;
-
-        if ((existingRows?.length || 0) > 0) {
-          skippedExisting++;
-          const reason =
-            "A customer with this phone was created after the preview — review and re-import";
-          failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
-          rowDetails.push({
-            row_number: row.rowNum,
-            outcome: "skipped_existing",
-            customer_id: existingRows![0].id,
-            error_message: reason,
-          });
-          advance();
-          continue;
-        }
-
-        const nextServiceDue = new Date();
-        nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
-        const { data: insertedRows, error } = await supabase
-          .from("customers")
-          .insert([{
-            ...cleaned,
-            user_id: user.id,
-            organisation_id: orgId!,
-            boiler_type: cleaned.boiler_type || "Gas",
-            owner_or_tenant: cleaned.owner_or_tenant || "Owner",
-            warranty_years: cleaned.warranty_years ?? 10,
-            next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
-            renewal_stage: cleaned.renewal_stage || "none",
-            service_status: cleaned.service_status || "active",
-          } as any])
-          .select("id");
-        if (error) throw error;
-        imported++;
-        rowDetails.push({
-          row_number: row.rowNum,
-          outcome: "created",
-          customer_id: insertedRows?.[0]?.id ?? null,
-          error_message: null,
-        });
-
-      } catch (err: any) {
-        skipped++;
-        const reason = err.message || "Unknown error";
-        failedRows.push({
-          name: row.data.name || `Row ${row.rowNum}`,
-          reason,
-        });
-        rowDetails.push({
-          row_number: row.rowNum,
-          outcome: "failed",
-          customer_id: null,
-          error_message: reason,
-        });
-      }
-
-      setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
-    }
-
-    // Audit log — written once, after every customer write. Purely additive: a
-    // failure here is surfaced but never affects the import that already happened.
-    if (orgId) {
-      const { data: runRow, error: logError } = await supabase
-        .from("import_runs")
-        .insert({
-          organisation_id: orgId,
+    try {
+      const { data, error } = await supabase.functions.invoke("commit-customer-import", {
+        body: {
+          rows: payloadRows,
           filename: file?.name || "unknown.xlsx",
-          imported_by: user.id,
-          total_rows: validRows.length + ambiguousRows.length + excludedRows.length,
-          created_count: imported,
-          updated_count: updated,
-          error_count: skipped,
-          row_details: rowDetails as any,
-        })
-        .select("id")
-        .maybeSingle();
-      if (logError) {
+          excludedRowNums: [...excludedRowNums],
+          decisions,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+
+      setImportProgress(100);
+      setHistoryRefresh((n) => n + 1);
+      if (data?.auditError) {
         toast({
           title: "Import saved, audit log failed",
-          description: logError.message,
+          description: String(data.auditError),
           variant: "destructive",
         });
-      } else {
-        setHistoryRefresh((n) => n + 1);
-
-        // Alert admins when rows failed. Best-effort: one call per run, never
-        // per row, and a failure here only logs — the import already happened.
-        if (skipped > 0 && runRow?.id) {
-          try {
-            await supabase.functions.invoke("notify-import-errors", {
-              body: { runId: runRow.id },
-            });
-          } catch (notifyErr) {
-            console.error("[import] error-alert email failed:", notifyErr);
-          }
-        }
       }
+      setImportResult({
+        imported: Number(data?.imported ?? 0),
+        updated: Number(data?.updated ?? 0),
+        skipped: Number(data?.skipped ?? 0),
+        skippedExisting: Number(data?.skippedExisting ?? 0),
+        excluded: Number(data?.excluded ?? 0),
+        failedRows: Array.isArray(data?.failedRows) ? data.failedRows : [],
+      });
+    } catch (err: any) {
+      // Nothing partial to report: if the call itself failed the server either
+      // wrote nothing or already recorded its own outcomes in import_runs.
+      toast({
+        title: "Import failed",
+        description: err?.message || "The import could not be committed. Nothing was changed.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
     }
-
-
-    setImporting(false);
-    setImportResult({ imported, updated, skipped, skippedExisting, excluded, failedRows });
   };
+
 
 
   /**
@@ -858,72 +677,81 @@ const ImportCustomers = () => {
     lookupKeys.eircodes.join("|"),
   ].join("::");
 
+  // Only the identity fields matter for matching, so send those rather than the
+  // whole parsed row — the preview is read-only and needs nothing else.
+  const previewRequestRows = useMemo(
+    () =>
+      parsedRows.map((r) => ({
+        rowNum: r.rowNum,
+        name: r.data.name ?? null,
+        phone: r.data.phone ?? null,
+        address: r.data.address ?? null,
+        eircode: r.data.eircode ?? null,
+        gprn: r.data.gprn ?? null,
+      })),
+    [parsedRows]
+  );
+  const previewSignature = useMemo(
+    () => JSON.stringify(previewRequestRows),
+    [previewRequestRows]
+  );
+
   /**
-   * Batched existing-customer lookup, always filtered by organisation_id so
-   * duplicate matching can never cross a tenant boundary.
+   * Server-side duplicate preview. The organisation is derived from the caller's
+   * profile inside the function, so matching cannot cross a tenant boundary even
+   * if the request body is tampered with. Read-only: it never writes.
    */
   useEffect(() => {
-    const anyKeys =
-      lookupKeys.phones.length + lookupKeys.gprns.length + lookupKeys.eircodes.length;
-    if (!orgId || anyKeys === 0) {
-      setExistingCandidates(null);
-      setExistingById(new Map());
+    if (previewRequestRows.length === 0) {
+      setPreviewMatches(null);
+      setHistoryCounts(new Map());
+      setPreviewError(null);
       return;
     }
     let cancelled = false;
+    setPreviewMatches(null);
+    setPreviewError(null);
     (async () => {
-      const byId = new Map<string, Record<string, any>>();
-      const CHUNK = 200;
-      const fetchBy = async (column: "phone" | "gprn" | "eircode", values: string[]) => {
-        for (let i = 0; i < values.length; i += CHUNK) {
-          const chunk = values.slice(i, i + CHUNK);
-          const { data, error } = await supabase
-            .from("customers")
-            .select("*")
-            .eq("organisation_id", orgId)
-            .in(column, chunk);
-          if (cancelled) return false;
-          if (error) return false;
-          for (const row of data || []) byId.set(row.id, row as Record<string, any>);
-        }
-        return true;
-      };
+      try {
+        const { data, error } = await supabase.functions.invoke("preview-customer-import", {
+          body: { rows: previewRequestRows },
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        if (data?.error) throw new Error(String(data.error));
 
-      const ok =
-        (await fetchBy("phone", lookupKeys.phones)) &&
-        (await fetchBy("gprn", lookupKeys.gprns)) &&
-        (await fetchBy("eircode", lookupKeys.eircodes));
-      if (cancelled) return;
-      if (!ok) {
-        setExistingCandidates(null);
-        setExistingById(new Map());
-        return;
+        const byRow = new Map<number, ExistingMatchResult[]>();
+        for (const r of (data?.rows ?? []) as { rowNum: number; matches: ExistingMatchResult[] }[]) {
+          byRow.set(Number(r.rowNum), Array.isArray(r.matches) ? r.matches : []);
+        }
+        const hist = new Map<string, ExistingHistory>();
+        for (const [id, h] of Object.entries((data?.history ?? {}) as Record<string, ExistingHistory>)) {
+          hist.set(id, h);
+        }
+        setHistoryCounts(hist);
+        setPreviewMatches(byRow);
+      } catch (err: any) {
+        if (cancelled) return;
+        // Leave matches null: unresolved is not the same as "no duplicates", and
+        // handleImport refuses to commit while this is set.
+        setPreviewError(
+          err?.message || "Could not check this file against your existing customers."
+        );
       }
-      setExistingById(byId);
-      setExistingCandidates(
-        Array.from(byId.values()).map((c) => ({
-          id: c.id,
-          name: c.name ?? null,
-          address: c.address ?? null,
-          eircode: c.eircode ?? null,
-          phone: c.phone ?? null,
-          gprn: c.gprn ?? null,
-        }))
-      );
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, lookupSignature]);
+  }, [orgId, previewSignature]);
 
-  /** Existing customers matching a row, or null while the lookup is unresolved. */
+  /** Existing customers matching a row, or null while the preview is unresolved. */
   const matchesForRow = useCallback(
     (row: ParsedRow): ExistingMatchResult[] | null => {
-      if (!existingCandidates) return null;
-      return matchExistingCustomers(row.data, existingCandidates);
+      if (!previewMatches) return null;
+      return previewMatches.get(row.rowNum) ?? [];
     },
-    [existingCandidates]
+    [previewMatches]
   );
 
   /**
@@ -943,12 +771,13 @@ const ImportCustomers = () => {
   /** Row numbers blocked because they match more than one existing customer. */
   const ambiguousRowNums = useMemo(() => {
     const s = new Set<number>();
-    if (!existingCandidates) return s;
+    if (!previewMatches) return s;
     for (const r of parsedRows) {
-      if (matchExistingCustomers(r.data, existingCandidates).length > 1) s.add(r.rowNum);
+      if ((previewMatches.get(r.rowNum) ?? []).length > 1) s.add(r.rowNum);
     }
     return s;
-  }, [parsedRows, existingCandidates]);
+  }, [parsedRows, previewMatches]);
+
 
   /** Duplicate clusters inside the uploaded file (GPRN / phone / name+address). */
   const dupGroups = useMemo(
@@ -981,11 +810,11 @@ const ImportCustomers = () => {
 
   /** Rows matching exactly one existing customer, excluding rows dropped as duplicates. */
   const existingMatchRows = useMemo<ExistingMatchRow[]>(() => {
-    if (!existingCandidates) return [];
+    if (!previewMatches) return [];
     const out: ExistingMatchRow[] = [];
     for (const r of parsedRows) {
       if (excludedRowNums.has(r.rowNum)) continue;
-      const matches = matchExistingCustomers(r.data, existingCandidates);
+      const matches = previewMatches.get(r.rowNum) ?? [];
       if (matches.length !== 1) continue;
       out.push({
         rowNum: r.rowNum,
@@ -996,49 +825,11 @@ const ImportCustomers = () => {
       });
     }
     return out;
-  }, [parsedRows, existingCandidates, excludedRowNums, historyCounts]);
+  }, [parsedRows, previewMatches, excludedRowNums, historyCounts]);
 
-  const matchedCustomerIds = useMemo(
-    () => Array.from(new Set(existingMatchRows.map((m) => m.customer.id))).sort(),
-    [existingMatchRows]
-  );
-  const matchedIdsSignature = matchedCustomerIds.join("|");
+  // Linked service call / quote / payment counts arrive with the preview response —
+  // the browser no longer queries those tables itself.
 
-  /** Linked service call / quote / payment counts for matched existing customers. */
-  useEffect(() => {
-    if (matchedCustomerIds.length === 0) {
-      setHistoryCounts(new Map());
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const counts = new Map<string, ExistingHistory>();
-      for (const id of matchedCustomerIds) counts.set(id, { jobs: 0, quotes: 0, payments: 0 });
-      const tally = async (
-        table: "service_calls" | "quotes" | "job_payments",
-        key: keyof ExistingHistory
-      ) => {
-        const { data, error } = await supabase
-          .from(table)
-          .select("customer_id")
-          .in("customer_id", matchedCustomerIds);
-        if (error || cancelled) return;
-        for (const row of (data || []) as { customer_id: string | null }[]) {
-          if (!row.customer_id) continue;
-          const entry = counts.get(row.customer_id);
-          if (entry) entry[key] += 1;
-        }
-      };
-      await tally("service_calls", "jobs");
-      await tally("quotes", "quotes");
-      await tally("job_payments", "payments");
-      if (!cancelled) setHistoryCounts(counts);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchedIdsSignature]);
 
   const toggleExclude = (rowNum: number, exclude: boolean) => {
     setExcludeDirty(true);
@@ -1066,9 +857,7 @@ const ImportCustomers = () => {
           next = { ...next, fieldWarnings: { ...next.fieldWarnings, phone: note } };
         }
         if (ambiguous) {
-          const count = existingCandidates
-            ? matchExistingCustomers(r.data, existingCandidates).length
-            : 0;
+          const count = (previewMatches?.get(r.rowNum) ?? []).length;
           const message = `Matches ${count} existing customers — resolve the duplicates first`;
           next = {
             ...next,
@@ -1079,7 +868,7 @@ const ImportCustomers = () => {
         }
         return next;
       }),
-    [parsedRows, dupPhoneNotes, ambiguousRowNums, existingCandidates]
+    [parsedRows, dupPhoneNotes, ambiguousRowNums, previewMatches]
   );
 
 
@@ -1112,7 +901,7 @@ const ImportCustomers = () => {
         exclude++;
         continue;
       }
-      const matches = existingCandidates ? matchExistingCustomers(r.data, existingCandidates) : [];
+      const matches = previewMatches?.get(r.rowNum) ?? [];
       if (matches.length === 1) {
         if ((decisions[r.rowNum] ?? "skip") === "merge") merge++;
         else skipExisting++;
@@ -1121,7 +910,7 @@ const ImportCustomers = () => {
       }
     }
     return { create, merge, skipExisting, exclude, blocked: ambiguousRowNums.size };
-  }, [decoratedRows, selectedSet, excludedRowNums, existingCandidates, decisions, ambiguousRowNums]);
+  }, [decoratedRows, selectedSet, excludedRowNums, previewMatches, decisions, ambiguousRowNums]);
 
   /** Toggle one ready row. First interaction freezes the current implicit selection. */
   const toggleRow = (rowNum: number, checked: boolean) => {
@@ -1316,13 +1105,21 @@ const ImportCustomers = () => {
 
   // Blocked rows no longer gate the file: only an empty selection disables the commit.
   const reviewCount = dupGroups.length + existingMatchRows.length;
+  // The duplicate check must have resolved before anything can be committed:
+  // an unresolved preview is not the same as "no duplicates found".
+  const previewPending = previewMatches === null && !previewError && parsedRows.length > 0;
   const importLabel = importBlocked
     ? `Map ${missingRequired.length} required column${missingRequired.length === 1 ? "" : "s"} to continue`
+    : previewError
+    ? "Duplicate check failed"
+    : previewPending
+    ? "Checking for duplicates…"
     : selectedCount === 0
     ? "Select at least one row"
     : `Import ${selectedCount} customer${selectedCount === 1 ? "" : "s"}`;
 
-  const importDisabled = importBlocked || selectedCount === 0;
+  const importDisabled =
+    importBlocked || selectedCount === 0 || previewPending || previewError !== null;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -1510,7 +1307,15 @@ const ImportCustomers = () => {
             {!importBlocked && parsedRows.length > 0 && (
               <div className="space-y-2">
                 <h2 className="text-sm font-bold">Duplicate review</h2>
-                {existingCandidates === null ? (
+                {previewError ? (
+                  <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-3">
+                    <XCircle className="w-5 h-5 shrink-0" />
+                    <span className="text-sm font-medium">
+                      Duplicate check failed: {previewError} Importing is blocked until this
+                      succeeds — re-upload the file to try again.
+                    </span>
+                  </div>
+                ) : previewMatches === null ? (
                   <p className="text-xs text-muted-foreground">
                     Checking this file against your existing customers…
                   </p>
@@ -1779,7 +1584,7 @@ const ImportCustomers = () => {
               )}
             </div>
             <Button onClick={() => setConfirmOpen(true)} disabled={importDisabled}>
-              {importBlocked || selectedCount === 0 ? importLabel : "Review & Confirm Import"}
+              {importDisabled ? importLabel : "Review & Confirm Import"}
             </Button>
           </div>
         </div>
