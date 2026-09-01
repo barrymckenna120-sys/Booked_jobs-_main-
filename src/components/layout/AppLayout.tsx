@@ -81,6 +81,7 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications("office");
   const unreadMessages = useUnreadMessages();
+  const userId = user?.id;
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
     queryFn: async () => {
@@ -90,8 +91,12 @@ const AppLayoutInner = () => {
         .in("status", ["Open", "Ordered", "Ready to Fit"]);
       return count || 0;
     },
+    // Without a session this request 401s (PostgREST rejects it) and only logs
+    // noise — the badge is meaningless when signed out.
+    enabled: !!userId,
     refetchInterval: 30000,
   });
+
   const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
 
   useEffect(() => {
