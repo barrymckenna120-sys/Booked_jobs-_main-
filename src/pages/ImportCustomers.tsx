@@ -1102,6 +1102,29 @@ const ImportCustomers = () => {
   }, [decoratedRows, selectedRowNums, selectionDirty]);
   const selectedCount = selectedSet.size;
 
+  /** Pre-commit summary of exactly what Confirm Import will do. */
+  const commitPlan = useMemo(() => {
+    const rows = decoratedRows.filter((r) => r.isValid && selectedSet.has(r.rowNum));
+    let create = 0;
+    let merge = 0;
+    let skipExisting = 0;
+    let exclude = 0;
+    for (const r of rows) {
+      if (excludedRowNums.has(r.rowNum)) {
+        exclude++;
+        continue;
+      }
+      const matches = existingCandidates ? matchExistingCustomers(r.data, existingCandidates) : [];
+      if (matches.length === 1) {
+        if ((decisions[r.rowNum] ?? "skip") === "merge") merge++;
+        else skipExisting++;
+      } else if (matches.length === 0) {
+        create++;
+      }
+    }
+    return { create, merge, skipExisting, exclude, blocked: ambiguousRowNums.size };
+  }, [decoratedRows, selectedSet, excludedRowNums, existingCandidates, decisions, ambiguousRowNums]);
+
   /** Toggle one ready row. First interaction freezes the current implicit selection. */
   const toggleRow = (rowNum: number, checked: boolean) => {
     setSelectedRowNums(() => {
@@ -1248,6 +1271,12 @@ const ImportCustomers = () => {
               <div className="space-y-1 text-sm">
                 <p><strong>{importResult.imported}</strong> customers imported successfully</p>
                 <p><strong>{importResult.updated}</strong> customers updated</p>
+                {importResult.excluded > 0 && (
+                  <p><strong>{importResult.excluded}</strong> duplicate rows excluded</p>
+                )}
+                {importResult.skippedExisting > 0 && (
+                  <p><strong>{importResult.skippedExisting}</strong> existing customers skipped</p>
+                )}
                 {importResult.skipped > 0 && (
                   <p className="text-destructive font-medium"><strong>{importResult.skipped}</strong> rows failed</p>
                 )}
@@ -1564,30 +1593,37 @@ const ImportCustomers = () => {
                                   const outcome = rowOutcome(r);
                                   if (outcome === "unknown") return null;
                                   const matches = matchesForRow(r) || [];
-                                  const describe = (m: ExistingMatch) =>
-                                    [m.name || "Unnamed customer", m.address].filter(Boolean).join(", ");
+                                  const describe = (m: ExistingMatchResult) =>
+                                    [m.customer.name || "Unnamed customer", m.customer.address]
+                                      .filter(Boolean)
+                                      .join(", ");
                                   if (outcome === "ambiguous") {
                                     return (
                                       <Badge
                                         variant="destructive"
-                                        title={`Shared by: ${matches.map(describe).join(" · ")}`}
+                                        title={`Matched: ${matches.map(describe).join(" · ")}`}
                                       >
-                                        Conflict — {matches.length} customers share this phone
+                                        Conflict — matches {matches.length} customers
                                       </Badge>
                                     );
                                   }
-                                  if (outcome === "update") {
+                                  if (outcome === "existing") {
+                                    const decision = decisions[r.rowNum] ?? "skip";
                                     return (
                                       <Badge
                                         variant="outline"
-                                        title={matches[0] ? `Will update ${describe(matches[0])}` : "This row will update an existing customer"}
+                                        title={
+                                          matches[0]
+                                            ? `Already exists: ${describe(matches[0])}`
+                                            : "This row matches an existing customer"
+                                        }
                                       >
-                                        Updates existing
+                                        {decision === "merge" ? "Will merge" : "Already exists"}
                                       </Badge>
                                     );
                                   }
                                   return (
-                                    <Badge variant="secondary" title="No customer with this phone exists — this row will create a new one">
+                                    <Badge variant="secondary" title="No matching customer exists — this row will create a new one">
                                       New
                                     </Badge>
                                   );
