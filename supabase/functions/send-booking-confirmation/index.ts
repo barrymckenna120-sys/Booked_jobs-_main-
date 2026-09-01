@@ -62,9 +62,13 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
+    // Delivery tracking client (office badge + admin log + failure alerts).
+    const trackingClient = createClient(supabaseUrl!, supabaseKey!);
+
     // Fetch the service call with customer details
     const scRes = await fetch(
-      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,customer_id,scheduled_date,time_block,job_type,assigned_engineer,organisation_id`,
+      `${supabaseUrl}/rest/v1/service_calls?id=eq.${service_call_id}&select=id,job_reference,customer_id,scheduled_date,time_block,job_type,assigned_engineer,organisation_id`,
+
       { headers: dbHeaders },
     );
     const scRows = await scRes.json();
