@@ -18,8 +18,15 @@
  * failed), and a run where 900 of 1000 rows succeed must keep those 900 and
  * report the 100 honestly — a transaction would discard them. Each row is one
  * self-contained statement, so a mid-run failure cannot leave a half-written
- * customer. `import_runs` is inserted once afterwards from the outcomes actually
- * observed, which is what keeps the audit consistent with the customer table.
+ * customer.
+ *
+ * Audit ordering (BJ-0131 hardening): an `import_runs` shell row is inserted
+ * BEFORE any customer write and updated with the observed outcomes afterwards.
+ * If the function dies midway, or the final update fails, the shell row remains
+ * as evidence that the import happened. An incomplete run is recognisable from
+ * the existing schema alone — `row_details` is still `[]` and the counts are
+ * still 0 while `total_rows` is non-zero — so no status column was added and no
+ * unprocessed row is ever recorded as successful.
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders, handlePreflight, jsonResponse } from "../_shared/cors.ts";
@@ -138,6 +145,36 @@ Deno.serve(async (req) => {
   }
 
   const supabase = serviceClient();
+
+  const filename = String(body.filename ?? "").trim() || "unknown.xlsx";
+
+  // --- Audit shell: recorded BEFORE any customer write ---
+  // Counts stay 0 and row_details stays [] until the run finishes, so a run that
+  // dies partway through is attributable to this org/actor/file without ever
+  // claiming an outcome for a row that was not processed.
+  let runId: string | null = null;
+  let auditError: string | null = null;
+  try {
+    const { data: shell, error } = await supabase
+      .from("import_runs")
+      .insert({
+        organisation_id: orgId,
+        filename,
+        imported_by: userId,
+        total_rows: rows.length,
+        created_count: 0,
+        updated_count: 0,
+        error_count: 0,
+        row_details: [],
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    runId = (shell?.id as string) ?? null;
+  } catch (_e) {
+    auditError = (_e as Error)?.message || "import_runs shell insert failed";
+    console.error(`${FN}: import_runs shell insert failed:`, _e);
+  }
 
   // --- Re-run matching against current state, inside this organisation only ---
   const keys = { phone: new Set<string>(), gprn: new Set<string>(), eircode: new Set<string>() };
@@ -319,29 +356,42 @@ Deno.serve(async (req) => {
   const counts = summariseOutcomes(details);
   details.sort((a, b) => a.row_number - b.row_number);
 
-  // --- Audit: import_runs (per-run + per-row) and audit_log (run + mutations) ---
-  let runId: string | null = null;
-  let auditError: string | null = null;
-  try {
-    const { data: runRow, error } = await supabase
-      .from("import_runs")
-      .insert({
-        organisation_id: orgId,
-        filename: String(body.filename ?? "").trim() || "unknown.xlsx",
-        imported_by: userId,
-        total_rows: committable.length + ambiguous.length + excludedRows.length,
-        created_count: counts.imported,
-        updated_count: counts.updated,
-        error_count: counts.skipped,
-        row_details: details,
-      })
-      .select("id")
-      .maybeSingle();
-    if (error) throw error;
-    runId = (runRow?.id as string) ?? null;
-  } catch (_e) {
-    auditError = (_e as Error)?.message || "import_runs insert failed";
-    console.error(`${FN}: import_runs insert failed:`, _e);
+  // --- Audit: finalise the shell import_runs row, then audit_log ---
+  const finalRun = {
+    total_rows: committable.length + ambiguous.length + excludedRows.length,
+    created_count: counts.imported,
+    updated_count: counts.updated,
+    error_count: counts.skipped,
+    row_details: details,
+  };
+  if (runId) {
+    try {
+      const { error } = await supabase
+        .from("import_runs")
+        .update(finalRun)
+        .eq("id", runId)
+        .eq("organisation_id", orgId);
+      if (error) throw error;
+    } catch (_e) {
+      // Customer writes stand; the shell row stays as evidence of the run.
+      auditError = auditError ?? ((_e as Error)?.message || "import_runs update failed");
+      console.error(`${FN}: import_runs update failed:`, _e);
+    }
+  } else {
+    // The shell could not be created earlier — fall back to a single insert so
+    // the run is still recorded rather than lost entirely.
+    try {
+      const { data: runRow, error } = await supabase
+        .from("import_runs")
+        .insert({ organisation_id: orgId, filename, imported_by: userId, ...finalRun })
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      runId = (runRow?.id as string) ?? null;
+    } catch (_e) {
+      auditError = auditError ?? ((_e as Error)?.message || "import_runs insert failed");
+      console.error(`${FN}: import_runs insert failed:`, _e);
+    }
   }
 
   if (runId) {
