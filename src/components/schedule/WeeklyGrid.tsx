@@ -136,7 +136,7 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
     if (lines.length === 0) return null;
     const showRoles = lines.length > 1;
     return (
-      <div className="text-[10px] text-muted-foreground mt-0.5">
+      <div className="text-[10px] text-muted-foreground mt-0.5 min-w-0 break-words">
         {lines.map((l) => (
           <div key={l.key} className={l.role === "Lead" ? "" : "text-muted-foreground/80"}>
             {l.name}
