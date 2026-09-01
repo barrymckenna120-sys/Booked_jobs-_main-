@@ -99,6 +99,20 @@ async function playForNotificationType(type: string) {
  * "office" excludes engineer-scoped rows so users who are both office and
  * engineer do not get duplicate notifications.
  */
+
+/**
+ * A tab switch fires both `visibilitychange` and `focus`, which previously ran
+ * the foreground catch-up twice (4 requests per return instead of 2). The first
+ * event wins; a second one inside this window is a no-op.
+ */
+export const FOREGROUND_REFRESH_WINDOW_MS = 2000;
+
+export const shouldRunForegroundRefresh = (
+  lastRunAt: number,
+  now: number,
+  windowMs: number = FOREGROUND_REFRESH_WINDOW_MS
+): boolean => now - lastRunAt >= windowMs;
+
 export function useNotifications(
   surface?: "engineer" | "office"
 ) {
@@ -301,9 +315,12 @@ export function useNotifications(
     [userId, applyRoleScope, surface]
   );
 
+  const lastForegroundRefreshRef = useRef(0);
+
   const fetchNotificationsRef = useRef(
     fetchNotifications
   );
+
 
   useEffect(() => {
     fetchNotificationsRef.current =
@@ -325,12 +342,24 @@ export function useNotifications(
 
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
   // backgrounded, so returning to the app is the only chance to alert.
+  // Both listeners are deliberate (the two events are not interchangeable on
+  // iOS), but a normal tab switch fires both — so throttle the *work* to one
+  // refresh per foreground, not one per event.
   useEffect(() => {
     if (!userId) return;
 
-
     const onForeground = () => {
       if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (
+        !shouldRunForegroundRefresh(
+          lastForegroundRefreshRef.current,
+          now
+        )
+      ) {
+        return;
+      }
+      lastForegroundRefreshRef.current = now;
       fetchNotificationsRef.current?.();
       refreshUnreadCountRef.current?.();
     };
@@ -355,6 +384,7 @@ export function useNotifications(
       );
     };
   }, [userId]);
+
 
 
 
