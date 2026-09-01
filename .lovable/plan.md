@@ -28,21 +28,32 @@ Because the effect fires *before* the debounce is involved, the 1.5s debounce ca
 
 `useEngineerJobs` has an explicit `visibilitychange` -> `fetchAll()` (jobs, engineers, customers, job_media) with no dedupe or minimum interval. That refetch is intentional for engineers returning to the app, but it is uncapped and will double up with the auth-churn refetch above.
 
-## Fix (all at the shared trigger level, no per-page patching)
+## Fix — sequenced, step 1 alone first
 
-1. **Stop identity churn at the source** — in the auth hook, only call `setUser` when the user id actually changes (or the session flips to/from null). A token refresh for the same user then produces no new object, so no downstream effect re-runs anywhere in the app. This is the single change that removes most of the storm.
+**Step 1 (ships and is verified on its own — nothing else in this change)**
+
+1. **Stop identity churn at the source** — in the auth hook, only call `setUser` when the user id actually changes (or the session flips to/from null). A token refresh for the same user then produces no new object, so no downstream effect re-runs anywhere in the app. This is the single change that removes most of the storm, and it is app-wide (~91 `useAuth` call sites), so it lands and is verified by itself.
+
+**Steps 2-4 (a separate change, only after step 1 is verified and signed off)**
+
 2. **Make Jobs' effects id-keyed** — depend on `userId` (and `ready`) instead of the `user` object, so the list fetch and the realtime subscription no longer churn even if some other auth event slips through. Keeps the existing debounce, retry cap and narrowed queries untouched.
 3. **Deduplicate the notifications foreground handler** — keep both listeners (iOS needs them) but ignore a trigger that lands within ~2s of the previous one, so a tab switch causes one refresh instead of two.
 4. **Rate-limit the engineer foreground refetch** — keep the behaviour, but skip `fetchAll()` if it already ran in the last ~15s, and use the id-keyed dependency for the same reason as Jobs.
 
+Note: step 1 alone should already remove the Jobs bursts you saw, so its verification is also the measurement that tells us how much of steps 2-4 is still needed.
+
 Not changing: the realtime debounce, retry caps, query shapes, the parts badge poll, or the service-worker config.
 
-## Verification
 
-- Playwright on a real session: load `/jobs`, then hide/show the tab 5 times and count REST calls. Expect **0** new `service_calls` / `customers` / `quotes` calls per tab return (currently 1 full burst each, more on slow links), and at most one `notifications` GET+HEAD pair.
-- Same tab-switch loop on `/dashboard`, `/schedule`, `/customers` to confirm the auth-level fix quietened the whole shell.
+## Verification (step 1 first, on its own)
+
+- Playwright on a real session: load `/jobs`, then hide/show the tab 5 times and count REST calls. Expect **0** new `service_calls` / `customers` / `quotes` calls per tab return (currently one full burst each, more on slow links).
+- Force a real token refresh and confirm no re-render storm, no subscription teardown, and that the session still refreshes correctly (token expiry advances, no sign-out).
+- Sign-in / sign-out / password-recovery redirects still behave — these are the paths that depend on `setUser` firing, so each is exercised explicitly.
 - Regression pass on an office/superadmin account across the office routes plus `/engineer/today`, checking data still refreshes after a real job change (realtime) and after coming back online.
-- `tsgo --noEmit` plus the existing test suite; add a unit test for the "same user id -> no state update" rule and for the foreground dedupe window.
+- `tsgo --noEmit` plus the existing suite; add a unit test for the "same user id -> no state update, different id or null -> state updates" rule.
+- Report the remaining per-tab-return call counts so we can size steps 2-4 before they ship.
+
 
 ## Technical notes
 
