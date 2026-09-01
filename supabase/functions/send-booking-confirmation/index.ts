@@ -1,7 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { bookingConfirmationSkip } from "../_shared/bookingConfirmationSkip.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  beginDelivery,
+  completeDelivery,
+  DeliveryBusyError,
+  markOptedOut,
+} from "../_shared/deliveryStatus.ts";
+
 
 
 serve(async (req) => {
