@@ -46,3 +46,17 @@ describe("buildJobTeamLines", () => {
     ]);
   });
 });
+
+describe("buildJobTeamLines dedupe", () => {
+  it("never renders the lead twice if they also appear in assists", () => {
+    const lines = buildJobTeamLines("Barry", [
+      { id: "eLead", name: "Barry" },
+      { id: "e1", name: "Karl" },
+      { id: "e1b", name: "karl" },
+    ]);
+    expect(lines).toEqual([
+      { key: "lead", name: "Barry", role: "Lead" },
+      { key: "e1", name: "Karl", role: "Assistant" },
+    ]);
+  });
+});
