@@ -237,6 +237,14 @@ Deno.serve(async (req) => {
 
     const sentAt = new Date().toISOString();
 
+    await completeDelivery(supabase, {
+      handle: deliveryHandle,
+      channel: "whatsapp",
+      ok: sendResult.success,
+      providerError: sendResult.success ? null : sendResult.error ?? "unknown",
+      recipient: cleanNumber,
+    });
+
     // Update message_log with outcome
     if (logId) {
       const updateBody = sendResult.success
@@ -244,6 +252,7 @@ Deno.serve(async (req) => {
         : { status: "failed", error_message: sendResult.error || "unknown" };
       await supabase.from("message_log").update(updateBody).eq("id", logId);
     }
+
 
     if (!sendResult.success) {
       await supabase.from("edge_function_logs").insert({
