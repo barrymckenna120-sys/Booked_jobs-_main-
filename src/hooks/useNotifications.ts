@@ -301,8 +301,18 @@ export function useNotifications(
       fetchNotifications;
   }, [fetchNotifications]);
 
+  // TEMP INSTRUMENTATION — remove before commit
+  const __prevDeps = useRef<any>({});
   useEffect(() => {
     if (!user) return;
+
+    console.log("[TEMP notif-effect] changed:", {
+      user: __prevDeps.current.user !== user,
+      fetchNotifications: __prevDeps.current.fetchNotifications !== fetchNotifications,
+      refreshUnreadCount: __prevDeps.current.refreshUnreadCount !== refreshUnreadCount,
+      firstRun: __prevDeps.current.user === undefined,
+    });
+    __prevDeps.current = { user, fetchNotifications, refreshUnreadCount };
 
     fetchNotifications();
     refreshUnreadCount();
@@ -311,6 +321,7 @@ export function useNotifications(
     fetchNotifications,
     refreshUnreadCount,
   ]);
+
 
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
   // backgrounded, so returning to the app is the only chance to alert.
