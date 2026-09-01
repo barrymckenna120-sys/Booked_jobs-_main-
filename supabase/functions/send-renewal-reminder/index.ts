@@ -72,10 +72,24 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      // Opt-out is an intentional suppression, not a delivery failure: it is
+      // recorded so the office sees why nothing went out, and never alerts.
+      if (consent.reason === "customer_opted_out") {
+        await markOptedOut(supabase, {
+          organisationId: orgId as string,
+          customerId: customer_id,
+          commType: "service_reminder",
+          channel: "whatsapp",
+          relatedType: "renewal",
+          relatedId: customer_id,
+          relatedReference: renewal_date ?? null,
+        });
+      }
       return new Response(JSON.stringify(consentSkipBody(consent.reason)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // Normalise the DB-stored recipient. An unusable number is a 400, not a 500,
     // and must never reach the messaging API.
