@@ -44,6 +44,8 @@ type Job = {
   job_reference?: string | null;
   /** Set at job creation: 'new' when the customer did not previously exist. */
   customer_status_at_booking?: CustomerStatusAtBooking | null;
+  /** BJ-0131a — true when an identical booking was created in the same window. */
+  possible_duplicate?: boolean | null;
 
 };
 
@@ -239,6 +241,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
           <SheetTitle className="flex items-center gap-2 flex-wrap">
             <span className="truncate max-w-full">{customer.name}</span>
             <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
+            <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
             <span className="text-xs font-normal text-muted-foreground">· {relativeTime(job.created_at)}</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
               {job.source || "Manual"}
