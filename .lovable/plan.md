@@ -1,99 +1,119 @@
-# Jobs list — 1,128 requests on Slow 3G: root cause and fix plan
+# Jobs list — Step 0 traffic attribution (measured) and revised fix plan
 
-## What the code actually shows (verified now, read-only)
+## Step 0 results
 
-The Jobs list itself is **not** doing N+1 per-row fetching. `src/pages/Jobs.tsx`
-does exactly three queries per load, all batched:
+### A. The Jobs page's own data fetching is fine — no N+1
 
-1. `service_calls.select("*")` — every job, no date range, no limit
-2. `customers.select(...).in("id", customerIds)` — one batched call
-3. `quotes.select(...).neq("status","Draft")` — every non-draft quote, no limit
+Measured a full authenticated reload of `/jobs` (superadmin session, local
+preview, 45s settle) and grouped every request:
 
-The table and mobile card renderers (lines ~296-520) contain no queries at all.
-So the "one request per row" reading isn't what's happening — but several other
-things are, and together they plausibly produce the numbers you saw.
+```text
+223 total requests on reload
+ 189  dev-only ES module requests (129 /src, 60 node_modules) — does not exist in production
+  19  Supabase REST/auth calls
+  15  third party (Sentry, GA/GTM, fonts, Firebase config, Cloudinary, tagger)
+```
 
-Confirmed contributors:
+Of those 19 Supabase calls, the Jobs list itself made exactly **three**:
+`service_calls`, `customers` (batched `in`), `quotes`. **Zero per-row requests.**
+The original N+1 reading is confirmed dead.
 
-- **Unfiltered realtime refetch storm.** `Jobs.tsx` subscribes to *all*
-  `service_calls` changes and calls the full `fetchJobs()` (3 heavy queries) on
-  every event, with no debounce. `Schedule.tsx`, `IncomingJobs.tsx` and
-  `useEngineerJobs` each have their own equivalent subscription.
-- **Uncapped retry loop.** `fetchJobs()`'s `catch` does
-  `setTimeout(() => fetchJobs(), 5000)` with no attempt cap and no abort of the
-  in-flight requests. On Slow 3G, requests that time out or abort re-enter this
-  loop indefinitely — each cycle is 3 unbounded queries.
-- **Unbounded payloads.** `select("*")` over all jobs plus all non-draft quotes
-  is the biggest part of the transferred bytes, and the whole array is then
-  JSON-stringified into localStorage on every load.
-- **Preflight doubling is expected, not a bug per se.** Supabase REST calls
-  carry `apikey`/`authorization` (and, in superadmin View As, an extra
-  impersonation header from `orgHeaderInterceptor.ts`), so each distinct request
-  is preceded by an `OPTIONS`. Reducing request *count* is what halves the
-  preflights — there is no way to strip them.
-- **Background polls in the shell:** parts badge every 30s (`AppLayout`),
-  Live Activity 30s, Renewals card 60s, Parts page 30s.
-- **`job_media` is not queried by the Jobs page.** It is queried by
-  `Schedule.tsx`, `IncomingJobs.tsx`, `useEngineerJobs` and the media
-  components. If you saw `job_media` traffic while on `/jobs`, it came from
-  another screen in the same DevTools session (or a prior navigation), not from
-  the jobs list.
-- **Service-worker precache.** `vite.config.ts` precaches
-  `**/*.{js,css,html,ico,png,svg,woff2}` and there are ~50 lazily-loaded route
-  chunks plus vendor chunks and icons. On a first/updated load this fires a
-  large batch of asset requests in the background — the most likely explanation
-  for "20.1 MB resources" and a 5.3-minute *finish* time while the load event
-  was only 12.76s.
+### B. Real duplication does exist, but it's the app shell, not the list
 
-## Diagnosis status
+Same capture, repeated identical calls per single page load:
 
-Root cause is **multi-source, and the exact split is not yet proven**. Nothing
-in the code supports a per-row N+1 on this page, so before changing behaviour I
-want one instrumented capture that attributes the 1,128 requests by URL group
-(precache vs REST vs realtime vs polling). That is step 0 below and it is
-cheap.
+```text
+7x  GET /rest/v1/profiles?select=role&user_id=eq...
+2x  GET /rest/v1/profiles?select=organisation_id,role
+2x  GET /auth/v1/user
+2x  HEAD /rest/v1/parts_requests (nav badge)
+2x  GET /rest/v1/engineers
+```
 
-## Proposed fix order
+Your live network snapshot shows the same shape on the hosted app, plus
+`notifications` GET **and** HEAD firing 4x each in a burst. These come from
+multiple independent consumers of role/notification hooks mounting together,
+not from the jobs table. Every one of these also pays an `OPTIONS` preflight —
+that is the "doubling" you saw.
 
-### Step 0 — Attribute the traffic (no code changes)
-Reproduce on the published site with a request log grouped by URL and initiator,
-distinguishing service-worker precache requests from page requests. Output: a
-table of counts per group. This confirms or kills each cause above before any
-code moves.
+### C. The dominant cause of the byte and request volume: service-worker precache
 
-### Step 1 — Quick wins on the Jobs page (small, low risk)
-- Debounce the realtime handler (e.g. 1-2s trailing) and re-fetch only the
-  changed job where possible instead of the whole page.
-- Cap the retry loop (max 2 attempts with backoff, reuse `shouldRetryQuery` /
-  `queryRetryDelay` from `src/lib/queryDefaults.ts`) and surface an error state
-  instead of retrying forever.
-- Replace `select("*")` with the ~30 columns the page actually renders, and
-  bound the query (default to non-completed plus a recent window; completed
-  history already has its own pagination in the UI).
-- Fetch quotes only for the jobs on screen (`in("converted_job_id", ids)` /
-  `in("job_id", ids)`) instead of the whole non-draft quote table.
+Read the deployed `sw.js` on `kngasservices.bookedjobs.ie` and sized every
+precached file:
 
-Expected effect: request count on this page drops to a small constant, and
-transferred bytes fall sharply. This is the "quick win" half.
+```text
+158 precached files: 137 .js, 14 .png, 3 .html, 2 .ico, 1 .svg, 1 .css
+8.75 MB compressed  (~20 MB uncompressed — matches your 20.1 MB "resources")
 
-### Step 2 — Narrow the precache (separate, needs a real deploy to verify)
-Restrict `globPatterns` so the entry chunks, CSS and icons are precached and
-the ~50 route chunks are left to the existing `/assets/` runtime CacheFirst
-rule. This is what turns a 20 MB first load into a small one. Note: you
-previously asked me not to touch `vite.config.ts` / service-worker config, so
-this step stays separate and only goes ahead if you explicitly approve it.
+Largest entries:
+  2.13 MB  images/plumber-hero.png            (marketing landing page)
+  1.80 MB  images/google-profile-before-after.png (marketing)
+  1.51 MB  assets/engineer-van-tablet-*.png   (marketing)
+  0.89 MB  assets/whatsapp-reminder-mockup-*.png (marketing)
+  0.38 MB  assets/missed-call-cost-*.png      (marketing)
+  0.32 MB  assets/spreadsheet-*.js            (xlsx, only used by import/export)
+  0.31 MB  assets/index-*.js
+```
 
-### Step 3 — Same pattern elsewhere (follow-up)
+So on a first load or after any deploy, the browser downloads all 158 files in
+the background regardless of which page you opened. **~7 MB of that is
+marketing-site imagery that no engineer or office user ever sees.** On Slow 3G
+this is exactly the profile you reported: load event at 12.76s (the app itself),
+then a 5.3-minute "finish" as precache drains, with hundreds of requests.
+
+### D. What is still unattributed
+
+Precache (158) + app-shell REST + preflights + fonts/analytics accounts for a
+few hundred requests, not 1,128. The remaining volume is most likely Slow 3G
+retries/aborts feeding back into two loops that are in the code:
+
+- `Jobs.tsx` `catch` → `setTimeout(() => fetchJobs(), 5000)`, uncapped, with no
+  abort of in-flight requests. Each cycle is 3 unbounded queries.
+- `Jobs.tsx` subscribes to **all** `service_calls` changes and re-runs the whole
+  `fetchJobs()` on every event, no debounce. `Schedule.tsx`, `IncomingJobs.tsx`
+  and `useEngineerJobs` each have their own copy of this pattern.
+
+I could not reproduce a 1,128-request run on a healthy connection, so I am not
+claiming these loops as proven — they are the only mechanisms in the code that
+can multiply requests without bound, and throttled verification is part of
+Step 1's acceptance check.
+
+## Revised fix plan
+
+### Step 1 — Narrow the precache (biggest single win, config-only)
+Precache only the app entry chunk, CSS, `index.html` and the PWA icons; let the
+existing `/assets/` runtime CacheFirst rule pick up route chunks on demand, and
+exclude the marketing images entirely. Turns ~20 MB / 158 files into a few
+hundred KB on first load.
+
+This means editing `vite.config.ts` / workbox config, which you previously told
+me to leave alone — so it needs your explicit go-ahead, and it needs a real
+deploy plus one offline check to verify.
+
+### Step 2 — Jobs page hardening (quick win, one file)
+- Cap the retry loop (2 attempts, backoff via `src/lib/queryDefaults.ts`) and
+  show an error state instead of retrying forever.
+- Debounce the realtime handler (1-2s trailing) instead of full refetch per event.
+- Replace `select("*")` with the columns actually rendered, and bound the query.
+- Fetch quotes only for the jobs on screen instead of the whole quote table.
+Verified under DevTools Slow 3G before and after.
+
+### Step 3 — De-duplicate the shell reads (small, high signal)
+Fold the repeated `profiles?select=role` / `organisation_id` reads and the
+duplicated notification GET+HEAD burst into shared cached queries, the same way
+`useUserRole` was already fixed. Target: 1 role read and 1 notification read per
+load instead of 7 and 4.
+
+### Step 4 — Same pattern on other screens (follow-up)
 `Schedule.tsx` and `IncomingJobs.tsx` share the unfiltered-subscription and
-wide-`select` shape. Fix after Step 1 is verified, one screen at a time.
+wide-`select` shape. `Schedule` feeds booking/scheduling, so it gets the full
+process, not a lite review.
 
-## Size estimate
+## Effort
 
-- Step 0: minutes.
-- Step 1: quick win — one file, ~4 contained changes, no schema or payment
-  logic touched.
-- Step 2: one config line, but deploy-gated verification.
-- Step 3: bigger piece of work, and `Schedule` feeds booking/scheduling, so it
-  needs the full process rather than a lite review.
+- Step 1: one config change, quick win, but deploy-gated verification.
+- Step 2: quick win, one file, contained.
+- Step 3: small, touches shared hooks — needs an office-account regression pass.
+- Step 4: bigger piece of work.
 
 No database writes and no payment-path changes in any step.
