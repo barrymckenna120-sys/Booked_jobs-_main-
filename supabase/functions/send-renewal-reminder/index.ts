@@ -5,7 +5,7 @@ import {
   isDuplicateRenewalSend,
 } from "../_shared/renewalSendGuard.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { beginDelivery, completeDelivery, markOptedOut } from "../_shared/deliveryStatus.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import {
   consentSkipBody,
