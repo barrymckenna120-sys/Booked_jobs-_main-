@@ -498,7 +498,7 @@ const TeamManagement = () => {
     }
     toast({ title: "Sending invite…" });
     const { data, error } = await supabase.functions.invoke("invite-team-member", {
-      body: { engineer_id: member.id, email: member.email, name: member.name, role: member.role },
+      body: { engineer_id: member.id, email: member.email, name: member.name, role: member.role, organisation_id: orgId },
     });
     if (error || data?.error) {
       toast({ title: "Invite failed", description: data?.error || error?.message, variant: "destructive" });
@@ -573,7 +573,7 @@ const TeamManagement = () => {
     }
     setLinking(true);
     const { data, error } = await supabase.functions.invoke("invite-team-member", {
-      body: { engineer_id: linkTarget.id, email: emailVal, name: linkTarget.name, role: linkTarget.role },
+      body: { engineer_id: linkTarget.id, email: emailVal, name: linkTarget.name, role: linkTarget.role, organisation_id: orgId },
     });
     setLinking(false);
     if (error || data?.error) {
