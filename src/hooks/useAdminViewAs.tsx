@@ -69,15 +69,12 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
         }
         return;
       }
-      const { data } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const profile = await fetchProfile(userId);
       if (!cancelled) {
-        setIsSuperAdminRole(data?.role === "superadmin");
+        setIsSuperAdminRole(profile?.role === "superadmin");
         setRoleResolved(true);
       }
+
     };
 
     supabase.auth.getUser().then(({ data }) => {
