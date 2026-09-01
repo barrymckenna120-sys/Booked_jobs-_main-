@@ -1,44 +1,55 @@
-# Offline reload: why you saw Chrome's Dino page
+# Tab-focus refetch storm — root cause and fix
 
-## What you observed is expected with the current config — but it means offline navigation is not actually covered
+You are right that this is not throttling and not the realtime debounce failing. The Jobs realtime debounce is intact; the refetches are coming from three *other* triggers that fire when the tab regains visibility. This affects every page, not just Jobs.
 
-Two separate things explain it.
+## What's actually happening
 
-1. **App routes are explicitly excluded from service-worker navigation handling.** The current service-worker config lists every real app path (`/`, `/dashboard`, `/engineer`, `/jobs`, `/customers`, `/quote`, `/admin`, `/auth`, `/certificates`, `/pdf`, `/b`, ...) in both the navigation-fallback denylist and the navigation runtime-cache rule. So when you reload `/dashboard` offline, the service worker deliberately does not answer the navigation — it goes straight to the network, the network is off, and Chrome shows its own error page. `offline.html` is precached but nothing is wired to serve it, so it can never appear.
-2. **Service workers only run on the published site.** In Lovable preview / iframe hosts registration is refused (and any existing worker is unregistered), so an offline reload there always gives the Dino page regardless of config. Only `karlsgas.lovable.app`, `kngasservices.bookedjobs.ie` and `dublin-gas.bookedjobs.ie` register `/sw.js`.
+**1. Auth identity churn on tab return (the big one, and it explains the Jobs bursts)**
 
-So: Step 1 (precache narrowing) is still verifiable, but not via an offline reload — that test measures a behaviour the app was never configured to have.
+The auth hook does `setUser(session?.user ?? null)` on *every* auth event, including `TOKEN_REFRESHED`. The Supabase client re-checks and refreshes the session whenever the tab becomes visible, so each tab return emits an auth event, which produces a brand-new `user` object even though it's the same user.
 
-## What to test instead (reflects real-world usage)
+Jobs keys both of its effects on that object:
 
-Run all of this on the published domain, normal tab, not the editor preview.
+```text
+tab hidden -> tab visible
+  -> supabase refreshes session -> TOKEN_REFRESHED
+  -> setUser(new object)
+  -> Jobs effect [user, ready] re-runs        -> full 3-query refetch
+  -> Jobs realtime effect [user, ready] re-runs -> removeChannel + re-subscribe
+```
 
-**A. Confirm Step 1 actually shipped (this is the thing you wanted to confirm)**
-1. Load the app online, hard-reload once so the new worker installs and activates.
-2. DevTools > Application > Cache Storage > the `workbox-precache` bucket: expect roughly **10 entries** (index.html, offline.html, entry JS/CSS, manifests, favicon, 3 icons) instead of ~158.
-3. DevTools > Network on a fresh profile: first load should no longer show a long tail of precache fetches for marketing images and route chunks.
+Because the effect fires *before* the debounce is involved, the 1.5s debounce cannot suppress it — the debounce only covers realtime events. And on Slow 3G the refresh is slow and may be retried, so you get several events and therefore several bursts, exactly as you saw. This is the same class of bug as the earlier `useUserRole` / `useNotifications` churn — same root cause, just at pages that still depend on the whole `user` object rather than `user?.id`.
 
-**B. Connection lost while the app is already open (the realistic engineer case)**
-1. App open and signed in online, visit a couple of pages so their chunks land in the `assets` cache.
-2. Set Offline, then navigate in-app (client-side links only, no reload).
-3. Expected: already-loaded screens keep working from React state/cache; new data reads fail and surface the app's own error/retry states. Route chunks resolve from the `assets` cache.
+**2. Notifications refetch twice per tab return**
 
-**C. Hard reload while offline**
-Expected today: browser error page. This will stay the case until we decide to serve a fallback (below).
+`useNotifications` registers the same foreground handler on both `visibilitychange` *and* `focus`. A normal tab switch fires both, so every return does two `notifications` GETs plus two unread HEAD counts.
 
-## Optional follow-up — decide separately
+**3. `engineers` + `job_media` in your capture come from the engineer data hook**
 
-If you want an offline reload to show the app's own offline screen instead of Chrome's, that is a change to the service-worker navigation rules: give the denied navigations a `NetworkOnly` handler with a precached `offline.html` fallback, so online behaviour is byte-for-byte unchanged (still always network for app routes) and only the failure case changes.
+`useEngineerJobs` has an explicit `visibilitychange` -> `fetchAll()` (jobs, engineers, customers, job_media) with no dedupe or minimum interval. That refetch is intentional for engineers returning to the app, but it is uncapped and will double up with the auth-churn refetch above.
 
-Trade-off worth naming: this is a service-worker config change and needs your explicit go-ahead, because the deny-everything design was chosen on purpose so auth, OAuth, PDF and short-link routes are never answered from a cached shell. Serving `offline.html` on failure does not reintroduce cached-HTML staleness, but it does need one verification pass per tenant domain after deploy.
+## Fix (all at the shared trigger level, no per-page patching)
 
-## Recommendation
+1. **Stop identity churn at the source** — in the auth hook, only call `setUser` when the user id actually changes (or the session flips to/from null). A token refresh for the same user then produces no new object, so no downstream effect re-runs anywhere in the app. This is the single change that removes most of the storm.
+2. **Make Jobs' effects id-keyed** — depend on `userId` (and `ready`) instead of the `user` object, so the list fetch and the realtime subscription no longer churn even if some other auth event slips through. Keeps the existing debounce, retry cap and narrowed queries untouched.
+3. **Deduplicate the notifications foreground handler** — keep both listeners (iOS needs them) but ignore a trigger that lands within ~2s of the previous one, so a tab switch causes one refresh instead of two.
+4. **Rate-limit the engineer foreground refetch** — keep the behaviour, but skip `fetchAll()` if it already ran in the last ~15s, and use the id-keyed dependency for the same reason as Jobs.
 
-Close Step 1 using test A only. Treat "offline reload shows the app's offline page" as a separate, small piece of work, scoped and approved on its own — same handling as Step 4.
+Not changing: the realtime debounce, retry caps, query shapes, the parts badge poll, or the service-worker config.
 
-## Technical detail
+## Verification
 
-- `vite.config.ts` > `VitePWA.workbox`: `navigateFallbackDenylist` and the navigation `runtimeCaching` entry both filter out all app path prefixes, so no navigation request for a real route reaches a Workbox handler.
-- `public/offline.html` is precached by the current `globPatterns` but is not referenced by any handler or `navigateFallback` path.
-- Registration is gated by `shouldSkipServiceWorker()` in `src/lib/isPreviewHost.ts`, used by `src/main.tsx` and `src/components/pwa/PWAUpdateBanner.tsx` (`useRegisterSW`, `registerType: "prompt"`). Preview hosts unregister instead of registering.
-- No code changes are proposed in this plan.
+- Playwright on a real session: load `/jobs`, then hide/show the tab 5 times and count REST calls. Expect **0** new `service_calls` / `customers` / `quotes` calls per tab return (currently 1 full burst each, more on slow links), and at most one `notifications` GET+HEAD pair.
+- Same tab-switch loop on `/dashboard`, `/schedule`, `/customers` to confirm the auth-level fix quietened the whole shell.
+- Regression pass on an office/superadmin account across the office routes plus `/engineer/today`, checking data still refreshes after a real job change (realtime) and after coming back online.
+- `tsgo --noEmit` plus the existing test suite; add a unit test for the "same user id -> no state update" rule and for the foreground dedupe window.
+
+## Technical notes
+
+- `src/hooks/useAuth.tsx` ~line 113: unconditional `setUser(session?.user ?? null)` inside `onAuthStateChange`.
+- `src/pages/Jobs.tsx` lines 90-115: both `useEffect`s use `[user, ready]`.
+- `src/hooks/useNotifications.ts` lines ~326-357: `visibilitychange` + `focus` share one handler.
+- `src/hooks/useEngineerJobs.ts` lines ~774-786: `visibilitychange`/`online` -> `fetchAll()`, dependency `[user, fetchAll]`.
+- `refetchOnWindowFocus` is already `false` globally in `src/App.tsx`, so React Query is not the trigger.
+
+Risk: touching the auth hook is app-wide, so it is worth treating as its own review-gated step; steps 2-4 are local and low risk. Jobs is a read-only list, but `useEngineerJobs` also owns job writes, so the rate limit there must not touch `updateJob`.
