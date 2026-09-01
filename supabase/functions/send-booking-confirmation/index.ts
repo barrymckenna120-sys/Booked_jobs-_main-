@@ -35,7 +35,11 @@ serve(async (req) => {
 
 
   try {
-    const { service_call_id } = await req.json();
+    const reqBody = await req.json();
+    const service_call_id = reqBody?.service_call_id;
+    /** resend-communication tracks the attempt itself; avoid double-recording. */
+    const skipTracking = reqBody?.skip_delivery_tracking === true;
+
 
     // IDOR guard: prove the caller belongs to the organisation owning this row.
     const access = await requireResourceOrgAccess(req, {
