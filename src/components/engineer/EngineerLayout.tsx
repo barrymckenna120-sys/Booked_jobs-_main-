@@ -55,9 +55,13 @@ const EngineerLayout = () => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
       try {
-        // Any HTTP response proves network reachability — even 401 means we're online.
-        await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/rest/v1/", {
-          method: "HEAD",
+        // Any HTTP response proves network reachability. The auth health
+        // endpoint plus the public key answers 200, so the probe no longer
+        // logs a 401 as console noise — semantics unchanged (any response at
+        // all, including a failure status, means we're online).
+        await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/auth/v1/health", {
+          method: "GET",
+          headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string },
           signal: controller.signal,
           cache: "no-store",
         });
