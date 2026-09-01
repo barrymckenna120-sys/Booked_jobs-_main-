@@ -326,7 +326,8 @@ export function useNotifications(
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
   // backgrounded, so returning to the app is the only chance to alert.
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
+
 
     const onForeground = () => {
       if (document.visibilityState !== "visible") return;
@@ -353,19 +354,21 @@ export function useNotifications(
         onForeground
       );
     };
-  }, [user]);
+  }, [userId]);
+
 
 
   // Fetch sound preference
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     let cancelled = false;
 
     supabase
       .from("profiles")
       .select("sound_alerts_enabled")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
+
       .single()
       .then(({ data }) => {
         if (cancelled) return;
@@ -391,7 +394,7 @@ export function useNotifications(
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   // Real-time subscription — supabase-js uses WebSocket
   // under the hood and auto-reconnects. Keyed on `userId` (declared above) so
