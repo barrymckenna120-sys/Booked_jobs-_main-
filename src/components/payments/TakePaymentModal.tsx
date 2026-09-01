@@ -151,7 +151,12 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
 
         };
         if (invoiceNum) updatePayload.invoice_number = invoiceNum;
-        await supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload(updatePayload as any)).eq("id", job.id);
+        const { error: invUpdErr, blocked: invUpdBlocked } = await updateServiceCallRow(
+          job.id,
+          sanitizeServiceCallUpdatePayload(updatePayload as any),
+        );
+        if (invUpdBlocked) throw new Error(JOB_WRITE_BLOCKED_MESSAGE);
+        if (invUpdErr) throw invUpdErr;
         setProcStep(2);
 
         // Navigate to invoice preview screen
