@@ -39,7 +39,7 @@ const OfficeRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (isRestricted) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/engineer/today" replace />;
   }
 
   return <>{children}</>;
