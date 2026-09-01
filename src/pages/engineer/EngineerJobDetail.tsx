@@ -671,12 +671,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     if (job.status === "parts_needed" || job.status === "parts_ordered" || job.status === "parts_arrived") {
       patch.status = "Scheduled";
     }
-    const { error } = await supabase
-      .from("service_calls")
-      .update(sanitizeServiceCallUpdatePayload(patch as any))
-      .eq("id", job.id);
+    const { error, blocked } = await updateServiceCallRow(
+      job.id,
+      sanitizeServiceCallUpdatePayload(patch as any),
+    );
     setActionLoading(false);
-    if (error) {
+    if (blocked) {
+      console.error("[handleReschedule] job update affected 0 rows — not applied:", job.id);
+      toast({ title: "Couldn't update this job", description: JOB_WRITE_BLOCKED_MESSAGE, variant: "destructive" });
+    } else if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       logAudit({ action_type: "job_rescheduled", entity_type: "service_call", entity_id: job.id, detail: `Rescheduled by engineer to ${rescheduleDate} ${rescheduleTime || ""}`.trim() });
