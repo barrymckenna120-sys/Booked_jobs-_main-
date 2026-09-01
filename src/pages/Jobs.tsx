@@ -550,13 +550,32 @@ const Jobs = () => {
         </span>
       </div>
 
-      {/* Row 3: Engineer + Payment */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Row 3: Assigned team + Payment */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
           <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
             <span className="text-[10px] font-bold text-primary">{getEngineerInitials(j.assigned_engineer)}</span>
           </div>
-          <span className="text-xs text-foreground truncate">{j.assigned_engineer || "Unassigned"}</span>
+          {(() => {
+            const lines = teamLines(j);
+            if (lines.length === 0) {
+              return <span className="text-xs text-foreground truncate">Unassigned</span>;
+            }
+            const showRoles = lines.length > 1;
+            return (
+              <div className="min-w-0 space-y-0.5">
+                {lines.map((l) => (
+                  <div
+                    key={l.key}
+                    className={`truncate ${l.role === "Lead" ? "text-xs text-foreground" : "text-[11px] text-muted-foreground"}`}
+                  >
+                    {l.name}
+                    {showRoles && <span className="text-muted-foreground"> — {l.role}</span>}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
         {paymentStatusBadge(j)}
       </div>
