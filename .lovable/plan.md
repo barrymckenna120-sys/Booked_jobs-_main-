@@ -1,60 +1,56 @@
-# WhatsApp template audit + canonical catalogue + tenant-scoped Admin page
+# Investigation: does the app shell remount on every navigation?
 
-## What the audit already found (read-only, no changes yet)
+Verdict: **the concern is real**, but for a narrower reason than the report implies. There are two keyed boundaries. The inner ones are correct and harmless. One outer boundary in `src/App.tsx` is keyed to the pathname and wraps the entire `<Routes>` tree, which includes both layouts — so the shell does remount on every URL change.
 
-There are **three disconnected WhatsApp systems**:
+## 1. Where the `key` actually is
 
-1. **The real send pipeline** — ~30 edge functions, each with its **own hard-coded message body**, all posting free text to `api.360messenger.com/v2/sendMessage` with a per-tenant key from `tenant_integrations` (`_shared/whatsapp.ts`, `_shared/whatsappCredentials.ts`). No shared body module exists.
-2. **A documentation-only catalogue** — `src/lib/whatsappCatalogue.ts` (30 entries, **abridged** wording, explicitly "sends nothing"), rendered read-only by `src/components/admin/MessagingCatalogueTab.tsx`. Imported by zero send paths, so its bodies do not match production.
-3. **A dead user-authored template system** — the `whatsapp_templates` table plus full CRUD at `src/pages/WhatsAppTemplates.tsx`. No send function ever reads this table, and the page is keyed on `user_id`, not `organisation_id`.
+`src/App.tsx` (lines 226-227, 550-551) — the whole route tree is inside a pathname-keyed boundary:
 
-There is no `supabase/functions/_shared/whatsappCatalogue.ts` — the catalogue only exists on the frontend, which is why it can never be the source of truth for sends today.
+```text
+<Suspense>
+  <ErrorBoundary key={location.pathname} name="app-shell" homePath="/">
+    <Routes>
+      <Route element={<AppLayout />}>        (line 241)
+      <Route path="/engineer" element={<EngineerLayout />}>  (line 408)
+    </Routes>
+  </ErrorBoundary>
+</Suspense>
+```
 
-Two important corrections to the brief:
+`src/components/layout/AppLayout.tsx` (lines 277-279) and `src/components/engineer/EngineerLayout.tsx` (lines 176-178) each also key a boundary, but those wrap only `<Outlet />` — page content only, chrome excluded. Those are correct.
 
-- **There are no Meta/WhatsApp Cloud API templates.** 360Messenger sends free-form text, so "Meta template name / language / approval status" does not exist for any of these messages. The Admin page will show a "Free text (360Messenger)" delivery-channel field instead of inventing Meta metadata. (`whatsapp_templates` rows are seed data for a feature that never shipped.)
-- The four ground-truth bodies in the brief are close but not byte-identical to production. Example: the live deposit message uses `☎` (not `☎️`) and `€{amount}` formatted to 2dp; the receipt includes an optional `Receipt:` line the brief omits. The audit records production text as ground truth and flags each difference for your decision rather than silently rewriting customer-facing copy.
+## 2. Is the chrome inside the outer keyed subtree?
 
-## Phase 1 — Complete inventory (read-only)
+Yes. `AppLayout` and `EngineerLayout` are route elements *inside* `<Routes>`, so they sit below the keyed boundary. `AppLayoutInner` (line 66) mounts `useUserRole` (line 69), `useNotifications("office")` (line 82), `useUnreadMessages` (line 83), and the `parts-nav-count` query (line 85). All of these are remounted on every navigation, along with the sidebar and bell.
 
-Extract, for all ~30 send functions, the **exact** production body, every variable, and the table+column each variable resolves from (including how `organisation_id` is derived). Deliver as `docs/whatsapp/template-audit.md` plus the summary table you asked for. No code changes in this phase.
+Consequence confirmed in code: `roleLoading` resets to `true` on each remount, so the `!roleLoading && isEngineer` redirect guard re-evaluates on every page change.
 
-Known variable-source problems already visible, to be confirmed here:
+## 3. Realtime notifications
 
-- `_shared/depositLink.ts` reads `company_name`/`company_phone` from `tenant_integrations.360messenger.config` **only** — not from `settings.business_phone`, which is where tenants actually edit their phone. That is the deposit-template phone bug.
-- `accept-quote` resolves the internal office alert through `settings` keyed by **`user_id`**, a different path from the job's `organisation_id` used everywhere else.
-- Several functions read org branding from `settings`, others from `tenant_integrations`, others via `_shared/orgBranding.ts` — three chains for the same three fields.
+`src/hooks/useNotifications.ts` opens the channel in a `useEffect` (line 392) with `supabase.removeChannel(channel)` in cleanup (line 548). The dependency is `user?.id`, which was deliberately narrowed to survive token refreshes — but a **remount** runs cleanup and re-subscribes regardless of deps. Since the hook lives below the outer keyed boundary, the subscription is torn down and rebuilt on every navigation.
 
-## Phase 2 — Canonical catalogue, shared by both sides
+## 4. Does `staleTime: 60s` protect the data fetches?
 
-Create `supabase/functions/_shared/whatsappCatalogue.ts` as the single source of truth: for each message id, the exact body **builder** (a pure function of resolved tenant config + job data) plus metadata (name, category, trigger, function, `message_log.message_type`, variable list, config dependencies).
+Partly. `src/App.tsx` lines 93-102 set `staleTime: 60_000`, `gcTime: 30min`, `refetchOnWindowFocus: false`. React Query caches by query key, not by component identity, so a remount inside the 60s window serves cached data without a network request. So Step 4 does absorb most of the refetch cost.
 
-`src/lib/whatsappCatalogue.ts` becomes a thin re-export of that shared definition (mirrored file kept byte-identical by a test), so the Admin page and production sends cannot drift. Bodies move from abridged to exact.
+What `staleTime` does **not** absorb: component-tree teardown/rebuild (flicker), loading-state flashes from non-React-Query state such as `roleLoading`, the realtime channel churn in point 3, and any in-progress local UI state (open panels, partially typed fields in shell-level components).
 
-Also add `_shared/orgBranding.ts`-backed unified resolution so `org_name` / `org_address` / `org_phone` have **one** chain, tenant-scoped, fail-closed, no cross-tenant or hard-coded fallback.
+## 5. Regression or pre-existing?
 
-## Phase 3 — Refactor send functions onto the catalogue
+Introduced by the Step 3 change. The nested per-route boundaries in the two layouts are the intended Step 3 mechanism and are correctly scoped. The outer `key={location.pathname}` in `App.tsx` is the added-and-unnecessary part: its stated purpose (per the comment on lines 224-225) is to cover the standalone routes that render without a layout, which needs a boundary but does not need a pathname key across the whole tree.
 
-One category per step (Quotes → Payments/Deposits → Invoices & receipts → Bookings/reminders → Documents/renewals/inbound), each step independently revertible. Each function keeps its existing skip/degrade, opt-out and logging behaviour; only the body construction and branding resolution move. Byte-for-byte output equality against the current string is asserted by a unit test per message before the function is deployed.
+## 6. Smallest fix
 
-Fix the `org_phone` source in the deposit path and any sibling found in Phase 1, in their own isolated steps.
+Remove `key={location.pathname}` from the outer `ErrorBoundary` in `src/App.tsx` only. Nothing else changes.
 
-## Phase 4 — Admin page
+- The layouts already provide per-route error reset via their own keyed boundaries wrapping `<Outlet />`.
+- The standalone routes (`/auth`, `/reset-password`, redirects) keep boundary protection; they lose only automatic reset-on-navigate, and each of those screens is a full navigation away from any crash anyway.
+- If reset for standalone routes is wanted, it can be added later as its own narrow keyed boundary around just those routes, rather than the whole tree.
 
-Rebuild the Admin WhatsApp Templates surface to render the catalogue dynamically (no hard-coded cards), grouped by category, showing per template: friendly name, catalogue key, delivery channel, exact body with the selected tenant's resolved values, variable list with its resolution source, sending function, `message_log` type, config dependencies with ready/degrade/skip status, and the tenant's 360Messenger sender number.
+Change scope: one line in `src/App.tsx`, plus dropping the now-unused `location` reference if nothing else in `AppContent` uses it.
 
-Tenant isolation: all reads filtered by the selected `organisation_id`, superadmin-gated, with no fallback to another tenant. The legacy `user_id`-keyed `whatsapp_templates` CRUD page is retired from navigation (table left untouched).
+## Verification after the fix
 
-## Phase 5 — Tests + final report
-
-- Body-equality tests per template (pre/post refactor identical output)
-- Variable-resolution tests, including `org_phone` from the correct tenant source
-- Tenant-isolation tests: tenant A's config never appears for tenant B; missing config skips rather than falling back
-- Catalogue/send-path coverage test: every send function has a catalogue entry and vice versa
-- Final audit report with the Template / Key / Channel / Send location / Status table
-
-## Risk and gating
-
-This touches quotes, deposits, invoices and receipts — money path. Nothing is deployed without the equality tests passing, each phase is its own review-gated step, and verification runs against two tenants (K&N + Dublin Gas or Cavan). No DB writes are part of this work.
-
-Note: Dublin Gas WhatsApp sends are currently failing with 403 from 360Messenger (open issue), so live DG send verification may be blocked; that will be reported honestly rather than rounded up.
+- Navigate between office pages and confirm the sidebar/bell no longer flash and no repeated realtime subscribe logs appear.
+- Confirm a crashing route still shows the fallback and still clears when navigating away (nested boundary path).
+- No changes to payments, messaging, or any protected file.
