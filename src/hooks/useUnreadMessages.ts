@@ -18,9 +18,13 @@ export function useUnreadMessages(
 ) {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  // Depend on user?.id rather than the full user object so token-refresh
+  // events don't tear down and rebuild the subscription (same guard as
+  // useNotifications).
+  const userId = user?.id;
 
   const refresh = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     let query = supabase
       .from("job_messages")
       .select("*", { count: "exact", head: true })
@@ -29,14 +33,14 @@ export function useUnreadMessages(
     if (jobId) query = query.eq("job_id", jobId);
     const { count } = await query;
     setUnreadCount(count || 0);
-  }, [user, perspective, jobId]);
+  }, [userId, perspective, jobId]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     const channel = supabase
       .channel(`unread-messages-${perspective}-${jobId ?? "all"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_messages" }, () => {
@@ -46,7 +50,7 @@ export function useUnreadMessages(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, perspective, jobId, refresh]);
+  }, [userId, perspective, jobId, refresh]);
 
   return unreadCount;
 }

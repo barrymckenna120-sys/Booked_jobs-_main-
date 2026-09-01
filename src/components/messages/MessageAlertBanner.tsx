@@ -26,8 +26,13 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<MessageAlert[]>([]);
 
+  // Depend on user?.id rather than the full user object so token-refresh
+  // events don't tear down and rebuild the subscription (same guard as
+  // useNotifications).
+  const userId = user?.id;
+
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const channel = supabase
       .channel("message-alerts")
@@ -37,7 +42,7 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `recipient_user_id=eq.${user.id}`,
+          filter: `recipient_user_id=eq.${userId}`,
         },
         (payload) => {
           const n = payload.new as any;
@@ -64,7 +69,8 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [userId]);
+
 
   const handleView = useCallback((e: React.MouseEvent | React.TouchEvent, alert: MessageAlert) => {
     e.stopPropagation();

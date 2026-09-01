@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { withRequestTimeout } from "@/lib/queryDefaults";
 
 export type AppRole = "admin" | "office" | "engineer";
 
@@ -20,10 +21,14 @@ export const useUserRole = (user: User | null) => {
   const [canAccessOffice, setCanAccessOffice] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
+  // Depend on user?.id rather than the full user object so token-refresh
+  // events don't re-run role resolution (same guard as useNotifications).
+  const userId = user?.id;
+
   useEffect(() => {
     let cancelled = false;
 
-    if (!user) {
+    if (!userId) {
       setRole("admin");
       setEngineerId(null);
       setEngineerName(null);
@@ -34,57 +39,67 @@ export const useUserRole = (user: User | null) => {
 
     setLoading(true);
 
+    // Fail-safe used when the lookup errors or hangs past the request
+    // timeout: match the documented "no engineer row" fallback so
+    // `loading` can never stay true indefinitely and the office gate
+    // resolves to the least-privileged role.
+    const applyEngineerFallback = () => {
+      setRole("engineer");
+      setEngineerId(null);
+      setEngineerName(null);
+      setCanAccessOffice(false);
+    };
+
     (async () => {
-      // 1) Check profiles first for superadmin short-circuit
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        // 1) Check profiles first for superadmin short-circuit
+        const { data: profile } = await withRequestTimeout(
+          supabase.from("profiles").select("role").eq("user_id", userId).maybeSingle()
+        );
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if ((profile as any)?.role === "superadmin") {
-        setRole("admin");
-        setEngineerId(null);
-        setEngineerName(null);
-        setCanAccessOffice(true);
-        setLoading(false);
-        return;
+        if ((profile as any)?.role === "superadmin") {
+          setRole("admin");
+          setEngineerId(null);
+          setEngineerName(null);
+          setCanAccessOffice(true);
+          return;
+        }
+
+        // 2) Fall through to existing engineers lookup
+        const { data } = await withRequestTimeout(
+          supabase.from("engineers").select("*").eq("auth_user_id", userId).maybeSingle()
+        );
+
+        console.log("useUserRole data:", data);
+        if (cancelled) return;
+        const engineerRow: any = data;
+        if (engineerRow) {
+          const rawRole = (engineerRow.role as string) || "engineer";
+          setRole(rawRole as AppRole);
+          setEngineerId(engineerRow.id);
+          setEngineerName(engineerRow.name);
+          // Owner/manager/admin/office roles always get office access,
+          // regardless of the can_access_office flag on the engineer row.
+          const elevated = ["owner", "manager", "admin", "office"].includes(rawRole);
+          setCanAccessOffice(elevated || !!engineerRow?.can_access_office);
+        } else {
+          applyEngineerFallback();
+        }
+      } catch (err) {
+        console.warn("[useUserRole] role lookup failed or timed out:", err);
+        if (cancelled) return;
+        applyEngineerFallback();
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      // 2) Fall through to existing engineers lookup
-      const { data } = await supabase
-        .from("engineers")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-
-      console.log("useUserRole data:", data);
-      if (cancelled) return;
-      const engineerRow: any = data;
-      if (engineerRow) {
-        const rawRole = (engineerRow.role as string) || "engineer";
-        setRole(rawRole as AppRole);
-        setEngineerId(engineerRow.id);
-        setEngineerName(engineerRow.name);
-        // Owner/manager/admin/office roles always get office access,
-        // regardless of the can_access_office flag on the engineer row.
-        const elevated = ["owner", "manager", "admin", "office"].includes(rawRole);
-        setCanAccessOffice(elevated || !!engineerRow?.can_access_office);
-      } else {
-        setRole("engineer");
-        setEngineerId(null);
-        setEngineerName(null);
-        setCanAccessOffice(false);
-      }
-      setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   const isEngineer = role === "engineer";
   const isAdmin = role === "admin";
@@ -92,3 +107,4 @@ export const useUserRole = (user: User | null) => {
 
   return { role, isEngineer, isAdmin, isOffice, engineerId, engineerName, canAccessOffice, loading };
 };
+
