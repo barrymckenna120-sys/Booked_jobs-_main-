@@ -99,6 +99,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceSuccess, setInvoiceSuccess] = useState<{ customerName: string } | null>(null);
   const profileIdRef = useRef<string | null>(null);
+  // BJ-0090 — Lead vs Assist gating for this job's action bar.
+  const { isLeadEngineer, leadName } = useJobLeadRole(job);
 
 
   useEffect(() => {
