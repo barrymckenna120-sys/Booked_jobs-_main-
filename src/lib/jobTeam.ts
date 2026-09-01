@@ -39,6 +39,12 @@ export const buildJobTeamLines = (
   const lines: JobTeamLine[] = [];
   const lead = leadName?.trim();
   if (lead) lines.push({ key: "lead", name: lead, role: "Lead" });
-  (assists || []).forEach((a) => lines.push({ key: a.id, name: a.name, role: "Assistant" }));
+  const seen = new Set<string>(lead ? [lead.toLowerCase()] : []);
+  (assists || []).forEach((a) => {
+    const key = a.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return; // never render the same person twice
+    seen.add(key);
+    lines.push({ key: a.id, name: a.name, role: "Assistant" });
+  });
   return lines;
 };
