@@ -453,6 +453,137 @@ export type Database = {
           },
         ]
       }
+      communication_deliveries: {
+        Row: {
+          attempt_count: number
+          channel: string
+          comm_type: string
+          created_at: string
+          customer_id: string | null
+          delivered_at: string | null
+          delivery_status: string
+          failure_reason_public: string | null
+          first_attempt_at: string | null
+          id: string
+          in_flight: boolean
+          in_flight_at: string | null
+          last_attempt_at: string | null
+          organisation_id: string
+          recipient: string | null
+          related_id: string | null
+          related_reference: string | null
+          related_type: string | null
+          resolved_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          channel: string
+          comm_type: string
+          created_at?: string
+          customer_id?: string | null
+          delivered_at?: string | null
+          delivery_status?: string
+          failure_reason_public?: string | null
+          first_attempt_at?: string | null
+          id?: string
+          in_flight?: boolean
+          in_flight_at?: string | null
+          last_attempt_at?: string | null
+          organisation_id: string
+          recipient?: string | null
+          related_id?: string | null
+          related_reference?: string | null
+          related_type?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          channel?: string
+          comm_type?: string
+          created_at?: string
+          customer_id?: string | null
+          delivered_at?: string | null
+          delivery_status?: string
+          failure_reason_public?: string | null
+          first_attempt_at?: string | null
+          id?: string
+          in_flight?: boolean
+          in_flight_at?: string | null
+          last_attempt_at?: string | null
+          organisation_id?: string
+          recipient?: string | null
+          related_id?: string | null
+          related_reference?: string | null
+          related_type?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      communication_delivery_attempts: {
+        Row: {
+          alert_sent_at: string | null
+          attempt_number: number
+          attempted_at: string
+          completed_at: string | null
+          created_at: string
+          delivery_id: string
+          failure_reason_public: string | null
+          id: string
+          organisation_id: string
+          outcome: string
+          provider_error: string | null
+          provider_message_id: string | null
+          recipient: string | null
+          trigger_source: string
+          triggered_by: string | null
+        }
+        Insert: {
+          alert_sent_at?: string | null
+          attempt_number: number
+          attempted_at?: string
+          completed_at?: string | null
+          created_at?: string
+          delivery_id: string
+          failure_reason_public?: string | null
+          id?: string
+          organisation_id: string
+          outcome?: string
+          provider_error?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          alert_sent_at?: string | null
+          attempt_number?: number
+          attempted_at?: string
+          completed_at?: string | null
+          created_at?: string
+          delivery_id?: string
+          failure_reason_public?: string | null
+          id?: string
+          organisation_id?: string
+          outcome?: string
+          provider_error?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_delivery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "communication_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           after_hours: boolean | null
@@ -3027,6 +3158,13 @@ export type Database = {
           default_service_price: number | null
           default_terms: string | null
           default_vat_enabled: boolean | null
+          delivery_alerts_invoices: boolean
+          delivery_alerts_quotes: boolean
+          delivery_alerts_receipts: boolean
+          delivery_alerts_service_reminders: boolean
+          delivery_failure_alert_email: string | null
+          delivery_failure_alert_mode: string
+          delivery_failure_alerts_enabled: boolean
           deposit_percentage: number | null
           google_review_url: string | null
           id: string
@@ -3082,6 +3220,13 @@ export type Database = {
           default_service_price?: number | null
           default_terms?: string | null
           default_vat_enabled?: boolean | null
+          delivery_alerts_invoices?: boolean
+          delivery_alerts_quotes?: boolean
+          delivery_alerts_receipts?: boolean
+          delivery_alerts_service_reminders?: boolean
+          delivery_failure_alert_email?: string | null
+          delivery_failure_alert_mode?: string
+          delivery_failure_alerts_enabled?: boolean
           deposit_percentage?: number | null
           google_review_url?: string | null
           id?: string
@@ -3137,6 +3282,13 @@ export type Database = {
           default_service_price?: number | null
           default_terms?: string | null
           default_vat_enabled?: boolean | null
+          delivery_alerts_invoices?: boolean
+          delivery_alerts_quotes?: boolean
+          delivery_alerts_receipts?: boolean
+          delivery_alerts_service_reminders?: boolean
+          delivery_failure_alert_email?: string | null
+          delivery_failure_alert_mode?: string
+          delivery_failure_alerts_enabled?: boolean
           deposit_percentage?: number | null
           google_review_url?: string | null
           id?: string
@@ -3581,6 +3733,18 @@ export type Database = {
         }[]
       }
       get_cert_pdf: { Args: { p_cert_number: string }; Returns: Json }
+      get_delivery_attempts: {
+        Args: { p_delivery_id: string }
+        Returns: {
+          attempt_number: number
+          attempted_at: string
+          completed_at: string
+          failure_reason_public: string
+          id: string
+          outcome: string
+          trigger_source: string
+        }[]
+      }
       get_engineer_id: { Args: { _user_id: string }; Returns: string }
       get_my_org_id: { Args: never; Returns: string }
       get_org_profile_directory: {
