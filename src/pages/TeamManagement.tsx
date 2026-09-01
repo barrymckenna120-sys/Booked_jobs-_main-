@@ -387,6 +387,12 @@ const TeamManagement = () => {
     // engineers.status writes are restricted by RLS, so this uses the edge
     // function to perform the service-role update safely.
     if (member?.auth_user_id || emailLc) {
+      // Refresh/validate the session first so an expired token can't 401.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({ title: "Session expired", description: "Please sign in again.", variant: "destructive" });
+        return;
+      }
       const { error } = await supabase.functions.invoke("unblock-user", {
         body: {
           userId: member?.auth_user_id ?? undefined,
