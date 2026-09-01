@@ -133,8 +133,22 @@ serve(async (req) => {
           }),
         });
       } catch { /* non-critical */ }
+
+      // Intentional suppression is a distinct state, never a failure.
+      if (!skipTracking && (reason === "opted_out" || reason === "customer_opted_out")) {
+        await markOptedOut(trackingClient, {
+          organisationId: orgId,
+          customerId: job.customer_id,
+          commType: "booking_confirmation",
+          channel: "whatsapp",
+          relatedType: "service_call",
+          relatedId: service_call_id,
+          relatedReference: job.job_reference ?? null,
+        });
+      }
       return skip(reason, message);
     }
+
 
 
     // Fetch settings (message_footer / business_name) by organisation_id
