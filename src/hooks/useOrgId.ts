@@ -22,18 +22,14 @@ export function useOrgId() {
           if (!cancelled) setReady(true);
           return;
         }
-        const profileFetch = supabase
-          .from("profiles")
-          .select("organisation_id, role")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
+        const profileFetch = fetchProfile(session.user.id);
 
         const timeout = new Promise<null>((resolve) =>
           setTimeout(() => resolve(null), 8000)
         );
 
-        const result = await Promise.race([profileFetch, timeout]);
-        if (result === null) {
+        const profile = await Promise.race([profileFetch, timeout]);
+        if (profile === null) {
           console.warn("useOrgId: profile fetch timed out after 8s");
           if (!cancelled) {
             setOrgId(null);
@@ -41,7 +37,7 @@ export function useOrgId() {
           }
           return;
         }
-        const { data: profile } = result;
+
         if (!cancelled) {
           setOrgId(resolveEffectiveOrgId({
             profileOrgId: (profile as any)?.organisation_id ?? null,
