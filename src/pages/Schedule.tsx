@@ -120,6 +120,7 @@ export type ScheduleJob = {
   confirmed_at?: string | null;
   source?: string | null;
   customer_status_at_booking?: string | null;
+  possible_duplicate?: boolean | null;
 };
 
 const Schedule = () => {
