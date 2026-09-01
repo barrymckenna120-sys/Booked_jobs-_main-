@@ -52,7 +52,8 @@ export const normaliseNameAddressKey = (
   const n = normaliseTextKey(name);
   const a = normaliseTextKey(address);
   if (!n || !a) return "";
-  const e = normaliseTextKey(eircode);
+  // Eircodes are compared with all separators removed: "D01 X123" === "D01X123".
+  const e = normaliseTextKey(eircode).replace(/\s+/g, "");
   return e ? `${n}|${a}|${e}` : `${n}|${a}`;
 };
 

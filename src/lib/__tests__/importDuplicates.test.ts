@@ -29,7 +29,7 @@ describe("key normalisation", () => {
 
   it("folds eircode into the name+address key", () => {
     expect(normaliseNameAddressKey("Ann  Ward", "1 Main St.", "D01 X123")).toBe(
-      "ann ward|1 main st|d01 x123"
+      "ann ward|1 main st|d01x123"
     );
     expect(normaliseNameAddressKey("Ann Ward", "1 Main St", "D01X123")).not.toBe(
       normaliseNameAddressKey("Ann Ward", "1 Main St", "D02X123")
