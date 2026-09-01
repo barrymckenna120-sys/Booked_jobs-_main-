@@ -212,10 +212,22 @@ export const useEngineerJobs = () => {
       if (upcomingRes.error) console.error("[DEBUG] Upcoming query error:", upcomingRes.error);
       if (completedRes.error) console.error("[DEBUG] Completed query error:", completedRes.error);
 
-      const allJobs = [...(todayRes.data || []), ...(upcomingRes.data || []), ...(completedRes.data || [])];
-      setTodayJobs(todayRes.data || []);
-      setUpcomingJobs(upcomingRes.data || []);
-      setCompletedJobs(completedRes.data || []);
+      const dedupeById = (rows: any[]) => {
+        const seen = new Set<string>();
+        return (rows || []).filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+      };
+
+      const todayList = dedupeById(todayRes.data || []);
+      const upcomingList = dedupeById(upcomingRes.data || []).slice(0, 20);
+      const completedList = dedupeById(completedRes.data || [])
+        .sort((a: any, b: any) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
+        .slice(0, 30);
+
+      const allJobs = [...todayList, ...upcomingList, ...completedList];
+      setTodayJobs(todayList);
+      setUpcomingJobs(upcomingList);
+      setCompletedJobs(completedList);
+
 
       // Update cache with fresh data
       try {
