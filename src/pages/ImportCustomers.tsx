@@ -616,77 +616,126 @@ const ImportCustomers = () => {
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
+      const advance = () =>
+        setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
       try {
         const cleaned = cleanData(row.data);
 
-        // No single-row coercion: a shared phone legitimately returns several rows,
-        // and that case must never fall through to an insert.
-        const { data: existingRows, error: lookupError } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("phone", cleaned.phone)
-          .eq("organisation_id", orgId);
+        // The reviewed match set the operator saw in the preview. Committing follows
+        // that review, so what gets written is exactly what was confirmed.
+        const reviewed = existingCandidates
+          ? matchExistingCustomers(row.data, existingCandidates)
+          : [];
 
-        if (lookupError) throw lookupError;
-
-        const matchCount = existingRows?.length || 0;
-
-        if (matchCount > 1) {
+        if (reviewed.length > 1) {
           skipped++;
-          const reason = `Phone matches ${matchCount} existing customers — resolve the duplicates first`;
-          failedRows.push({
-            name: row.data.name || `Row ${row.rowNum}`,
-            reason,
-          });
+          const reason = `Matches ${reviewed.length} existing customers — resolve the duplicates first`;
+          failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
           rowDetails.push({
             row_number: row.rowNum,
             outcome: "skipped_ambiguous",
             customer_id: null,
             error_message: reason,
           });
-          setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+          advance();
           continue;
         }
 
-        if (matchCount === 1) {
+        if (reviewed.length === 1) {
+          const targetId = reviewed[0].customer.id;
+          const decision = decisions[row.rowNum] ?? "skip";
+
+          if (decision === "skip") {
+            skippedExisting++;
+            rowDetails.push({
+              row_number: row.rowNum,
+              outcome: "skipped_existing",
+              customer_id: targetId,
+              error_message: "Existing customer kept unchanged (Skip)",
+            });
+            advance();
+            continue;
+          }
+
+          const mergePayload = buildMergePayload(cleaned, existingById.get(targetId) || {});
+          if (Object.keys(mergePayload).length === 0) {
+            skippedExisting++;
+            rowDetails.push({
+              row_number: row.rowNum,
+              outcome: "skipped_existing",
+              customer_id: targetId,
+              error_message: "Nothing new to merge — existing record already complete",
+            });
+            advance();
+            continue;
+          }
+
           const { error } = await supabase
             .from("customers")
-            .update(cleaned)
-            .eq("id", existingRows![0].id);
+            .update(mergePayload)
+            .eq("id", targetId)
+            .eq("organisation_id", orgId!);
           if (error) throw error;
           updated++;
           rowDetails.push({
             row_number: row.rowNum,
-            outcome: "updated",
-            customer_id: existingRows![0].id,
-            error_message: null,
+            outcome: "merged",
+            customer_id: targetId,
+            error_message: `Merged fields: ${Object.keys(mergePayload).join(", ")}`,
           });
-        } else {
-          const nextServiceDue = new Date();
-          nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
-          const { data: insertedRows, error } = await supabase
-            .from("customers")
-            .insert([{
-              ...cleaned,
-              user_id: user.id,
-              organisation_id: orgId!,
-              boiler_type: cleaned.boiler_type || "Gas",
-              owner_or_tenant: cleaned.owner_or_tenant || "Owner",
-              warranty_years: cleaned.warranty_years ?? 10,
-              next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
-              renewal_stage: cleaned.renewal_stage || "none",
-              service_status: cleaned.service_status || "active",
-            } as any])
-            .select("id");
-          if (error) throw error;
-          imported++;
+          advance();
+          continue;
+        }
+
+        // No reviewed match — re-check by phone immediately before inserting so a
+        // customer created since the preview can't be duplicated by this run.
+        const { data: existingRows, error: lookupError } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("phone", cleaned.phone)
+          .eq("organisation_id", orgId);
+        if (lookupError) throw lookupError;
+
+        if ((existingRows?.length || 0) > 0) {
+          skippedExisting++;
+          const reason =
+            "A customer with this phone was created after the preview — review and re-import";
+          failedRows.push({ name: row.data.name || `Row ${row.rowNum}`, reason });
           rowDetails.push({
             row_number: row.rowNum,
-            outcome: "created",
-            customer_id: insertedRows?.[0]?.id ?? null,
-            error_message: null,
+            outcome: "skipped_existing",
+            customer_id: existingRows![0].id,
+            error_message: reason,
           });
+          advance();
+          continue;
         }
+
+        const nextServiceDue = new Date();
+        nextServiceDue.setFullYear(nextServiceDue.getFullYear() + 1);
+        const { data: insertedRows, error } = await supabase
+          .from("customers")
+          .insert([{
+            ...cleaned,
+            user_id: user.id,
+            organisation_id: orgId!,
+            boiler_type: cleaned.boiler_type || "Gas",
+            owner_or_tenant: cleaned.owner_or_tenant || "Owner",
+            warranty_years: cleaned.warranty_years ?? 10,
+            next_service_due: cleaned.next_service_due || nextServiceDue.toISOString().split("T")[0],
+            renewal_stage: cleaned.renewal_stage || "none",
+            service_status: cleaned.service_status || "active",
+          } as any])
+          .select("id");
+        if (error) throw error;
+        imported++;
+        rowDetails.push({
+          row_number: row.rowNum,
+          outcome: "created",
+          customer_id: insertedRows?.[0]?.id ?? null,
+          error_message: null,
+        });
+
       } catch (err: any) {
         skipped++;
         const reason = err.message || "Unknown error";
