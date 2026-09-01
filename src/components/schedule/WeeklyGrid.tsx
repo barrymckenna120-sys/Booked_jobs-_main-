@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format, isToday } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 import type { ScheduleJob } from "@/pages/Schedule";
 import { Badge } from "@/components/ui/badge";
 import { Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
 import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
