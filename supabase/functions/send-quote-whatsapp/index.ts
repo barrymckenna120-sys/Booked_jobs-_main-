@@ -539,24 +539,37 @@ YES ${refNumber}`;
       };
     }
 
-    await completeDelivery(
-      trackingClient,
-      {
-        handle: deliveryHandle,
-        channel: "whatsapp",
-        ok: !!result.success,
-        providerError: result.success
-          ? null
-          : `[${response.status}] ${resultText.substring(0, 500)}`,
-        recipient: cleanNumber,
-      }
-    );
+    // 360Messenger returns 201 + success:true when it ACCEPTS the request. That
+    // is queue acceptance, not delivery — recorded as `accepted`, and only a
+    // real provider callback may promote it to `delivered`.
+    const providerMessageId: string | null =
+      result?.data?.id ?? null;
 
-    // Update message_log status
+    const accepted = !!result?.success;
+
+    if (!skipTracking) {
+      await completeDelivery(
+        trackingClient,
+        {
+          handle: deliveryHandle,
+          channel: "whatsapp",
+          ok: accepted,
+          providerError: accepted
+            ? null
+            : `[${response.status}] ${resultText.substring(0, 500)}`,
+          providerMessageId,
+          providerStatus: accepted ? "accepted" : null,
+          recipient: cleanNumber,
+        }
+      );
+    }
+
+    // Update message_log status. `accepted` — the provider took the request; it
+    // is not a delivery confirmation.
     if (logId) {
       const updateBody =
-        result.success
-          ? { status: "sent" }
+        accepted
+          ? { status: "accepted" }
           : {
               status: "failed",
               error_message: `360Messenger HTTP ${response.status}: ${resultText.substring(
