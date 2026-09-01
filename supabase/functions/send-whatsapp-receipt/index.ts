@@ -195,7 +195,20 @@ Deno.serve(async (req) => {
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
+    // Delivery tracking (office badge + failure alert + resend history).
+    const deliveryHandle = await beginDelivery(supabase, {
+      organisationId: job.organisation_id,
+      customerId: job.customer_id,
+      commType: "receipt",
+      channel: "whatsapp",
+      relatedType: "service_call",
+      relatedId: job_id,
+      relatedReference: job.job_reference ?? null,
+      recipient: cleanNumber,
+    });
+
     let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
+
     try {
       const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
         method: "POST",
