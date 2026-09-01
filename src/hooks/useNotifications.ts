@@ -222,7 +222,7 @@ export function useNotifications(
       console.log(
         "[useNotifications] fetch",
         {
-          userId: user.id,
+          userId,
           rows: rows.length,
           unread: rows.filter(
             (n) => !n.is_read
@@ -233,9 +233,10 @@ export function useNotifications(
       // Catch-up alert: rows that landed while realtime was asleep
       // (backgrounded PWA) would otherwise update the bell silently.
       const key = alertMarkerKey(
-        user.id,
+        userId,
         surface
       );
+
 
       let marker: string | null = null;
       try {
@@ -297,7 +298,7 @@ export function useNotifications(
 
       setLoading(false);
     },
-    [user, applyRoleScope, surface]
+    [userId, applyRoleScope, surface]
   );
 
   const fetchNotificationsRef = useRef(
@@ -309,26 +310,17 @@ export function useNotifications(
       fetchNotifications;
   }, [fetchNotifications]);
 
-  // TEMP INSTRUMENTATION — remove before commit
-  const __prevDeps = useRef<any>({});
   useEffect(() => {
-    if (!user) return;
-
-    console.log("[TEMP notif-effect] changed:", {
-      user: __prevDeps.current.user !== user,
-      fetchNotifications: __prevDeps.current.fetchNotifications !== fetchNotifications,
-      refreshUnreadCount: __prevDeps.current.refreshUnreadCount !== refreshUnreadCount,
-      firstRun: __prevDeps.current.user === undefined,
-    });
-    __prevDeps.current = { user, fetchNotifications, refreshUnreadCount };
+    if (!userId) return;
 
     fetchNotifications();
     refreshUnreadCount();
   }, [
-    user,
+    userId,
     fetchNotifications,
     refreshUnreadCount,
   ]);
+
 
 
   // Re-check on foreground: iOS suspends the realtime socket when the PWA is
