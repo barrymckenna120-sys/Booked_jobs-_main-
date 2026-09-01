@@ -125,6 +125,12 @@ export function useNotifications(
   );
 
   const { user } = useAuth();
+  // Depend on user?.id rather than the full user object: every mount of
+  // another useAuth() consumer re-emits an auth event, which hands this hook
+  // a fresh (but identical) user object and would otherwise re-fetch on every
+  // navigation and on every hourly TOKEN_REFRESHED.
+  const userId = user?.id;
+
 
   const [notifications, setNotifications] =
     useState<AppNotification[]>([]);
@@ -160,7 +166,7 @@ export function useNotifications(
 
   const refreshUnreadCount = useCallback(
     async () => {
-      if (!user) return;
+      if (!userId) return;
 
       const q = applyRoleScope(
         supabase
@@ -169,7 +175,7 @@ export function useNotifications(
             count: "exact",
             head: true,
           })
-          .eq("recipient_user_id", user.id)
+          .eq("recipient_user_id", userId)
           .eq("is_read", false)
       );
 
@@ -177,8 +183,9 @@ export function useNotifications(
 
       setUnreadCount(count || 0);
     },
-    [user, applyRoleScope]
+    [userId, applyRoleScope]
   );
+
 
   const refreshUnreadCountRef =
     useRef(refreshUnreadCount);
