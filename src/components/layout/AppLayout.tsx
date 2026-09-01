@@ -7,7 +7,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, Hammer,
+  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -64,7 +64,7 @@ const MOBILE_NAV = [
 ];
 
 const AppLayoutInner = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { isSuperAdmin } = useAdminViewAs();
   const { role, isEngineer, canAccessOffice, loading: roleLoading } = useUserRole(user);
   // Show "Switch to Engineer View" for office/admin users (owners/managers)
@@ -135,8 +135,19 @@ const AppLayoutInner = () => {
 
 
 
-  if (!roleLoading && isEngineer && !canAccessOffice) {
-    return <Navigate to="/engineer/today" />;
+  // Block the whole office shell (and the child <Outlet />) until the
+  // permission check resolves, so restricted pages never paint before the
+  // engineer redirect fires. Single shared gate for every office route.
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isEngineer && !canAccessOffice) {
+    return <Navigate to="/engineer/today" replace />;
   }
 
   const isActive = (path: string) =>
