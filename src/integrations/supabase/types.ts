@@ -1553,6 +1553,52 @@ export type Database = {
           },
         ]
       }
+      job_engineers: {
+        Row: {
+          created_at: string
+          engineer_id: string
+          id: string
+          job_id: string
+          organisation_id: string
+        }
+        Insert: {
+          created_at?: string
+          engineer_id: string
+          id?: string
+          job_id: string
+          organisation_id: string
+        }
+        Update: {
+          created_at?: string
+          engineer_id?: string
+          id?: string
+          job_id?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_engineers_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_engineers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "job_engineers_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_media: {
         Row: {
           customer_id: string | null
