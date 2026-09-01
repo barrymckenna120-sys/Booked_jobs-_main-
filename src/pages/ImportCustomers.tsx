@@ -755,94 +755,231 @@ const ImportCustomers = () => {
     return notes;
   }, [parsedRows]);
 
-  // Unique normalised phones across all parsed rows — the lookup key set.
-  const phoneKeys = useMemo(() => {
-    const s = new Set<string>();
+  /**
+   * Lookup keys for the existing-customer query. Phones and GPRNs are matched
+   * directly; eircodes widen the net so name + address matches can be found
+   * without pulling the whole customer table.
+   */
+  const lookupKeys = useMemo(() => {
+    const phones = new Set<string>();
+    const gprns = new Set<string>();
+    const eircodes = new Set<string>();
     for (const r of parsedRows) {
       const phone = String(r.data.phone || "").trim();
-      if (phone) s.add(phone);
+      if (phone) phones.add(phone);
+      const gprn = String(r.data.gprn || "").trim();
+      if (gprn) gprns.add(gprn);
+      const eircode = String(r.data.eircode || "").trim();
+      if (eircode) eircodes.add(eircode);
     }
-    return Array.from(s).sort();
+    return {
+      phones: Array.from(phones).sort(),
+      gprns: Array.from(gprns).sort(),
+      eircodes: Array.from(eircodes).sort(),
+    };
   }, [parsedRows]);
 
-  // Stable primitive so the lookup effect only re-runs when the phone set changes.
-  const phoneKeysSignature = phoneKeys.join("|");
+  // Stable primitive so the lookup effect only re-runs when the key set changes.
+  const lookupSignature = [
+    lookupKeys.phones.join("|"),
+    lookupKeys.gprns.join("|"),
+    lookupKeys.eircodes.join("|"),
+  ].join("::");
 
-  /** One batched existing-customer lookup per file, scoped to this organisation. */
+  /**
+   * Batched existing-customer lookup, always filtered by organisation_id so
+   * duplicate matching can never cross a tenant boundary.
+   */
   useEffect(() => {
-    if (!orgId || phoneKeys.length === 0) {
-      setExistingByPhone(null);
+    const anyKeys =
+      lookupKeys.phones.length + lookupKeys.gprns.length + lookupKeys.eircodes.length;
+    if (!orgId || anyKeys === 0) {
+      setExistingCandidates(null);
+      setExistingById(new Map());
       return;
     }
     let cancelled = false;
     (async () => {
-      const found = new Map<string, ExistingMatch[]>();
+      const byId = new Map<string, Record<string, any>>();
       const CHUNK = 200;
-      for (let i = 0; i < phoneKeys.length; i += CHUNK) {
-        const chunk = phoneKeys.slice(i, i + CHUNK);
-        const { data, error } = await supabase
-          .from("customers")
-          .select("id, name, address, phone")
-          .eq("organisation_id", orgId)
-          .in("phone", chunk);
-        if (cancelled) return;
-        if (error) {
-          setExistingByPhone(null);
-          return;
+      const fetchBy = async (column: "phone" | "gprn" | "eircode", values: string[]) => {
+        for (let i = 0; i < values.length; i += CHUNK) {
+          const chunk = values.slice(i, i + CHUNK);
+          const { data, error } = await supabase
+            .from("customers")
+            .select("*")
+            .eq("organisation_id", orgId)
+            .in(column, chunk);
+          if (cancelled) return false;
+          if (error) return false;
+          for (const row of data || []) byId.set(row.id, row as Record<string, any>);
         }
-        for (const row of data || []) {
-          if (!row.phone) continue;
-          const key = String(row.phone).trim();
-          const match: ExistingMatch = { id: row.id, name: row.name, address: row.address };
-          const list = found.get(key);
-          if (list) list.push(match);
-          else found.set(key, [match]);
-        }
+        return true;
+      };
+
+      const ok =
+        (await fetchBy("phone", lookupKeys.phones)) &&
+        (await fetchBy("gprn", lookupKeys.gprns)) &&
+        (await fetchBy("eircode", lookupKeys.eircodes));
+      if (cancelled) return;
+      if (!ok) {
+        setExistingCandidates(null);
+        setExistingById(new Map());
+        return;
       }
-      if (!cancelled) setExistingByPhone(found);
+      setExistingById(byId);
+      setExistingCandidates(
+        Array.from(byId.values()).map((c) => ({
+          id: c.id,
+          name: c.name ?? null,
+          address: c.address ?? null,
+          eircode: c.eircode ?? null,
+          phone: c.phone ?? null,
+          gprn: c.gprn ?? null,
+        }))
+      );
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, phoneKeysSignature]);
+  }, [orgId, lookupSignature]);
 
-  /** Existing customers sharing a row's phone, or null while the lookup is unresolved. */
+  /** Existing customers matching a row, or null while the lookup is unresolved. */
   const matchesForRow = useCallback(
-    (row: ParsedRow): ExistingMatch[] | null => {
-      if (!existingByPhone) return null;
-      const phone = String(row.data.phone || "").trim();
-      if (!phone) return null;
-      return existingByPhone.get(phone) || [];
+    (row: ParsedRow): ExistingMatchResult[] | null => {
+      if (!existingCandidates) return null;
+      return matchExistingCustomers(row.data, existingCandidates);
     },
-    [existingByPhone]
+    [existingCandidates]
   );
 
   /**
-   * Per-row outcome. "ambiguous" means the phone matches several existing customers,
-   * so there is no safe row to update — the operator has to resolve the duplicates first.
+   * Per-row outcome. "ambiguous" means the row matches several existing customers,
+   * so there is no safe record to update — the operator has to resolve those first.
    */
   const rowOutcome = useCallback(
-    (row: ParsedRow): "new" | "update" | "ambiguous" | "unknown" => {
+    (row: ParsedRow): "new" | "existing" | "ambiguous" | "unknown" => {
       const matches = matchesForRow(row);
       if (!matches) return "unknown";
       if (matches.length === 0) return "new";
-      return matches.length === 1 ? "update" : "ambiguous";
+      return matches.length === 1 ? "existing" : "ambiguous";
     },
     [matchesForRow]
   );
 
-  /** Row numbers blocked because their phone matches more than one existing customer. */
+  /** Row numbers blocked because they match more than one existing customer. */
   const ambiguousRowNums = useMemo(() => {
     const s = new Set<number>();
-    if (!existingByPhone) return s;
+    if (!existingCandidates) return s;
     for (const r of parsedRows) {
-      const phone = String(r.data.phone || "").trim();
-      if (!phone) continue;
-      if ((existingByPhone.get(phone) || []).length > 1) s.add(r.rowNum);
+      if (matchExistingCustomers(r.data, existingCandidates).length > 1) s.add(r.rowNum);
     }
     return s;
-  }, [parsedRows, existingByPhone]);
+  }, [parsedRows, existingCandidates]);
+
+  /** Duplicate clusters inside the uploaded file (GPRN / phone / name+address). */
+  const dupGroups = useMemo(
+    () => findInFileDuplicateGroups(parsedRows.map((r) => ({ rowNum: r.rowNum, data: r.data }))),
+    [parsedRows]
+  );
+
+  const rowsByNum = useMemo(() => {
+    const m = new Map<number, Record<string, any>>();
+    for (const r of parsedRows) m.set(r.rowNum, r.data);
+    return m;
+  }, [parsedRows]);
+
+  // Pre-select the less complete row in each duplicate group until the operator
+  // overrides the suggestion.
+  useEffect(() => {
+    if (excludeDirty) return;
+    const next = new Set<number>();
+    for (const g of dupGroups) for (const n of g.suggestedExcludeRowNums) next.add(n);
+    setExcludedRowNums(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dupGroups, excludeDirty]);
+
+  // A fresh file / remap clears review decisions so nothing stale can be committed.
+  useEffect(() => {
+    setExcludeDirty(false);
+    setDecisions({});
+    setConfirmOpen(false);
+  }, [dataRows, effectiveColMap]);
+
+  /** Rows matching exactly one existing customer, excluding rows dropped as duplicates. */
+  const existingMatchRows = useMemo<ExistingMatchRow[]>(() => {
+    if (!existingCandidates) return [];
+    const out: ExistingMatchRow[] = [];
+    for (const r of parsedRows) {
+      if (excludedRowNums.has(r.rowNum)) continue;
+      const matches = matchExistingCustomers(r.data, existingCandidates);
+      if (matches.length !== 1) continue;
+      out.push({
+        rowNum: r.rowNum,
+        data: r.data,
+        reason: matches[0].reason,
+        customer: matches[0].customer,
+        history: historyCounts.get(matches[0].customer.id) ?? null,
+      });
+    }
+    return out;
+  }, [parsedRows, existingCandidates, excludedRowNums, historyCounts]);
+
+  const matchedCustomerIds = useMemo(
+    () => Array.from(new Set(existingMatchRows.map((m) => m.customer.id))).sort(),
+    [existingMatchRows]
+  );
+  const matchedIdsSignature = matchedCustomerIds.join("|");
+
+  /** Linked service call / quote / payment counts for matched existing customers. */
+  useEffect(() => {
+    if (matchedCustomerIds.length === 0) {
+      setHistoryCounts(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const counts = new Map<string, ExistingHistory>();
+      for (const id of matchedCustomerIds) counts.set(id, { jobs: 0, quotes: 0, payments: 0 });
+      const tally = async (
+        table: "service_calls" | "quotes" | "job_payments",
+        key: keyof ExistingHistory
+      ) => {
+        const { data, error } = await supabase
+          .from(table)
+          .select("customer_id")
+          .in("customer_id", matchedCustomerIds);
+        if (error || cancelled) return;
+        for (const row of (data || []) as { customer_id: string | null }[]) {
+          if (!row.customer_id) continue;
+          const entry = counts.get(row.customer_id);
+          if (entry) entry[key] += 1;
+        }
+      };
+      await tally("service_calls", "jobs");
+      await tally("quotes", "quotes");
+      await tally("job_payments", "payments");
+      if (!cancelled) setHistoryCounts(counts);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedIdsSignature]);
+
+  const toggleExclude = (rowNum: number, exclude: boolean) => {
+    setExcludeDirty(true);
+    setExcludedRowNums((prev) => {
+      const next = new Set(prev);
+      if (exclude) next.add(rowNum);
+      else next.delete(rowNum);
+      return next;
+    });
+  };
+
+  const setDecision = (rowNum: number, decision: "skip" | "merge") =>
+    setDecisions((prev) => ({ ...prev, [rowNum]: decision }));
 
   // Decorate rows with the in-file duplicate note and the ambiguous-match error,
   // without touching buildRow.
@@ -857,8 +994,10 @@ const ImportCustomers = () => {
           next = { ...next, fieldWarnings: { ...next.fieldWarnings, phone: note } };
         }
         if (ambiguous) {
-          const count = (existingByPhone?.get(String(r.data.phone || "").trim()) || []).length;
-          const message = `Phone matches ${count} existing customers — resolve the duplicates first`;
+          const count = existingCandidates
+            ? matchExistingCustomers(r.data, existingCandidates).length
+            : 0;
+          const message = `Matches ${count} existing customers — resolve the duplicates first`;
           next = {
             ...next,
             errors: [...next.errors, message],
@@ -868,8 +1007,9 @@ const ImportCustomers = () => {
         }
         return next;
       }),
-    [parsedRows, dupPhoneNotes, ambiguousRowNums, existingByPhone]
+    [parsedRows, dupPhoneNotes, ambiguousRowNums, existingCandidates]
   );
+
 
   // Counts come from the decorated rows so ambiguous-match rows are counted as blocked.
   const validCount = decoratedRows.filter((r) => r.isValid).length;
