@@ -7,7 +7,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, Hammer,
+  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
