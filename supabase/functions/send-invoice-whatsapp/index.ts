@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
 
 
 
@@ -351,6 +352,29 @@ Deno.serve(async (req) => {
           : ""
       }`;
 
+    // Delivery tracking (office badge + failure alert + resend history).
+    const deliveryHandle =
+      await beginDelivery(
+        supabase,
+        {
+          organisationId:
+            job.organisation_id,
+          customerId:
+            job.customer_id,
+          commType: "invoice",
+          channel: "whatsapp",
+          relatedType:
+            "service_call",
+          relatedId:
+            service_call_id,
+          relatedReference:
+            job.invoice_number ||
+            job.job_reference ||
+            null,
+          recipient: phone,
+        }
+      );
+
     // 7. POST to 360 Messenger
     const formData =
       new FormData();
@@ -381,6 +405,19 @@ Deno.serve(async (req) => {
       await resp.text();
 
     const ok = resp.ok;
+
+    await completeDelivery(
+      supabase,
+      {
+        handle: deliveryHandle,
+        channel: "whatsapp",
+        ok,
+        providerError: ok
+          ? null
+          : `[${resp.status}] ${respText}`,
+        recipient: phone,
+      }
+    );
 
     // 8. Call log-message edge function
     // log-message authenticates on x-make-secret, not the service key.
