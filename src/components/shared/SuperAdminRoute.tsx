@@ -19,12 +19,8 @@ const SuperAdminRoute = () => {
         }
         return;
       }
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (profileError || !profile) {
+      const profile = await fetchProfile(user.id);
+      if (!profile || !profile.role) {
         if (!cancelled) {
           setAuthorized(false);
           setAuthChecked(true);
@@ -32,6 +28,7 @@ const SuperAdminRoute = () => {
         }
         return;
       }
+
       if (profile.role === "superadmin") {
         if (!cancelled) {
           setAuthorized(true);
