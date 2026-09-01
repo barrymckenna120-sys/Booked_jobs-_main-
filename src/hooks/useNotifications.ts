@@ -198,14 +198,15 @@ export function useNotifications(
   // Fetch existing notifications
   const fetchNotifications = useCallback(
     async () => {
-      if (!user) return;
+      if (!userId) return;
 
       const q = applyRoleScope(
         supabase
           .from("notifications")
           .select("*")
-          .eq("recipient_user_id", user.id)
+          .eq("recipient_user_id", userId)
       );
+
 
       const { data } = await q
         .order("created_at", {
@@ -401,11 +402,9 @@ export function useNotifications(
   }, [user]);
 
   // Real-time subscription — supabase-js uses WebSocket
-  // under the hood and auto-reconnects.
-  //
-  // Depend on user?.id rather than the full user object so
+  // under the hood and auto-reconnects. Keyed on `userId` (declared above) so
   // token-refresh events don't tear down and rebuild the subscription.
-  const userId = user?.id;
+
 
   useEffect(() => {
     if (!userId) return;
