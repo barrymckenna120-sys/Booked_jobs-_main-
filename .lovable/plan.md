@@ -1,133 +1,137 @@
-# BJ-0090 Pre-Build Audit — Multi-Engineer Job Assignment
+# BJ-0090c-audit — Can `service_calls_update` be narrowed to the assigned engineer?
 
-Audit only. No code, SQL, or config was changed. All DB findings are from live reads of the production database, not migration files.
+Read-only audit. No code, SQL, or policies were changed. All database facts below are read live from `pg_policies` / `pg_proc` / `cron.job`, not from migration files.
 
-## Correction to the feature model (read before building)
+**Headline:** nothing in the application relies on an engineer updating a job that is not theirs. Every engineer-reachable write goes through `.eq("id", …)` and leans on RLS alone, and every backend writer uses the service-role key, which bypasses RLS entirely. Narrowing is safe today, with two conditions the new policy must handle: the `can_access_office` engineer escalation path, and the fact that `get_user_role()` reads `engineers.role` first.
 
-`service_calls.engineer_id` **does not exist**. The Lead engineer is stored as two columns:
+## 1. Every UPDATE path on `service_calls`, and what constrains the row
 
-- `assigned_engineer_id` (uuid, nullable, FK to `engineers(id)`, **no ON DELETE rule**)
-- `assigned_engineer` (text, nullable) — denormalised engineer **name**, written alongside the id everywhere
+### Frontend — user JWT (anon key + session), RLS is the only guard
 
-Every write path, query, RLS policy, and the notification trigger use `assigned_engineer_id`. The BJ-0090 spec should be restated against these two columns, and any assist work must keep the denormalised name pair in sync.
+All sites use the shared client at `src/integrations/supabase/client.ts:12`. **None** of them adds `assigned_engineer_id` to the query. There are no `.upsert()` calls on `service_calls` anywhere in the repo.
 
-## A. New Job wizard assignment path
+Engineer-reachable (these are the ones a narrower policy would affect):
 
-`src/components/jobs/NewJobPanel.tsx` → `StepSchedule` (`:799`, rendered at `:1900`) → `handleNext` (`:928-936`) → `handleSubmit` (`:1555`) → direct `supabase.from("service_calls").insert(...)` (`:1635-1670`).
-
-- Selection UI: hand-rolled list of `<button>` cards, one per active engineer (`:1028-1063`); header "Assign Engineer" (`:1026`).
-- State: `const [engineer, setEngineer] = useState(...)` (`:806`) — scalar string id, overwritten on click (`:1036`). Strictly single-select today.
-- Validation: engineer required — `if (!engineer) e.engineer = true` (`:932`). Cards disabled when slot full (load >= 3) or engineer on leave (`:1038-1040`, `:819-832`, `:857-871`).
-- Writes: `assigned_engineer_id` (`:1649`) and `assigned_engineer: eng?.name` (`:1650`).
-- Side effect: `send-push-notification` Edge Function after insert (`:1707-1730`); in-app row left to the DB trigger.
-- No RPC, no Edge Function, no helper wraps the insert.
-
-## B. Assign / Move Job path
-
-`src/components/schedule/UnallocatedJobs.tsx` (`:181-184` "Assign" → `onAssign` callback) and `src/components/schedule/AssignJobModal.tsx` (title "Assign / Move Job", `:130-137`) → `handleAssign` in `src/pages/Schedule.tsx:326-499` → direct `supabase.from("service_calls").update(sanitizeServiceCallUpdatePayload({...})).eq("id", jobId)` (`:350-360`).
-
-- Dropdown: shadcn `Select` (`AssignJobModal.tsx:229-242`). State `selectedEngineer` (`:55`) holds the engineer **name**, not the id (`:94`, `:231`).
-- Assign and move share **one handler** — `openAssignFromUnallocated` (`Schedule.tsx:516-518`) and `handleMoveSlot` (`:507-510`) both open the same modal instance (`:624-634`); no new-vs-existing branching except for notification targeting.
-- Writes: `scheduled_date`, `time_block`, `assigned_engineer` (`:355`), `assigned_engineer_id` (`:356`), `status: "Booked"` (forced on every assign/move), `needs_scheduling: false`.
-- Side effects: audit log `job_assigned` (`:365`); `send-booking-confirmation` WhatsApp EF (`:369-380`); `send-push-notification` EF plus a **direct frontend insert into `notifications`** (`:432-445`) computed from `engineerChanged`/`scheduleChanged` (`:390-416`).
-- `sanitizeServiceCallUpdatePayload` (`src/lib/serviceCallUpdate.ts:53`) only strips 22 UI-only keys; no engineer field is touched.
-
-## C. Engineer "My Jobs" query
-
-`src/hooks/useEngineerJobs.ts` → `useEngineerJobs()` (`:52`). Three direct `.from("service_calls").select("*")` queries (`:164-177`) in one `Promise.all` (`:179-183`). No RPC or Edge Function.
-
-- Engineer id resolved from `engineers` by `auth_user_id` (`:128-132`); filter `.eq("assigned_engineer_id", engineerId)` applied only `if (engineerId)` (`:173-176`) — the "NOT FILTERED" fallback at `:159-161` is a real code path.
-- Limits: upcoming `.limit(20)`, completed `.limit(30)` (`:170-171`).
-- Realtime: channel `engineer-jobs-realtime` subscribes to `service_calls` with **no filter** (`:743-750`), relying entirely on RLS; second channel on `notifications` filtered by recipient (`:753-767`).
-- Assist-extension risks: no dedupe by `job.id` anywhere (lead + assist union would render duplicate cards); the hardcoded limits break if two result sets are merged client-side; `completedJobs` is never re-sorted after fetch so a concat violates `updated_at desc`; the `localStorage` cache key `bookedjobs_engineer_jobs_cache` (`:113`) is per-device, not per-engineer, so it needs a version bump.
-
-## D. Engineer job-card action architecture
-
-Actions are **not** in one shared component — two surfaces have already drifted apart.
-
-- List card: `src/components/engineer/EngineerJobCard.tsx`, composing `job-card/PrimaryActions.tsx`, `SecondaryActions.tsx`, `QuickActions.tsx`, `InfoPills.tsx`, `StatusBadge.tsx` (imports `:24-28`, usage `:214-339`). "Last Service … Engineer: {name}" at `:241-251`. En Route at `PrimaryActions.tsx:16-21`. Complete at `PrimaryActions.tsx:40-48`/`:96-104`. Take Payment banner at `EngineerJobCard.tsx:351-383`. Message Office at `:328-339`. "Can't complete this job?" at `PrimaryActions.tsx:49-87`.
-- Detail page: `src/pages/engineer/EngineerJobDetail.tsx` imports **none** of the `job-card/*` action components and re-implements actions inline (`:1100-1199`, sheets `:1205-1220`). It has no En Route step, no Message Office, no "Can't complete", and no Take Payment banner.
-- Safest Assist gating: one `isLeadEngineer` prop threaded from the list/page level, applied at the four existing `{!isDone && …}` blocks in `EngineerJobCard.tsx` (`:302-313`, `:315-326`, `:329-339`, `:352-383`) and the already-conditioned blocks in `EngineerJobDetail.tsx` (`:1100-1112`, `:1115-1199`). Read-only sections (info tiles, history, notes, media, messages) stay ungated.
-
-## E. Job Detail drawer (office)
-
-`src/components/schedule/JobSlotDrawer.tsx` → `JobSlotDrawer` (`:24-307`, Sheet at `:75`), opened from `src/pages/Schedule.tsx:637-641`.
-
-- Engineer shown at `:169-175` as `{job.assigned_engineer || "—"}`; also gates the WhatsApp button at `:272`.
-- Source: the denormalised `assigned_engineer` text off the row — no `engineers` join or lookup map in the drawer.
-- It receives a **curated `ScheduleJob` subset**, not the full `service_call` row (shape at `Schedule.tsx:81-123`, mapping `:180-243`), and makes its own extra query for `whatsapp_confirmation_sent` (`:30-33`). Assist fields would have to be added to that shape explicitly.
-
-## F. Schedule grid
-
-`src/pages/Schedule.tsx` → `Schedule` (`:125`) → `src/components/schedule/WeeklyGrid.tsx` → `WeeklyGrid` (`:58-301`).
-
-- No extracted card component — markup is inline: desktop `:146-208`, mobile `:242-270`, empty-slot "+ Assign" `:212-217`/`:273-278`.
-- Lead engineer is a **plain muted text label**, shown only when the filter is "all engineers" (desktop `:202-207`, mobile `:264-269`). Grid is time-block rows x day columns, not a column per engineer. No avatar, initials, or colour coding.
-- Engineer data already present: `["engineers"]` query selects `id, name` (`Schedule.tsx:144-151`); job engineer comes from the denormalised columns (`:217-218`). `WeeklyGrid` separately queries `id, auth_user_id` (`:63-76`).
-- Best indicator slot with zero layout change: the existing badge flex row (desktop `WeeklyGrid.tsx:196-201`, mobile `:256-262`), or appended after the engineer name at `:204`/`:266`.
-- Screenshot captured: the current week renders with no jobs booked, so the grid shows only "+ Assign" cells and "No unallocated jobs" — there was no job card or drawer to capture.
-
-## G. Notification path
-
-`notify_on_job_change()` — live definition read from the database (226 lines). Repo copies exist in several migrations, latest `supabase/migrations/20260827145257_bee02f9a-98de-41f9-bec8-ebc01f97909f.sql`.
-
-- Trigger: `trg_notify_on_job_change`, `AFTER INSERT OR UPDATE ON public.service_calls FOR EACH ROW`. Other triggers on the table: `set_job_reference`, `trg_log_job_booked_activity`, `trg_log_job_completed_activity`, `trg_sync_invoice_status_from_job`, `update_service_calls_updated_at`.
-- Recipient resolution: single `SELECT auth_user_id, name, status FROM engineers WHERE id = NEW.assigned_engineer_id LIMIT 1` (function lines 50-51, 68-69, 106, 140-141, 191) — sends only when `status = 'active'`. Office recipients come from `job_alert_recipients(organisation_id)`.
-- Assignment on insert: lines 49-61. Reassignment: lines 65-101 — notifies the new engineer ("Job Reassigned"), and all office users, when `assigned_engineer_id` changes. Status/completion/cancel/no-show/parts paths: lines 103-221.
-- The function assumes **exactly one** engineer per job throughout — every branch reads the single scalar column. It will never notify an assist engineer, and reassigning the Lead will not touch assist rows.
-- Note the duplication risk already present: `Schedule.tsx` also inserts `notifications` rows directly for assign/move (`:437-445`) while this trigger fires on the same UPDATE.
-
-## H. RLS / permission findings (live DB)
-
-`service_calls` policies, all `PERMISSIVE` for `authenticated`:
-
-| Policy | Cmd | Expression |
+| File:line | Columns written | Row scope |
 |---|---|---|
-| `service_calls_select` | SELECT | `organisation_id = get_my_org_id()` |
-| `service_calls_update` | UPDATE | using + check `organisation_id = get_my_org_id()` |
-| `service_calls_insert` | INSERT | check `organisation_id = get_my_org_id()` |
-| `service_calls_delete` | DELETE | `organisation_id = get_my_org_id()` |
-| `service_calls_org_isolation` | ALL | `organisation_id = get_my_org_id()` |
+| `src/hooks/useEngineerJobs.ts:387` | dynamic `safeDbPatch` (status, payment, tags) | `.eq("id", jobId)` only |
+| `src/pages/engineer/EngineerJobDetail.tsx:371` | dynamic `safeDbPatch` | `.eq("id", job.id)` only |
+| `src/pages/engineer/EngineerJobDetail.tsx:628` | `invoice_number` | `.eq("id", job.id)` only |
+| `src/pages/engineer/EngineerJobDetail.tsx:663-666` | `scheduled_date`, `time_block`, `status` | `.eq("id", job.id)` only |
+| `src/components/engineer/ExtraWorkSheet.tsx:136-138` | payment/revenue patch via `buildPaymentPatch` | `.eq("id", job.id)` only |
+| `src/components/payments/TakePaymentModal.tsx:154` and `:280-283` | payment + `invoice_number`, `status`, `completed_at` | `.eq("id", job.id)` only |
 
-- Engineers can currently **SELECT and UPDATE every job in their organisation**, including other engineers' jobs. Access is **not** based on `assigned_engineer_id` at the database level; Lead-only behaviour is enforced in the UI only.
-- Consequence for BJ-0090: assist engineers would already have full edit rights on the job row the moment they can see it. Visibility-only is a UI promise, not a DB guarantee.
-- The broad `service_calls_org_isolation` ALL policy is exactly the "broad organisation-level policy" the brief asked about — it alone grants engineers write access regardless of any narrower policy added later (permissive policies OR together).
-- **Migration/DB divergence:** the newest repo definition of `service_calls_select` (`supabase/migrations/20260423152056_...sql:20-34`) is role-scoped — `WHEN 'engineer' THEN assigned_engineer_id = get_engineer_id(auth.uid())`. The live policy is org-only, and no migration in the repo produces it. `20260819165508_...sql:62-71` added the org-isolation/insert policies. Migration history is not a reliable description of live access rules.
-- `job_media` and `job_messages` are likewise org-only (SELECT/UPDATE/INSERT/DELETE), so assist engineers get media and messages for free.
-- `engineers` SELECT is org-wide; UPDATE is role-gated to admin/owner/office/manager/superadmin or self.
+```ts
+// src/hooks/useEngineerJobs.ts:387
+const { error } = await supabase.from("service_calls").update(safeDbPatch).eq("id", jobId);
+```
 
-## I. Existing assignment-schema conflicts
+`TakePaymentModal` is shared: mounted from `src/components/engineer/EngineerJobCard.tsx:422` and `src/components/engineer/EngineerOutstandingBalances.tsx:212` (engineer), and from `src/pages/JobDetail.tsx:1178` / `src/pages/Jobs.tsx:797` (office).
 
-None. A repo-wide search for `job_engineers`, `crew`, `assist_engineer`, `collaborator`, `technician_assign`, `secondary_engineer` across `src/` and `supabase/` returned **zero matches**, and no such table exists in the live schema. Related but non-conflicting: `engineers`, `engineer_blocks` and `engineer_working_days` (both `engineer_id` FK `ON DELETE CASCADE`), `parts_requests.assigned_to` (FK to `engineers`, no delete rule). Introducing `job_engineers` duplicates nothing.
+Office/admin-only (not imported by anything under `src/pages/engineer/**` or `src/components/engineer/**`), all `.eq("id", …)` only:
 
-## J. Recommended constraints for `job_engineers`
+- `src/pages/Schedule.tsx:350-359` (assign/move — writes `assigned_engineer_id`, `assigned_engineer`, `scheduled_date`, `time_block`, `status`, `needs_scheduling`), `:475`, `:487-489`, `:522-526`
+- `src/pages/JobDetail.tsx:499-503`, `:522-527`, `:539-543`, `:569-573` (reassign engineer), `:965`, `:1108`, `:1160-1163`
+- `src/pages/IncomingJobs.tsx:151-154`; `src/components/incoming/JobReviewPanel.tsx:117-127` and `:178-181`
+- `src/components/jobs/ScheduleIncomingJobModal.tsx:97-105`, `src/components/jobs/PartsArrivedModal.tsx:74-78`, `src/components/jobs/QuotePanel.tsx:136`
+- `src/components/dashboard/FollowUpsPanel.tsx:64-68`, `src/components/whatsapp/LogReplyModal.tsx:65-68`, `src/pages/InvoicePreview.tsx:165-168`
+- `src/pages/CustomerDetail.tsx:384-389` — the one exception to id-scoping: a **bulk multi-row** update of `boiler_brand` scoped by `.eq("customer_id", id)`. Office-only, but a role-branched policy has to still permit it for office/admin.
 
-Recommendation only — no migration proposed here.
+`src/lib/serviceCallUpdate.ts` (`sanitizeServiceCallUpdatePayload`) is a pure payload sanitiser used by most sites — it adds no row filter.
 
-- `job_id uuid NOT NULL REFERENCES service_calls(id) ON DELETE CASCADE` — matches the existing child-table convention (`job_media`, `job_messages`, `service_call_tags`, `quotes.job_id`, `cert2_certificates`).
-- `engineer_id uuid NOT NULL REFERENCES engineers(id) ON DELETE CASCADE` — matches `engineer_blocks`/`engineer_working_days`; an assist row has no value once the engineer is gone. Use `RESTRICT` instead only if assist history must survive engineer deletion.
-- `organisation_id uuid NOT NULL` with the org default, plus GRANTs and RLS in the same migration.
-- `UNIQUE (job_id, engineer_id)` to stop double-adding.
-- A check or trigger enforcing max 2 assist rows per job, and rejecting `engineer_id = service_calls.assigned_engineer_id` so the Lead can't also be an assist.
-- Indexes on `(engineer_id)` and `(job_id)` for the My Jobs query.
-- Current delete behaviour on `service_calls` is mixed and worth knowing: CASCADE for `job_media`, `job_messages`, `service_call_tags`, `quotes.job_id`, `cert2_certificates`; SET NULL for `notifications`, `hazard_notifications`, `customer_call_notes`, `parts_requests`, `matched_job_id`; **RESTRICT** for `job_payments`; and **no rule at all** for `certificates`, `invoices`, `customer_activity`, `transactions`, `payment_checkout_attempts`, `sumup_webhook_events`, `quotes.converted_job_id`.
+### Edge Functions — service-role key, RLS bypassed, unaffected by any policy change
 
-## K. Risks before implementation
+Verified each function's client construction: `create-job-invoice:66,152`, `generate-receipt-pdf:30-31,332`, `job-reminder-2day:18-20,232`, `mark-invoice-reminder-sent:42-44,76`, `mark-reminder-sent:62-64,106`, `send-invoice-whatsapp:29-32,489`, `send-outstanding-invoice-reminders:38-39,202,277`, `send-payment-link:28-30,186`, `send-payment-received:36-71,268`, `send-schedule-confirmation:23-24,170`, `send-whatsapp-receipt:23-25,273`, `sumup-payment-webhook:65-73,289`, `trigger-review-request:34-36,169`, plus `_shared/duplicateJob.ts:93-94` (called by the two Tally functions, both service-role).
 
-1. RLS gives every org engineer full UPDATE on every job — "visibility-only" assist cannot be enforced without a narrower policy, and the existing `service_calls_org_isolation` ALL policy would override any narrower one added alongside it.
-2. Live RLS does not match migration history; changing policies for BJ-0090 needs the live state as the baseline.
-3. The spec's `service_calls.engineer_id` does not exist; the Lead is `assigned_engineer_id` plus the denormalised `assigned_engineer` name that every write path keeps in sync.
-4. `notify_on_job_change()` assumes one engineer in every branch and will not notify assists; `Schedule.tsx` also inserts notifications directly for the same UPDATE, so assist notifications must pick one path or double-fire.
-5. Engineer actions are duplicated across `EngineerJobCard` + `job-card/*` and `EngineerJobDetail`, which have already drifted (no En Route, Message Office, or "Can't complete" on the detail page) — an Assist mode must gate both surfaces or assists will keep Lead actions on one of them.
-6. `useEngineerJobs` has no dedupe, hardcoded limits, an unsorted completed list, and a device-scoped localStorage cache — all need attention before assist jobs are unioned in.
-7. Unrelated bug for the register only, not touched: `useEngineerJobs.ts:159-161` silently drops the engineer filter when the engineer lookup fails, and the same file's cache is shared across engineers on a shared device.
+`send-payment-link` is the only one that also builds a caller-JWT client (`asCaller`, line 49) — but the `service_calls` update at line 186 uses the service-role `supabase` var, not `asCaller`.
 
-## AUDIT VERDICT
+### RPC / database functions
 
-**CLEAR TO BUILD WITH RISKS**
+Only two functions in `public` contain `UPDATE … service_calls`: `recompute_job_parts_status` and `reset_org_data`. Both are `SECURITY DEFINER` and **`authenticated` has no EXECUTE privilege on either**, so neither is a frontend path. `respond_to_quote` (called at `src/pages/QuoteDetail.tsx:119`) only *inserts* into `service_calls`; it never updates.
 
-- Nothing blocks the build: no conflicting schema exists, and the Lead write paths are few, direct, and easy to leave untouched.
-- The feature spec must first be corrected to `assigned_engineer_id` + `assigned_engineer`.
-- Assist "visibility-only" needs an explicit RLS decision, because engineers today can update every job in their org.
-- Assist notifications need a decision between the DB trigger and the existing frontend inserts.
-- The two engineer UI surfaces must both be gated, and `useEngineerJobs` hardened for dedupe/limits, before assist jobs are surfaced.
+Triggers on the table (`set_job_reference`, `trg_log_job_booked_activity`, `trg_log_job_completed_activity`, `trg_notify_on_job_change`, `trg_sync_invoice_status_from_job`, `update_service_calls_updated_at`) all fire on the row already being written, so they are not an independent write path.
+
+## 2. Can an engineer update a job that isn't theirs today?
+
+**Yes — confirmed, and only RLS is stopping it from being a supported flow.**
+
+- `src/pages/engineer/EngineerJobDetail.tsx:142-145` loads the job by route id with `.select("*").eq("id", id)` and **no** `assigned_engineer_id` filter. Any engineer can open `/engineer/job/<any job id in their org>` by URL and the page will render and let them write via line 371.
+- The list surfaces themselves are correctly scoped: `useEngineerJobs.ts:173-176` filters `.eq("assigned_engineer_id", engineerId)`, and `EngineerOutstandingBalances.tsx:76` filters `.eq("assigned_engineer_id", eng.id)`. So there is **no** intentional "cover a colleague's job", shared team action, or cross-engineer status update in the UI.
+- The real escalation route is `engineers.can_access_office`. `src/hooks/useUserRole.ts:66` sets `canAccessOffice: elevated || !!engineerRow?.can_access_office`, and `src/components/shared/OfficeRoute.tsx:18` lets those users into office views — Schedule, JobDetail, IncomingJobs — where they legitimately assign and edit any job in the org.
+- Live data check: only two rows have `can_access_office = true`, and both are already elevated (`barry mckenna`, role `admin`; `barry manager`, role `owner`). **No row with `role = 'engineer'` has `can_access_office = true` today**, so narrowing breaks nothing right now — but the flag must be in the policy or the first office-enabled engineer silently loses write access.
+- Office staff holding an engineer record: `nicole office manager` (`engineers.role = 'office'`, `profiles.role = 'admin'`) and `barry` in Dublin Gas (`engineers.role = 'owner'`, `profiles.role = 'superadmin'`). Both resolve to a non-engineer role, so a role-branched policy leaves them on the org-wide branch. Also note `engineers.auth_user_id` is unique per row — no user maps to two engineer records, so `get_engineer_id`'s `LIMIT 1` is unambiguous today.
+
+## 3. Role values in use, and the established RLS role pattern
+
+Live counts:
+
+- `engineers.role`: `engineer` (8), `admin` (2), `office` (2), `owner` (2)
+- `profiles.role`: `engineer` (5), `admin` (3), `superadmin` (3)
+- No `manager` row exists today, though several policies already allow it.
+
+`get_user_role()` **reads `engineers.role` first**, then `profiles.role`, then defaults to `'engineer'`:
+
+```sql
+SELECT COALESCE(
+  (SELECT role FROM public.engineers WHERE auth_user_id = _user_id LIMIT 1),
+  (SELECT role FROM public.profiles  WHERE user_id      = _user_id LIMIT 1),
+  'engineer');
+```
+
+Two consequences for the new policy: `profiles.role = 'superadmin'` is *shadowed* when the user has an engineer row (Dublin Gas `barry` resolves to `owner`), and the `'engineer'` fallback means any user with no row in either table lands on the restrictive branch.
+
+The canonical pattern used elsewhere is an elevated-role allowlist plus the org check — use this verbatim so the new policy matches:
+
+```sql
+-- public.categories, UPDATE
+(organisation_id = get_my_org_id())
+AND (get_user_role(auth.uid()) = ANY (ARRAY['admin','office','owner','manager']))
+
+-- public.engineers, UPDATE (self-service variant)
+(organisation_id = get_my_org_id())
+AND ((get_user_role(auth.uid()) = ANY (ARRAY['admin','owner','office','manager','superadmin']))
+     OR (auth_user_id = auth.uid()))
+```
+
+`public.debug_logs` INSERT is the closest precedent for engineer-self scoping: `engineer_id = get_engineer_id(auth.uid())` OR elevated-role allowlist. `parts_requests` has the only other `assigned_engineer_id`-style ownership policies (`parts_requests_update_own_open_engineer_id`, `..._delete_own_open_engineer_id`).
+
+## 4. `get_engineer_id(auth.uid())`
+
+Exists, `STABLE SECURITY DEFINER`, `SET search_path = public`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_engineer_id(_user_id uuid)
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $$ SELECT id FROM public.engineers WHERE auth_user_id = _user_id LIMIT 1; $$
+```
+
+It returns `engineers.id` — the same value `service_calls.assigned_engineer_id` stores, and the same lookup `useEngineerJobs.ts:128-132` performs client-side. It is **not org-scoped**, which is fine because `auth_user_id` is unique across `engineers` today, and it returns NULL for a user with no engineer row (so `assigned_engineer_id = NULL` is never true — the restrictive branch fails closed, correctly).
+
+Related helpers, all `SECURITY DEFINER`: `get_my_org_id()` (impersonation token → JWT `app_metadata` → `profiles` fallback), `get_user_organisation_id(uuid)` (`profiles` then `engineers`), `get_user_role(uuid)` as above.
+
+## 5. Live RLS policies on `service_calls` (role `authenticated`, all PERMISSIVE)
+
+| Policy | Cmd | USING | WITH CHECK |
+|---|---|---|---|
+| `service_calls_org_isolation` | ALL | `organisation_id = get_my_org_id()` | — |
+| `service_calls_select` | SELECT | `organisation_id = get_my_org_id()` | — |
+| `service_calls_insert` | INSERT | — | `organisation_id = get_my_org_id()` |
+| `service_calls_update` | UPDATE | `organisation_id = get_my_org_id()` | `organisation_id = get_my_org_id()` |
+| `service_calls_delete` | DELETE | `organisation_id = get_my_org_id()` | — |
+
+No policies exist for `anon` or `service_role` on this table.
+
+**This is the blocker for the fix as currently framed.** Permissive policies OR together, and `service_calls_org_isolation` covers `ALL` commands — so tightening `service_calls_update` alone changes nothing: `org_isolation` will still grant the UPDATE on its own. BJ-0090c-fix must either drop/replace `service_calls_org_isolation`, or split it into per-command policies, or add the engineer restriction as a `RESTRICTIVE` policy. Migration history is also unreliable here: the newest repo definition of `service_calls_select` (`supabase/migrations/20260423152056_…sql:20-34`) is role-branched, but live is org-only, and no migration in the repo produces the live state.
+
+## 6. Cron / scheduled / background writers using an engineer's own JWT
+
+None. All six active `cron.job` entries POST to Edge Functions with an `x-webhook-secret` from vault (`send-deposit-reminder-daily`, `warranty-auto-send`, `quote-followup-day3`, `quote-followup-day6`, `job-reminder-2day-0900-dublin`), and the sixth calls `public.purge_old_read_notifications()` which touches `notifications` only. Every function that writes `service_calls` uses the service-role key (section 1), so no scheduled process is affected by a narrower policy.
+
+One adjacent frontend risk worth knowing about, not a cron: `useEngineerJobs.ts:387` failures are pushed into an offline retry queue keyed on `{ table: "service_calls", operation: "update" }`. After the policy narrows, a write that RLS now refuses returns an error and will be retried rather than discarded — the fix's probe plan should confirm a denied write does not loop in that queue.
+
+## AUDIT VERDICT — CLEAR TO NARROW, WITH THREE CONDITIONS
+
+- Nothing depends on the broad access: every engineer-reachable write is `.eq("id", …)`-only and relies on RLS, and no UI flow, cron, or Edge Function needs an engineer to write someone else's job.
+- The permissive `service_calls_org_isolation` ALL policy must be dropped or split in the same migration, or the narrowed UPDATE policy has no effect.
+- The engineer branch must allow `can_access_office = true` alongside the elevated-role allowlist, or the first office-enabled engineer loses write access.
+- Keep `src/pages/CustomerDetail.tsx:384-389`'s multi-row `boiler_brand` update working (office/admin branch), and re-check the offline retry queue behaviour on a denied write.
