@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 import { Volume2, X } from "lucide-react";
 import { isAudioUnlocked, unlockAudioNow, playDoubleBeep } from "@/utils/audio";
 import { toast } from "sonner";
