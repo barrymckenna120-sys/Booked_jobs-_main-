@@ -85,11 +85,17 @@ export const AdminViewAsProvider = ({ children }: { children: ReactNode }) => {
       resolve(data.user?.id);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setEmail(session?.user?.email ?? null);
+      // Sign-in / sign-out must not read a previous user's cached profile.
+      // A token refresh keeps the same user, so leave the cache intact there.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        clearProfileCache();
+      }
       setRoleResolved(false);
       resolve(session?.user?.id);
     });
+
     return () => {
       cancelled = true;
       sub.subscription.unsubscribe();
