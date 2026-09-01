@@ -232,9 +232,9 @@ export const useEngineerJobs = () => {
       // Update cache with fresh data
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify({
-          todayJobs: todayRes.data || [],
-          upcomingJobs: upcomingRes.data || [],
-          completedJobs: completedRes.data || [],
+          todayJobs: todayList,
+          upcomingJobs: upcomingList,
+          completedJobs: completedList,
           cachedAt: new Date().toISOString()
         }));
       } catch (e) {}
