@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProfile } from "@/lib/profileCache";
+
 
 const SuperAdminRoute = () => {
   const navigate = useNavigate();
