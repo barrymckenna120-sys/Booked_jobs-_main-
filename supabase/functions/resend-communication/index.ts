@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       cors: corsHeaders,
       allowMachine: false,
       resource: { table: "communication_deliveries", id: deliveryId },
-    } as any);
+    });
     if (isDenied(access)) return access.error;
 
     const { data: delivery } = await supabase
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!delivery) return json({ error: "Delivery not found" }, 404);
-    if (delivery.organisation_id !== (access as any).orgId) {
+    if (delivery.organisation_id !== access.orgId) {
       return json({ error: "Forbidden" }, 403);
     }
     if (delivery.delivery_status === "opted_out") {
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         relatedId: delivery.related_id,
         relatedReference: delivery.related_reference,
         triggerSource: "resend",
-        triggeredBy: (access as any).userId ?? null,
+        triggeredBy: access.userId ?? null,
       });
     } catch (e) {
       if (e instanceof DeliveryBusyError) {
