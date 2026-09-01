@@ -132,3 +132,54 @@ describe("useRetryQueue — dependent item semantics", () => {
     expect(attempted).toHaveLength(3);
   });
 });
+
+// BJ-NEW-11 — a queued UPDATE that returns no error but changes zero rows was
+// refused by the database. It must never be recorded as a successful mutation.
+describe("useRetryQueue — zero-row (refused) updates", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    failing.clear();
+    zeroRow.clear();
+    attempted.length = 0;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("drops a refused update immediately instead of counting it as success", async () => {
+    zeroRow.add("service_calls");
+    addToQueue({
+      table: "service_calls",
+      operation: "update",
+      payload: { status: "In Progress" },
+      filter: { column: "id", value: "job-1" },
+    });
+
+    await processQueue();
+
+    expect(attempted).toEqual(["service_calls"]); // sent exactly once, no retries
+    expect(queue()).toHaveLength(0);
+  });
+
+  it("drops the dependent ledger row when the job update is refused", async () => {
+    zeroRow.add("service_calls");
+    enqueuePair();
+
+    await processQueue();
+
+    expect(attempted).not.toContain("job_payments");
+    expect(queue()).toHaveLength(0);
+  });
+
+  it("still retries genuine transport failures", async () => {
+    failing.add("service_calls");
+    addToQueue({
+      table: "service_calls",
+      operation: "update",
+      payload: { status: "In Progress" },
+      filter: { column: "id", value: "job-1" },
+    });
+
+    await processQueue();
+
+    expect(queue()[0].attempts).toBe(1); // queued for another attempt
+  });
+});
