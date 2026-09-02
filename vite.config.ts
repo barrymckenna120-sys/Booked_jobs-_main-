@@ -162,7 +162,10 @@ export default defineConfig(({ mode }) => ({
           if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
             return "react-vendor";
           }
-          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor)\//.test(id)) {
+          // lodash is shared between recharts and eager app dependencies; if it
+          // lands inside `charts` the entry has to import that chunk.
+          if (/node_modules\/lodash([._-]|\/)/.test(id)) return "lodash-vendor";
+          if (/node_modules\/(recharts|react-smooth|d3-[^/]+|victory-vendor)\//.test(id)) {
             return "charts";
           }
           if (id.includes("node_modules/xlsx-js-style")) return "spreadsheet";
