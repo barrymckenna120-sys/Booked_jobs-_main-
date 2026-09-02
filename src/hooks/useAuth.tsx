@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { getFcmToken } from "@/lib/firebase";
+
 
 /** Auto-link engineer record to auth account on first login, then store FCM token.
  * Runs at most once per browser session per auth user to prevent N-per-mount
