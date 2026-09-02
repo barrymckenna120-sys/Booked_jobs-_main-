@@ -151,14 +151,24 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          charts: ["recharts"],
-          spreadsheet: ["xlsx-js-style"],
-          firebase: [
-            "firebase/app",
-            "firebase/analytics",
-            "firebase/messaging",
-          ],
+        // Function form on purpose. The previous object form absorbed shared
+        // dependencies (React, and small utilities the app also uses) into the
+        // `charts` chunk, which made the 147 kB chart bundle a *static* import
+        // of the entry — every visitor, including anyone sitting on the login
+        // screen, downloaded it before the app could boot. Matching by module
+        // path keeps each heavy library isolated and genuinely lazy.
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("node_modules/xlsx-js-style")) return "spreadsheet";
+          if (/node_modules\/(@firebase|firebase)\//.test(id)) return "firebase";
+          // Only recharts' own dependency tree belongs in `charts`. Anything
+          // else shared with eager app code goes to `vendor`, so no shared
+          // utility (clsx, lodash, react-is, React itself) can drag the chart
+          // bundle onto the startup path.
+          if (/node_modules\/(recharts|react-smooth|d3-[^/]+|victory-vendor)\//.test(id)) {
+            return "charts";
+          }
+          return "vendor";
         },
       },
     },
