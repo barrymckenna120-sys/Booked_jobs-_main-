@@ -159,17 +159,16 @@ export default defineConfig(({ mode }) => ({
         // path keeps each heavy library isolated and genuinely lazy.
         manualChunks(id: string) {
           if (!id.includes("node_modules")) return;
-          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
-            return "react-vendor";
-          }
-          // lodash is shared between recharts and eager app dependencies; if it
-          // lands inside `charts` the entry has to import that chunk.
-          if (/node_modules\/lodash([._-]|\/)/.test(id)) return "lodash-vendor";
+          if (id.includes("node_modules/xlsx-js-style")) return "spreadsheet";
+          if (/node_modules\/(@firebase|firebase)\//.test(id)) return "firebase";
+          // Only recharts' own dependency tree belongs in `charts`. Anything
+          // else shared with eager app code goes to `vendor`, so no shared
+          // utility (clsx, lodash, react-is, React itself) can drag the chart
+          // bundle onto the startup path.
           if (/node_modules\/(recharts|react-smooth|d3-[^/]+|victory-vendor)\//.test(id)) {
             return "charts";
           }
-          if (id.includes("node_modules/xlsx-js-style")) return "spreadsheet";
-          if (/node_modules\/(@firebase|firebase)\//.test(id)) return "firebase";
+          return "vendor";
         },
       },
     },
