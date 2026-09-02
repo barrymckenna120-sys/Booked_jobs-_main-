@@ -151,24 +151,22 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React must have its own chunk. Without it, Rollup hoists React
-          // into whichever manual chunk first depends on it (recharts), which
-          // makes the 147 kB charts bundle a static import of the entry — so
-          // every visitor downloads it before the app can boot.
-          "react-vendor": [
-            "react",
-            "react-dom",
-            "react-dom/client",
-            "react-router-dom",
-          ],
-          charts: ["recharts"],
-          spreadsheet: ["xlsx-js-style"],
-          firebase: [
-            "firebase/app",
-            "firebase/analytics",
-            "firebase/messaging",
-          ],
+        // Function form on purpose. The previous object form absorbed shared
+        // dependencies (React, and small utilities the app also uses) into the
+        // `charts` chunk, which made the 147 kB chart bundle a *static* import
+        // of the entry — every visitor, including anyone sitting on the login
+        // screen, downloaded it before the app could boot. Matching by module
+        // path keeps each heavy library isolated and genuinely lazy.
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
+            return "react-vendor";
+          }
+          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor)\//.test(id)) {
+            return "charts";
+          }
+          if (id.includes("node_modules/xlsx-js-style")) return "spreadsheet";
+          if (/node_modules\/(@firebase|firebase)\//.test(id)) return "firebase";
         },
       },
     },
