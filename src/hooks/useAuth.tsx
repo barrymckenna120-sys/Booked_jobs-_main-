@@ -50,6 +50,9 @@ const linkEngineerAndCaptureFcm = async (user: User) => {
       .maybeSingle();
 
     if (engineer) {
+      // Loaded on demand: a static import puts the whole Firebase SDK on the
+      // startup critical path for every visitor, including the login screen.
+      const { getFcmToken } = await import("@/lib/firebase");
       const fcmToken = await getFcmToken();
       if (fcmToken) {
         await supabase
