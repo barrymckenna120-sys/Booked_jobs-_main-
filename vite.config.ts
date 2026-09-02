@@ -152,6 +152,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
+          // React must have its own chunk. Without it, Rollup hoists React
+          // into whichever manual chunk first depends on it (recharts), which
+          // makes the 147 kB charts bundle a static import of the entry — so
+          // every visitor downloads it before the app can boot.
+          "react-vendor": [
+            "react",
+            "react-dom",
+            "react-dom/client",
+            "react-router-dom",
+          ],
           charts: ["recharts"],
           spreadsheet: ["xlsx-js-style"],
           firebase: [
