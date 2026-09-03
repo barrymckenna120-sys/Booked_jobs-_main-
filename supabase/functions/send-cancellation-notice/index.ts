@@ -48,6 +48,17 @@ serve(async (req) => {
       });
     }
 
+    // A duplicate booking is an internal tidy-up — the customer's real job
+    // still stands, so no cancellation message goes out. The job stays
+    // cancelled and off the schedule regardless.
+    if (!shouldSendCancellationNotice(job.cancellation_reason)) {
+      console.log("send-cancellation-notice: skipped for duplicate booking", { service_call_id });
+      return new Response(
+        JSON.stringify({ message: "Skipped — duplicate booking", skipped: "duplicate_booking" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const customer = job.customers;
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found" }), {
@@ -55,6 +66,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     if (customer.opted_out) {
       return new Response(JSON.stringify({ message: "Customer opted out" }), {
