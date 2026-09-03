@@ -38,6 +38,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import CustomerIntegrationsTab from "@/components/admin/CustomerIntegrationsTab";
 import DeliveryIssuesTab from "@/components/admin/DeliveryIssuesTab";
+import SupportReportsTab from "@/components/admin/SupportReportsTab";
 import MessagingCatalogueTab from "@/components/admin/MessagingCatalogueTab";
 import UserActivityOverview from "@/components/admin/UserActivityOverview";
 import LoginEventsTable from "@/components/admin/LoginEventsTable";
@@ -1724,6 +1725,10 @@ export default function AdminPanel() {
           <TabsTrigger value="delivery-issues">
             Delivery Issues
           </TabsTrigger>
+
+          <TabsTrigger value="support-reports">
+            Support Reports
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -2459,6 +2464,10 @@ export default function AdminPanel() {
               );
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="support-reports">
+          <SupportReportsTab />
         </TabsContent>
 
         <TabsContent value="delivery-issues">

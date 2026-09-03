@@ -3517,6 +3517,72 @@ export type Database = {
           },
         ]
       }
+      support_reports: {
+        Row: {
+          app: string | null
+          app_version: string | null
+          browser: string | null
+          browser_version: string | null
+          created_at: string
+          device_type: string | null
+          id: string
+          is_online: boolean | null
+          message: string
+          organisation_id: string
+          os: string | null
+          report_type: string
+          route: string | null
+          screen: string | null
+          submitted_by: string
+          submitted_by_name: string | null
+          submitted_by_role: string | null
+          user_agent: string | null
+          viewport: string | null
+        }
+        Insert: {
+          app?: string | null
+          app_version?: string | null
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          is_online?: boolean | null
+          message: string
+          organisation_id?: string
+          os?: string | null
+          report_type: string
+          route?: string | null
+          screen?: string | null
+          submitted_by?: string
+          submitted_by_name?: string | null
+          submitted_by_role?: string | null
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Update: {
+          app?: string | null
+          app_version?: string | null
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          is_online?: boolean | null
+          message?: string
+          organisation_id?: string
+          os?: string | null
+          report_type?: string
+          route?: string | null
+          screen?: string | null
+          submitted_by?: string
+          submitted_by_name?: string | null
+          submitted_by_role?: string | null
+          user_agent?: string | null
+          viewport?: string | null
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
