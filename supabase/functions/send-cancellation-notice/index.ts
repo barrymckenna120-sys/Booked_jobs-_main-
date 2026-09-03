@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import { shouldSendCancellationNotice } from "../_shared/cancellationNotice.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 
