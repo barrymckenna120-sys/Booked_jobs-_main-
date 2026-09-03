@@ -15,7 +15,7 @@ import { unlockAudio } from "@/utils/audio";
 import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
-import { WifiOff, X } from "lucide-react";
+import { WifiOff, X, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";

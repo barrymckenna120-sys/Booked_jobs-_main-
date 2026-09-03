@@ -10,6 +10,7 @@ import {
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
+import { LifeBuoy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
@@ -75,6 +76,7 @@ const AppLayoutInner = () => {
   const [showNewJob, setShowNewJob] = useState(false);
   const closeNewJob = useCallback(() => setShowNewJob(false), []);
   useBackButton(showNewJob, closeNewJob);
+  const [reportOpen, setReportOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
@@ -171,6 +173,14 @@ const AppLayoutInner = () => {
                 <Hammer className="w-4 h-4" /> Engineer View
               </button>
             )}
+            <button
+              onClick={() => setReportOpen(true)}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Report an issue"
+              aria-label="Report an issue"
+            >
+              <LifeBuoy className="w-5 h-5" />
+            </button>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
             <button
               onClick={() => guardedNavigate("/settings")}
@@ -259,6 +269,14 @@ const AppLayoutInner = () => {
           <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Report an issue"
+            aria-label="Report an issue"
+          >
+            <LifeBuoy className="w-5 h-5" />
+          </button>
           <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
           <button
             onClick={() => guardedNavigate("/settings")}
@@ -294,6 +312,8 @@ const AppLayoutInner = () => {
           <Outlet />
         </ErrorBoundary>
       </main>
+
+      <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="office" />
 
       <EnableSoundBanner />
 
