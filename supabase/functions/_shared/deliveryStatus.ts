@@ -160,9 +160,15 @@ export async function beginDelivery(
     return { deliveryId: deliveryId as string, attemptId: attempt.id, attemptNumber };
   } catch (e) {
     if (e instanceof DeliveryBusyError) throw e;
+    if (isDeliveryLookupError(e)) {
+      // Tracking is unavailable, but the send itself must not be blocked.
+      console.error("beginDelivery: tracking lookup failed, continuing untracked", e);
+      return null;
+    }
     console.error("beginDelivery failed", e);
     return null;
   }
+
 }
 
 export type CompleteDeliveryInput = {
