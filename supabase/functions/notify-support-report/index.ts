@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     const type = String((report as Row).report_type ?? "bug");
     const subject = `[BookedJobs ${type}] ${orgName} — ${String((report as Row).message ?? "").slice(0, 60)}`;
 
-    const resendRes = await fetch("https://api.resend.com/emails-forced-failure-test", {
+    const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
