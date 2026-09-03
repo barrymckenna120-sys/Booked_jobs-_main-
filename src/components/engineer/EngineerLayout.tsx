@@ -18,6 +18,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import { WifiOff, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -115,6 +116,8 @@ const EngineerLayout = () => {
     );
   }
 
+  const [reportOpen, setReportOpen] = useState(false);
+
   const navItems = [
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
     { key: "upcoming", label: "Upcoming", icon: CalendarDays, count: upcomingJobs.length, path: "/engineer/upcoming" },
@@ -148,6 +151,13 @@ const EngineerLayout = () => {
             >
               <Package className="w-4 h-4" /> Order Parts
             </button>
+            <button
+              onClick={() => setReportOpen(true)}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+              title="Report an issue"
+            >
+              <LifeBuoy className="w-4 h-4" />
+            </button>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
               onClick={async () => {
@@ -166,6 +176,8 @@ const EngineerLayout = () => {
         </div>
       </div>
 
+
+      <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="engineer" />
 
       {/* Offline banner */}
       {!browserOnline && (
