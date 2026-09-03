@@ -45,7 +45,7 @@ const ReportIssueDialog = ({ open, onOpenChange, app, screenSuffix }: Props) => 
       const baseScreen = screenFromRoute(location.pathname);
       const screen = screenSuffix ? `${baseScreen} — ${screenSuffix}` : baseScreen;
 
-      const { error } = await supabase.from("support_reports").insert({
+      const { data: inserted, error } = await supabase.from("support_reports").insert({
         report_type: reportType,
         message: body,
         submitted_by: user.id,
@@ -56,9 +56,19 @@ const ReportIssueDialog = ({ open, onOpenChange, app, screenSuffix }: Props) => 
         screen,
         route: location.pathname + location.search,
         ...collectDiagnostics(),
-      });
+      }).select("id").single();
       if (error) throw error;
-      toast({ title: "Thanks — your report has been sent" });
+
+      // The stored row is the source of truth. The notification email is best
+      // effort: a Resend failure must never surface to the submitter or undo
+      // the report.
+      if (inserted?.id) {
+        supabase.functions
+          .invoke("notify-support-report", { body: { report_id: inserted.id } })
+          .catch((e) => console.warn("[support] notification email failed", e));
+      }
+
+      toast({ title: "Thanks — your report has been submitted." });
       setMessage("");
       setReportType("bug");
       onOpenChange(false);
