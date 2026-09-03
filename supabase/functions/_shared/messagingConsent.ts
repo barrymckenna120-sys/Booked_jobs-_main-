@@ -48,14 +48,17 @@ export async function requireCustomerMessagingConsent(opts: {
   const supabase = serviceClient();
   let decision: ConsentDecision;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("customers")
       .select("id, name, phone, whatsapp_phone, opted_out, organisation_id")
       .eq("id", customerId)
       .maybeSingle();
+    // A failed read is not a missing customer: surface it instead of skipping.
+    if (error) throw new Error(error.message);
     decision = evaluateConsent(data as ConsentCustomerRow, orgId);
   } catch (_e) {
-    decision = { allowed: false, reason: "customer_not_found" };
+    console.error(`${fnName}: customer lookup failed`, _e);
+    decision = { allowed: false, reason: "lookup_failed" };
   }
 
   if (decision.allowed) return decision;
@@ -96,12 +99,18 @@ export function consentSkipResponse(
   cors: Record<string, string>,
 ): Response {
   const forbidden = reason === "customer_wrong_organisation";
+  // A genuine lookup failure is an error, never a successful "skipped".
+  const lookupFailed = reason === "lookup_failed";
   return new Response(
     JSON.stringify(
-      forbidden ? { success: false, error: "Forbidden" } : consentSkipBody(reason),
+      forbidden
+        ? { success: false, error: "Forbidden" }
+        : lookupFailed
+        ? { success: false, error: "lookup_failed" }
+        : consentSkipBody(reason),
     ),
     {
-      status: forbidden ? 403 : 200,
+      status: forbidden ? 403 : lookupFailed ? 503 : 200,
       headers: { ...cors, "Content-Type": "application/json" },
     },
   );
