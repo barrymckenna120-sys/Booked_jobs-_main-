@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useUserRole } from "@/hooks/useUserRole";
 import { fetchProfile } from "@/lib/profileCache";
 import { collectDiagnostics, screenFromRoute, type SupportApp } from "@/lib/supportDiagnostics";
 
@@ -27,7 +26,6 @@ type Props = {
 const ReportIssueDialog = ({ open, onOpenChange, app, screenSuffix }: Props) => {
   const location = useLocation();
   const { toast } = useToast();
-  const { role, engineerName } = useUserRole();
   const [reportType, setReportType] = useState<string>("bug");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -52,11 +50,8 @@ const ReportIssueDialog = ({ open, onOpenChange, app, screenSuffix }: Props) => 
         message: body,
         submitted_by: user.id,
         submitted_by_name:
-          (profile as { display_name?: string } | null)?.display_name ||
-          engineerName ||
-          user.email ||
-          null,
-        submitted_by_role: app === "engineer" ? "Engineer" : role === "engineer" ? "Engineer" : "Office",
+          (profile as { display_name?: string } | null)?.display_name || user.email || null,
+        submitted_by_role: app === "engineer" ? "Engineer" : "Office",
         app,
         screen,
         route: location.pathname + location.search,
