@@ -47,9 +47,24 @@ export class DeliveryBusyError extends Error {
   }
 }
 
+/**
+ * A tracking lookup genuinely FAILED (connection/permission/malformed query).
+ * Distinct from "no row found", which stays a legitimate, non-error outcome.
+ * Callers must not treat this as "not applicable" — see whatsapp-delivery-webhook.
+ */
+export class DeliveryLookupError extends Error {
+  constructor(where: string, detail?: string | null) {
+    super(`delivery lookup failed (${where})${detail ? `: ${detail}` : ""}`);
+    this.name = "DeliveryLookupError";
+  }
+}
+
+export const isDeliveryLookupError = (e: unknown): e is DeliveryLookupError =>
+  !!e && (e as { name?: string }).name === "DeliveryLookupError";
+
 async function findDelivery(supabase: any, input: BeginDeliveryInput) {
   if (!input.relatedId) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("communication_deliveries")
     .select("id, attempt_count, in_flight, in_flight_at")
     .eq("organisation_id", input.organisationId)
@@ -57,8 +72,11 @@ async function findDelivery(supabase: any, input: BeginDeliveryInput) {
     .eq("channel", input.channel)
     .eq("related_id", input.relatedId)
     .maybeSingle();
+  // A failed read is NOT an absent row: never let it look like "no delivery yet".
+  if (error) throw new DeliveryLookupError("communication_deliveries", error.message);
   return data ?? null;
 }
+
 
 /**
  * Open (or reopen) a delivery record and log a `pending` attempt.
