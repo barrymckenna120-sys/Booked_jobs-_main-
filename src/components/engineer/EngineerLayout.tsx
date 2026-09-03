@@ -31,6 +31,7 @@ const EngineerLayout = () => {
   const engineerJobs = useEngineerJobs();
   const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isEngineerNotLinked, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [browserOnline, setBrowserOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
@@ -115,8 +116,6 @@ const EngineerLayout = () => {
       </div>
     );
   }
-
-  const [reportOpen, setReportOpen] = useState(false);
 
   const navItems = [
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
