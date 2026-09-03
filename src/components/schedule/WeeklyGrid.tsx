@@ -295,10 +295,14 @@ const WeeklyGrid = ({ weekDays, timeBlocks, jobs, selectedEngineer, engineers, b
                             {jobTypeBadge(job.job_type)}
                             {mediaBadge(job.media_count)}
                             <NewCustomerBadge status={job.customer_status_at_booking} size="sm" />
-                            <PossibleDuplicateBadge flagged={job.possible_duplicate} size="sm" />
                             {!job.deposit_paid && <span className="w-2 h-2 rounded-full bg-warning" />}
                           </div>
                         </div>
+                         {job.possible_duplicate === true && (
+                           <div className="mt-1.5">
+                             <PossibleDuplicateBadge flagged size="sm" />
+                           </div>
+                         )}
                         {selectedEngineer === "all" && renderTeam(job)}
                       </button>
                     ))
