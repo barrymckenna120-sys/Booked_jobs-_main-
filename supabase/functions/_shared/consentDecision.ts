@@ -14,7 +14,9 @@ export type ConsentSkipReason =
   | "customer_not_found"
   | "customer_wrong_organisation"
   | "customer_opted_out"
-  | "no_phone_number";
+  | "no_phone_number"
+  /** The customer read genuinely FAILED. Not a legitimate skip — see messagingConsent. */
+  | "lookup_failed";
 
 export type ConsentDecision =
   | {
@@ -63,6 +65,8 @@ export function skipMessage(reason: ConsentSkipReason): string {
       return "Customer has no stored phone number — send skipped";
     case "customer_wrong_organisation":
       return "Customer does not belong to the acting organisation — send denied";
+    case "lookup_failed":
+      return "Customer lookup failed — send not attempted";
     default:
       return "Customer not found — send skipped";
   }

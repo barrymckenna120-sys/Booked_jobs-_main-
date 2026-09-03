@@ -15,7 +15,11 @@
 //    interpreted as failure here.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { recordDelivered, recordProviderFailure } from "../_shared/deliveryStatus.ts";
+import {
+  isDeliveryLookupError,
+  recordDelivered,
+  recordProviderFailure,
+} from "../_shared/deliveryStatus.ts";
 
 const DELIVERED = new Set(["delivered", "delivery", "read", "seen", "played"]);
 const FAILED = new Set(["failed", "failure", "undelivered", "error", "rejected", "expired"]);
@@ -112,20 +116,30 @@ Deno.serve(async (req) => {
 
   if (!messageId) return json({ ok: true, matched: false, reason: "no_message_id" });
 
-  if (kind === "delivered") {
-    const r = await recordDelivered(supabase, messageId, status);
-    return json({ ok: true, ...r, applied: "delivered" });
-  }
+  // A genuine lookup failure must NOT look like "no matching attempt": answer
+  // 503 so the provider retries instead of dropping a real receipt.
+  try {
+    if (kind === "delivered") {
+      const r = await recordDelivered(supabase, messageId, status);
+      return json({ ok: true, ...r, applied: "delivered" });
+    }
 
-  if (kind === "failed") {
-    const r = await recordProviderFailure(
-      supabase,
-      messageId,
-      `provider status: ${status}`,
-      "whatsapp",
-      status,
-    );
-    return json({ ok: true, ...r, applied: "failed" });
+    if (kind === "failed") {
+      const r = await recordProviderFailure(
+        supabase,
+        messageId,
+        `provider status: ${status}`,
+        "whatsapp",
+        status,
+      );
+      return json({ ok: true, ...r, applied: "failed" });
+    }
+  } catch (e) {
+    if (isDeliveryLookupError(e)) {
+      console.error("whatsapp-delivery-webhook: delivery lookup failed", e);
+      return json({ error: "lookup_failed" }, 503);
+    }
+    throw e;
   }
 
   // Intermediate/unknown provider states are recorded but never reinterpreted.

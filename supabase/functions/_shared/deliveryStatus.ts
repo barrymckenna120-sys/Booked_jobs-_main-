@@ -47,9 +47,24 @@ export class DeliveryBusyError extends Error {
   }
 }
 
+/**
+ * A tracking lookup genuinely FAILED (connection/permission/malformed query).
+ * Distinct from "no row found", which stays a legitimate, non-error outcome.
+ * Callers must not treat this as "not applicable" — see whatsapp-delivery-webhook.
+ */
+export class DeliveryLookupError extends Error {
+  constructor(where: string, detail?: string | null) {
+    super(`delivery lookup failed (${where})${detail ? `: ${detail}` : ""}`);
+    this.name = "DeliveryLookupError";
+  }
+}
+
+export const isDeliveryLookupError = (e: unknown): e is DeliveryLookupError =>
+  !!e && (e as { name?: string }).name === "DeliveryLookupError";
+
 async function findDelivery(supabase: any, input: BeginDeliveryInput) {
   if (!input.relatedId) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("communication_deliveries")
     .select("id, attempt_count, in_flight, in_flight_at")
     .eq("organisation_id", input.organisationId)
@@ -57,8 +72,11 @@ async function findDelivery(supabase: any, input: BeginDeliveryInput) {
     .eq("channel", input.channel)
     .eq("related_id", input.relatedId)
     .maybeSingle();
+  // A failed read is NOT an absent row: never let it look like "no delivery yet".
+  if (error) throw new DeliveryLookupError("communication_deliveries", error.message);
   return data ?? null;
 }
+
 
 /**
  * Open (or reopen) a delivery record and log a `pending` attempt.
@@ -142,9 +160,15 @@ export async function beginDelivery(
     return { deliveryId: deliveryId as string, attemptId: attempt.id, attemptNumber };
   } catch (e) {
     if (e instanceof DeliveryBusyError) throw e;
+    if (isDeliveryLookupError(e)) {
+      // Tracking is unavailable, but the send itself must not be blocked.
+      console.error("beginDelivery: tracking lookup failed, continuing untracked", e);
+      return null;
+    }
     console.error("beginDelivery failed", e);
     return null;
   }
+
 }
 
 export type CompleteDeliveryInput = {
@@ -239,11 +263,15 @@ export async function recordDelivered(
   providerMessageId: string,
   providerStatus?: string | null,
 ): Promise<{ matched: boolean; changed: boolean }> {
-  const { data: attempt } = await supabase
+  const { data: attempt, error: lookupErr } = await supabase
     .from("communication_delivery_attempts")
     .select("id, delivery_id, organisation_id, delivered_at")
     .eq("provider_message_id", providerMessageId)
     .maybeSingle();
+
+  // Genuine query failure — never report it as "no such attempt".
+  if (lookupErr) throw new DeliveryLookupError("recordDelivered", lookupErr.message);
+
 
   if (!attempt) return { matched: false, changed: false };
   if (attempt.delivered_at) return { matched: true, changed: false };
@@ -289,11 +317,16 @@ export async function recordProviderFailure(
   channel = "whatsapp",
   providerStatus?: string | null,
 ): Promise<{ matched: boolean; changed: boolean }> {
-  const { data: attempt } = await supabase
+  const { data: attempt, error: lookupErr } = await supabase
     .from("communication_delivery_attempts")
     .select("id, delivery_id, organisation_id, outcome, delivered_at")
     .eq("provider_message_id", providerMessageId)
     .maybeSingle();
+
+  // Genuine query failure — never report it as "no such attempt".
+  if (lookupErr) throw new DeliveryLookupError("recordProviderFailure", lookupErr.message);
+
+
 
   if (!attempt) return { matched: false, changed: false };
   // Never contradict a confirmed delivery, and never re-alert on the same attempt.
