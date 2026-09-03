@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { LifeBuoy } from "lucide-react";
+import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/utils/audio";
