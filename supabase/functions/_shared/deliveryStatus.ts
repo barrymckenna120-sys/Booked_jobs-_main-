@@ -317,11 +317,16 @@ export async function recordProviderFailure(
   channel = "whatsapp",
   providerStatus?: string | null,
 ): Promise<{ matched: boolean; changed: boolean }> {
-  const { data: attempt } = await supabase
+  const { data: attempt, error: lookupErr } = await supabase
     .from("communication_delivery_attempts")
     .select("id, delivery_id, organisation_id, outcome, delivered_at")
     .eq("provider_message_id", providerMessageId)
     .maybeSingle();
+
+  // Genuine query failure — never report it as "no such attempt".
+  if (lookupErr) throw new DeliveryLookupError("recordProviderFailure", lookupErr.message);
+
+
 
   if (!attempt) return { matched: false, changed: false };
   // Never contradict a confirmed delivery, and never re-alert on the same attempt.
