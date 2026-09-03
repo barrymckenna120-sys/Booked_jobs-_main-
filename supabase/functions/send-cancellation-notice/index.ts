@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getOrgBranding } from "../_shared/orgBranding.ts";
 import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
+import { shouldSendCancellationNotice } from "../_shared/cancellationNotice.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 
@@ -47,6 +48,17 @@ serve(async (req) => {
       });
     }
 
+    // A duplicate booking is an internal tidy-up — the customer's real job
+    // still stands, so no cancellation message goes out. The job stays
+    // cancelled and off the schedule regardless.
+    if (!shouldSendCancellationNotice(job.cancellation_reason)) {
+      console.log("send-cancellation-notice: skipped for duplicate booking", { service_call_id });
+      return new Response(
+        JSON.stringify({ message: "Skipped — duplicate booking", skipped: "duplicate_booking" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const customer = job.customers;
     if (!customer) {
       return new Response(JSON.stringify({ error: "Customer not found" }), {
@@ -54,6 +66,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     if (customer.opted_out) {
       return new Response(JSON.stringify({ message: "Customer opted out" }), {
