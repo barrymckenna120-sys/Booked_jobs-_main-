@@ -385,7 +385,7 @@ const Jobs = () => {
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("scheduled_date")}>
             <span className="inline-flex items-center">Date <SortIcon col="scheduled_date" /></span>
           </TableHead>
-          <TableHead className="hidden xl:table-cell">Engineer</TableHead>
+          <TableHead className="hidden lg:table-cell">Engineer</TableHead>
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
             <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
           </TableHead>
@@ -428,7 +428,7 @@ const Jobs = () => {
                   `${new Date(j.scheduled_date + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" })}${j.time_block ? ` · ${j.time_block}` : ""}`
                 ) : "—"}
               </TableCell>
-              <TableCell className="hidden xl:table-cell">
+              <TableCell className="hidden lg:table-cell">
                 {(() => {
                   const lines = teamLines(j);
                   if (lines.length === 0) return "—";
