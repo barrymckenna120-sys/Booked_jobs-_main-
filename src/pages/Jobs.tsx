@@ -583,7 +583,7 @@ const Jobs = () => {
 
       {/* Contact links */}
       {j.customer_phone && (
-        <div className="flex md:hidden items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex lg:hidden items-center gap-3" onClick={(e) => e.stopPropagation()}>
           <a href={`tel:${j.customer_phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
             <Phone className="w-4 h-4" /> Call
           </a>
