@@ -391,7 +391,7 @@ const Jobs = () => {
           </TableHead>
           <TableHead>Payment</TableHead>
           <TableHead className="hidden xl:table-cell">Source</TableHead>
-          <TableHead className="w-[100px]">Receipt</TableHead>
+          <TableHead className="hidden xl:table-cell w-[100px]">Receipt</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -409,7 +409,7 @@ const Jobs = () => {
                 <PossibleDuplicateBadge flagged={j.possible_duplicate} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
-                  <p className="text-xs text-muted-foreground truncate max-w-[220px]">{j.customer_address}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[140px] lg:max-w-[220px]">{j.customer_address}</p>
                 )}
                 {j.follow_up_needed && (
                   <div className="mt-1 space-y-0.5">
