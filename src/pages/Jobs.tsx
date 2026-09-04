@@ -390,7 +390,7 @@ const Jobs = () => {
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
             <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
           </TableHead>
-          <TableHead className="hidden xl:table-cell">Payment</TableHead>
+          <TableHead className="hidden lg:table-cell">Payment</TableHead>
           <TableHead className="hidden xl:table-cell">Source</TableHead>
           <TableHead className="w-[100px]">Receipt</TableHead>
         </TableRow>
@@ -460,7 +460,7 @@ const Jobs = () => {
                   )}
                 </div>
               </TableCell>
-              <TableCell className="hidden xl:table-cell">{paymentStatusBadge(j)}</TableCell>
+              <TableCell className="hidden lg:table-cell">{paymentStatusBadge(j)}</TableCell>
               <TableCell className="hidden xl:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
