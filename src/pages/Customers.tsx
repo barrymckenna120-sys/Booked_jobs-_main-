@@ -335,7 +335,7 @@ const Customers = () => {
                     <TableHead className="text-xs uppercase font-semibold">Name</TableHead>
                     <TableHead className="text-xs uppercase font-semibold">Phone</TableHead>
                     <TableHead className="hidden md:table-cell text-xs uppercase font-semibold">Address</TableHead>
-                    <TableHead className="hidden md:table-cell text-xs uppercase font-semibold">Eircode</TableHead>
+                    <TableHead className="hidden lg:table-cell text-xs uppercase font-semibold">Eircode</TableHead>
                     <TableHead className="hidden lg:table-cell text-xs uppercase font-semibold">Area</TableHead>
                     <TableHead className="text-xs uppercase font-semibold">Status</TableHead>
                   </TableRow>
@@ -351,7 +351,7 @@ const Customers = () => {
                       </TableCell>
                       <TableCell>{c.phone}</TableCell>
                       <TableCell className="hidden md:table-cell">{c.address}</TableCell>
-                      <TableCell className="hidden md:table-cell">{c.eircode}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{c.eircode}</TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">{c.area_code || "—"}</TableCell>
                       <TableCell>{(() => {
                         let s = "Up to Date";
