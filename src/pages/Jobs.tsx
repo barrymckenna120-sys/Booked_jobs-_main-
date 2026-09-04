@@ -12,7 +12,7 @@ import { ChevronLeft, ChevronRight, ClipboardList, Search, ArrowUpDown, ArrowUp,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import TakePaymentModal from "@/components/payments/TakePaymentModal";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile, useIsCompactLayout } from "@/hooks/use-mobile";
 import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
@@ -65,6 +65,7 @@ type Job = {
 
 const Jobs = () => {
   const isMobile = useIsMobile();
+  const isCompactLayout = useIsCompactLayout();
   const { user } = useAuth();
   const { ready } = useOrgId();
   const navigate = useNavigate();
@@ -389,9 +390,9 @@ const Jobs = () => {
           <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
             <span className="inline-flex items-center">Status <SortIcon col="status" /></span>
           </TableHead>
-          <TableHead>Payment</TableHead>
+          <TableHead className="hidden xl:table-cell">Payment</TableHead>
           <TableHead className="hidden xl:table-cell">Source</TableHead>
-          <TableHead className="hidden xl:table-cell w-[100px]">Receipt</TableHead>
+          <TableHead className="w-[100px]">Receipt</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -409,7 +410,7 @@ const Jobs = () => {
                 <PossibleDuplicateBadge flagged={j.possible_duplicate} size="sm" className="ml-1.5 align-middle" />
                 <p className="text-xs font-mono text-muted-foreground">{j.job_reference || `KN-${j.id.slice(0, 6).toUpperCase()}`}</p>
                 {j.customer_address && (
-                  <p className="text-xs text-muted-foreground truncate max-w-[140px] lg:max-w-[220px]">{j.customer_address}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[140px] xl:max-w-[220px]">{j.customer_address}</p>
                 )}
                 {j.follow_up_needed && (
                   <div className="mt-1 space-y-0.5">
@@ -459,7 +460,7 @@ const Jobs = () => {
                   )}
                 </div>
               </TableCell>
-              <TableCell>{paymentStatusBadge(j)}</TableCell>
+              <TableCell className="hidden xl:table-cell">{paymentStatusBadge(j)}</TableCell>
               <TableCell className="hidden xl:table-cell">
                 {j.source === "Quote" ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary"><ClipboardList className="w-3 h-3" />Quote</span>
@@ -629,7 +630,7 @@ const Jobs = () => {
   );
 
   const renderJobsList = (rows: Job[], rowBorderClass?: string) => {
-    if (isMobile) return renderMobileCards(rows);
+    if (isCompactLayout) return renderMobileCards(rows);
     return <Card><CardContent className="p-0"><div className="overflow-x-auto">{renderJobsTable(rows, rowBorderClass)}</div></CardContent></Card>;
   };
 
