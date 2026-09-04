@@ -152,9 +152,28 @@ Deno.serve(
     if (
       !isAuthorisedInbound(req)
     ) {
+      // Diagnostic only: never logs the secret itself, only whether the
+      // provider delivered an `?s=` param at all and how long it was.
+      const probeParam =
+        new URL(req.url)
+          .searchParams.get("s");
+
       console.warn(
-        "whatsapp-inbound: rejected call with missing/invalid secret"
+        "whatsapp-inbound: rejected call with missing/invalid secret",
+        JSON.stringify({
+          s_present:
+            probeParam !== null,
+          s_length: (
+            probeParam ?? ""
+          ).trim().length,
+          expected_length: (
+            Deno.env.get(
+              "WHATSAPP_INBOUND_SECRET"
+            ) ?? ""
+          ).trim().length,
+        })
       );
+
 
       return new Response(
         JSON.stringify({
