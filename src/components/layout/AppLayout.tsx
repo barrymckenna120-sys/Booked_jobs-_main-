@@ -161,7 +161,7 @@ const AppLayoutInner = () => {
       <WhatsAppConnectionBanner />
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
-      <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
+      <aside className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
@@ -308,7 +308,7 @@ const AppLayoutInner = () => {
       </header>
 
       {/* ═══════════ MAIN CONTENT ═══════════ */}
-      <main className="flex-1 md:ml-[220px] pb-20 md:pb-0">
+      <main className="flex-1 min-w-0 md:ml-[200px] lg:ml-[220px] pb-20 md:pb-0">
         <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
           <Outlet />
         </ErrorBoundary>
