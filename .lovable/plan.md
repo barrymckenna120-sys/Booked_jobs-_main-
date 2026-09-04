@@ -1,49 +1,43 @@
-# BJ-0097 Step 2 — Nightly offsite backup to your own S3
+# Inbound WhatsApp messages missing from customer Message History
 
-Confirmed from Step 1: no backup/dump/export code, no S3 code, no AWS secrets, no backup cron. Postgres 17.6. `pg_dump` cannot run inside an Edge Function (Deno runtime, no shell, no Postgres binaries), so the runner is external — a scheduled GitHub Action.
+Investigation done first. This is **not** a UI filtering bug, and it is not a persistence bug either — both of those already work. There are two real blockers, one inside the project and one at 360Messenger.
 
-## Credential blocker to resolve first
+## What the investigation found
 
-`pg_dump` needs a direct Postgres connection string (host, port, user, **password**). On Lovable Cloud the database password and service-role key are not available to me and cannot be fetched — you must obtain a database connection string yourself before the Action can work.
+Confirmed by reading code and querying the live database:
 
-Two ways forward:
+- **The Message History UI already includes inbound.** `WhatsAppHistory.tsx` reads `whatsapp_messages` and `message_log` for the customer with no direction filter, merges and sorts both by timestamp. Nothing excludes inbound rows.
+- **Inbound rows already exist and are correctly linked.** `message_log` holds 230 inbound rows and `whatsapp_messages` 18 — every inbound `message_log` row has a non-null `customer_id`, so any inbound record that lands does render in the profile. The most recent genuine customer reply is **26 Aug 2026**; nothing since.
+- **`whatsapp-inbound` persists correctly.** It matches the sender by last-9-digits across `phone`/`landline_phone`, resolves the organisation, dedupes replays, and writes both a `whatsapp_messages` row (`direction: inbound`, `sent_by: customer`, provider timestamp) and a mirrored `message_log` row.
+- **Blocker 1 — the webhook secret is not configured.** The function fails closed when `WHATSAPP_INBOUND_SECRET` is missing, and that secret does **not** exist in this project's secret store. A live probe of the deployed endpoint returned `401 {"error":"Unauthorized"}`. So even if 360Messenger did call the callback URL, every request would be rejected before the payload is read.
+- **Blocker 2 — 360Messenger will not accept the callback URL** (403 on registration, dashboard save fails, ticket unresolved). Provider-side; not fixable from this codebase.
+- **No `whatsapp-inbound` invocation logs exist at all**, consistent with the provider never having delivered a single callback.
 
-1. **You supply a Postgres connection string** (a read-capable role is enough for a data dump). This is the only route that gives a true `pg_dump` backup. If you cannot obtain one, option 2 is the fallback.
-2. **Fallback if no connection string exists:** the Action authenticates as a superadmin user against the app's Data API and writes per-table JSON/CSV instead of a `.dump`. Consistent-enough for record keeping, but not a restorable native dump.
+## Plan
 
-The plan below assumes option 1, and notes where option 2 differs.
+### Step 1 — Configure the inbound webhook secret
+Add `WHATSAPP_INBOUND_SECRET` to the project secrets (a random value; it must be readable so it can be pasted into the 360Messenger callback URL as `?s=<secret>`, so it is entered via the secure form rather than machine-generated). Nothing in the function code changes — it already reads this variable and already fails closed without it.
 
-## What gets built
+### Step 2 — Prove the endpoint end-to-end without the provider
+Using a scratch/test phone number only (never a real customer), POST a realistic 360Messenger payload (`dataType: "message"`, `From`, `Chat`, `createdAt`) to the deployed function with the correct `?s=` value, then verify:
+- HTTP 200 with `{"status":"ok"}`
+- one new inbound `whatsapp_messages` row and one new `message_log` row, correct `customer_id`, `organisation_id`, direction, body, sender and provider timestamp
+- the message appears in that customer's Message History in chronological order, with existing outbound messages unaffected
+- a wrong/absent `?s=` value still returns 401
+- a repeat delivery of the same payload is ignored by the dedupe guard
 
-Everything lives in the GitHub repository this project syncs to — no app code, no new Edge Function, no new pg_cron job.
+This proves everything from the callback URL inwards, which is the only part inside our control.
 
-1. **`.github/workflows/backup.yml`** — scheduled `cron: '0 2 * * *'` (03:00 Europe/Dublin in summer, 02:00 in winter), plus `workflow_dispatch` for manual runs. Uses `postgres:17` container tooling so `pg_dump` major version matches the server.
-2. **`scripts/backup/db-dump.sh`** — full-cluster logical dump of all tenants together:
-   - `pg_dump --format=custom --no-owner --no-privileges` → `all-tenants-<UTC date>.dump`
-   - plus a plain-SQL schema-only file so schema drift is reviewable in a diff.
-3. **`scripts/backup/per-tenant.sh`** — one export per organisation, for tenant-level restore and GDPR requests:
-   - reads the organisation list, then for each org id runs `COPY (SELECT … WHERE organisation_id = $1) TO STDOUT WITH CSV HEADER` over the 16 tenant-scoped tables, gzipped into `tenant-<slug>/<table>.csv.gz`.
-   - shared/global tables (e.g. `boiler_brands`) are dumped once at top level, not duplicated per tenant.
-4. **`scripts/backup/storage-files.sh`** — mirrors Supabase Storage buckets (job media, certificate PDFs) to S3. Notes in the script that Cloudinary-hosted assets cannot be pulled — no admin credential exists for them (same limitation already documented in `reset-org-data`).
-5. **S3 upload + retention** — `aws s3 cp` under a dated prefix `s3://<bucket>/bookedjobs/<YYYY>/<MM>/<YYYY-MM-DD>/`. Retention is enforced by an S3 lifecycle rule you set on the bucket (30 daily / 12 monthly suggested), not by the script deleting objects.
-6. **Failure alerting** — the workflow fails loudly on any non-zero step, and posts a failure notification so a silent broken backup is impossible. A backup that never reports is the classic failure mode; the workflow also writes a `MANIFEST.txt` with row counts per table so you can verify a run actually captured data.
+### Step 3 — Unblock 360Messenger delivery (your side)
+Once Step 1 is done I will give you the exact callback URL, including the secret query parameter, to paste into the 360Messenger dashboard / registration API. If it still returns 403, the remaining failure is entirely provider-side and the support ticket is the path — the two candidate causes worth putting to them are that the callback URL must be registered on the account's own API key/instance, and that some plans reject callback URLs containing query strings. If it turns out to be the query-string case, the fallback is to move the secret into the URL path segment instead; that is a small change to the same function and I will only make it if the provider confirms it.
 
-## What you need to do (outside Lovable)
-
-1. Create the S3 bucket in your AWS account (private, versioning on, default encryption, lifecycle rule for retention).
-2. Create an IAM user/role limited to `s3:PutObject`/`GetObject`/`ListBucket` on that bucket only.
-3. Add GitHub **repository secrets**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`, and `BACKUP_DATABASE_URL` (option 1) or the superadmin credentials (option 2).
-
-These are GitHub Action secrets, not project secrets — nothing AWS-related needs to be stored in the app's secret store, so the app never holds AWS credentials.
-
-## Verification
-
-- Trigger the workflow manually and confirm objects land under the dated S3 prefix.
-- Confirm the `.dump` restores into a scratch Postgres 17 database and that row counts match `MANIFEST.txt`.
-- Confirm per-tenant CSVs contain only that organisation's rows (spot-check K&N vs Dublin Gas customer counts).
-- Confirm a deliberately broken credential makes the workflow fail visibly rather than upload an empty file.
-- Confirm no app behaviour, no Edge Function, and no existing cron job changed.
+### Step 4 — Confirm with a real message
+After the provider accepts the URL, send a real WhatsApp reply from a scratch number and confirm it appears in Message History with the correct direction, content, sender and timestamp.
 
 ## Out of scope
 
-Restore automation, Cloudinary asset backup, and any change to the 7 existing pg_cron jobs.
+No change to the Message History UI, the sender-matching logic, the dedupe guard, outbound senders, or any other Edge Function. No change to how outbound messages display.
+
+## Honest limitation
+
+Steps 3 and 4 depend on 360Messenger accepting the callback URL. Steps 1 and 2 make our side provably correct and ready, but I cannot make the provider deliver webhooks while registration returns 403.
