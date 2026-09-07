@@ -170,25 +170,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               </div>
               <div className="aspect-square relative">
                 {isVideoItem(m) ? (
-                  <>
-                    <video
-                      src={displayUrl + "#t=0.1"}
-                      className="w-full h-full object-cover"
-                      muted
-                      playsInline
-                      preload="metadata"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                        <Play className="w-6 h-6 text-foreground fill-foreground ml-0.5" />
-                      </div>
-                    </div>
-                    {formatDuration(durations[m.id]) ? (
-                      <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
-                        {formatDuration(durations[m.id])}
-                      </span>
-                    ) : null}
-                  </>
+                  <VideoThumb url={displayUrl} name={m.file_name} large />
+
                 ) : (
                   <img
                     src={displayUrl}
