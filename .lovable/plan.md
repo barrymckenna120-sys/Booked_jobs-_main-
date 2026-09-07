@@ -83,18 +83,17 @@ Testing is worth doing now for items 2, 3, 4. Items 1 and 6 should be fixed **be
 
 ---
 
-## Proposed fix plan (not implemented)
+## Approved scope — Steps 1 and 3 only
 
-Each step is independently revertible and shipped on its own.
+Shipped as two independent, separately revertible changes.
 
-**Step 1 — Bound session restore (highest value, smallest change).** `src/hooks/useAuth.tsx` only: wrap the initial `getSession()` in `withRequestTimeout` and add a `.catch()`, so on timeout/error it resolves to "no session" and clears `loading`. Never leaves the app in a permanent spinner. Regression test on the timeout branch.
+**Step 1 — Bound session restore.** `src/hooks/useAuth.tsx` only: wrap the initial `getSession()` (line 126) in the existing `withRequestTimeout` helper and add a `.catch()`. On timeout or error it resolves to "no session", sets `loading` false and marks `initialCheckDone`, so the app always leaves the spinner — falling through to the normal signed-out path rather than hanging. The `onAuthStateChange` subscription still corrects the state if the session arrives late. Add a unit test for the timeout branch.
 
-**Step 2 — Bound engineer fetches.** `src/hooks/useEngineerJobs.ts` only: wrap each `supabase` read in `withRequestTimeout`; cap the 5s retry loop (max ~3 attempts with backoff); when the fetch fails and cached data was painted, surface a "showing saved data" state instead of retrying silently.
+**Step 3 — Connectivity awareness for the office app.** Mount a shared offline/weak-connection banner in `src/components/layout/AppLayout.tsx` driven by the existing `useNetworkStatus` hook, and repoint `src/components/engineer/EngineerLayout.tsx` at the same hook instead of its duplicate 30s probe (`EngineerLayout.tsx:52-88`). Presentation and wiring only — no changes to `useNetworkStatus` itself, no query behaviour changes, engineer offline banner copy unchanged.
 
-**Step 3 — Connectivity awareness for the office app.** Mount a shared offline/weak-connection banner in `src/components/layout/AppLayout.tsx` using the existing `useNetworkStatus` hook, and point `src/components/engineer/EngineerLayout.tsx` at the same hook instead of its duplicate probe. Presentation only — no query behaviour changes.
+Verification: `tsgo --noEmit`, full Vitest suite, and an authenticated Playwright pass on `/dashboard` and `/jobs` at desktop and iPhone 14 widths confirming (a) normal load unaffected, (b) with the network blocked the banner appears and no screen hangs on a spinner.
 
-**Step 4 — Resume hardening.** Throttle the `visibilitychange` refetch in `src/hooks/useEngineerJobs.ts` (reuse the existing throttle pattern from `src/hooks/useNotifications.ts`), and trigger one `registration.update()` on resume in `src/components/pwa/PWAUpdateBanner.tsx` so installed iOS PWAs see the update banner.
-
-**Step 5 — Cosmetic viewport cleanup.** Replace the remaining raw `100vh` with the existing `dvh` utilities, and drop the conflicting `minHeight: 100vh` in `src/App.tsx`.
+**Held for later:** Step 2 (bound engineer fetches), Step 4 (resume hardening + iOS update check), Step 5 (cosmetic `100vh` cleanup).
 
 Out of scope: offline write queueing, backend, RLS, payments, duplicate detection, and any change to `withRequestTimeout`'s 15s default.
+
