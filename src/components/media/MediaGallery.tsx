@@ -42,11 +42,10 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const durations = useVideoDurations(media);
   const signedUrls = useSignedMediaUrls(media);
 
   const getDisplayUrl = (m: MediaItem): string => {
-    if (isVideoItem(m) && m.public_url) return getCloudinaryVideoUrl(m.public_url);
+    if (isVideoItem(m) && m.public_url) return m.public_url;
     return signedUrls[m.id] || "";
   };
 
