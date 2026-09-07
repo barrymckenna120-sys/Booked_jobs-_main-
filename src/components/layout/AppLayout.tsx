@@ -32,6 +32,7 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
    DESKTOP sidebar nav — 11 items
