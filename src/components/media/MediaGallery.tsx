@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -6,7 +6,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, ChevronRight, X, Play, Trash2 } from "lucide-react";
-import { getCloudinaryVideoUrl, uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
+import { uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
 import { useToast } from "@/hooks/use-toast";
 import { useSignedMediaUrls } from "@/lib/mediaUrl";
 
@@ -26,45 +29,8 @@ type Props = {
   onUpload?: () => void;
 };
 
-const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+const isVideoItem = (m: MediaItem) => isVideoMedia(m);
 
-const isVideoItem = (m: MediaItem) =>
-  m.file_type === "video" ||
-  !!m.file_type?.startsWith("video/") ||
-  !!(m.public_url && m.public_url.includes("/video/upload/")) ||
-  VIDEO_EXT_RE.test(m.public_url || "") ||
-  VIDEO_EXT_RE.test(m.file_name || "");
-
-const formatDuration = (seconds: number): string | null => {
-  if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
-/** Hook to detect video durations from Cloudinary MP4 URLs */
-const useVideoDurations = (media: MediaItem[]) => {
-  const [durations, setDurations] = useState<Record<string, number>>({});
-  const resolved = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    media.forEach((m) => {
-      if (!isVideoItem(m) || !m.public_url || resolved.current.has(m.id)) return;
-      resolved.current.add(m.id);
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.src = getCloudinaryVideoUrl(m.public_url);
-      video.onloadedmetadata = () => {
-        if (isFinite(video.duration)) {
-          setDurations((prev) => ({ ...prev, [m.id]: video.duration }));
-        }
-        video.src = "";
-      };
-    });
-  }, [media]);
-
-  return durations;
-};
 
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const { toast } = useToast();
