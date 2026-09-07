@@ -166,12 +166,12 @@ const AppLayoutInner = () => {
       {/* Banners live outside the sidebar/content row so they stay full-width
           strips at the top instead of becoming a flex column beside <main>.
           Stacked, not overlapping, when both are showing. */}
-      <div className="relative z-50 flex flex-col">
-        <ConnectionBanner />
+      <div ref={bannerStackRef} className="relative z-50 flex flex-col">
+        <ConnectionBanner offline={!isOnline} />
         <WhatsAppConnectionBanner />
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row">
+      <div className="flex-1 flex flex-col md:flex-row" style={{ marginTop: 0 }}>
 
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
