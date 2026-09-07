@@ -91,17 +91,21 @@ const AppLayoutInner = () => {
   const { isOnline } = useNetworkStatus(30_000);
   // The desktop sidebar is position:fixed, so a banner in normal flow would sit
   // on top of it. Measure the banner stack and push the sidebar down instead.
-  const bannerStackRef = useRef<HTMLDivElement | null>(null);
+  // Re-measured whenever a banner appears/disappears (the ref only exists once
+  // the full layout renders, so this cannot run on mount alone).
   const [bannerHeight, setBannerHeight] = useState(0);
-  useEffect(() => {
-    const el = bannerStackRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const update = () => setBannerHeight(el.getBoundingClientRect().height);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+  const measureBannerStack = useCallback((el: HTMLDivElement | null) => {
+    setBannerHeight(el ? el.getBoundingClientRect().height : 0);
   }, []);
+  const bannerStackRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      measureBannerStack(el);
+      if (!el || typeof ResizeObserver === "undefined") return;
+      const ro = new ResizeObserver(() => measureBannerStack(el));
+      ro.observe(el);
+    },
+    [measureBannerStack]
+  );
   const userId = user?.id;
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
