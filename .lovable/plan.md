@@ -1,43 +1,100 @@
-# Inbound WhatsApp messages missing from customer Message History
+# Mobile / iOS Safari readiness — investigation report
 
-Investigation done first. This is **not** a UI filtering bug, and it is not a persistence bug either — both of those already work. There are two real blockers, one inside the project and one at 360Messenger.
+Investigation only. No code was changed. Findings below, each with file/line evidence, then a proposed fix plan.
 
-## What the investigation found
+---
 
-Confirmed by reading code and querying the live database:
+## 1. Barry's complaint ("loading state, 5G, 2 bars, iPhone 14") — NOT resolved by today's fixes
 
-- **The Message History UI already includes inbound.** `WhatsAppHistory.tsx` reads `whatsapp_messages` and `message_log` for the customer with no direction filter, merges and sorts both by timestamp. Nothing excludes inbound rows.
-- **Inbound rows already exist and are correctly linked.** `message_log` holds 230 inbound rows and `whatsapp_messages` 18 — every inbound `message_log` row has a non-null `customer_id`, so any inbound record that lands does render in the profile. The most recent genuine customer reply is **26 Aug 2026**; nothing since.
-- **`whatsapp-inbound` persists correctly.** It matches the sender by last-9-digits across `phone`/`landline_phone`, resolves the organisation, dedupes replays, and writes both a `whatsapp_messages` row (`direction: inbound`, `sent_by: customer`, provider timestamp) and a mirrored `message_log` row.
-- **Blocker 1 — the webhook secret is not configured.** The function fails closed when `WHATSAPP_INBOUND_SECRET` is missing, and that secret does **not** exist in this project's secret store. A live probe of the deployed endpoint returned `401 {"error":"Unauthorized"}`. So even if 360Messenger did call the callback URL, every request would be rejected before the payload is read.
-- **Blocker 2 — 360Messenger will not accept the callback URL** (403 on registration, dashboard save fails, ticket unresolved). Provider-side; not fixable from this codebase.
-- **No `whatsapp-inbound` invocation logs exist at all**, consistent with the provider never having delivered a single callback.
+Today's fixes wrap **data** reads in `withRequestTimeout` (`src/pages/JobDetail.tsx:456`, `src/pages/ServiceReceipt.tsx:90`, `src/pages/Jobs.tsx:103`, `src/hooks/useUserRole.ts:43`). Three paths that can hang forever are still unwrapped, and all three are more likely to bite on iOS Safari on a weak radio than on desktop Chrome.
 
-## Plan
+**A. Session restore has no timeout and no error path — the most likely cause of Barry's screen. FAIL**
+- `src/hooks/useAuth.tsx:126` — `supabase.auth.getSession().then(...)` with no `.catch()`, no timeout. `setLoading(false)` and `initialCheckDone` live only in the success branch.
+- When a stored token is expired, this call performs a network refresh. On a stalled connection iOS Safari does not error quickly — it holds the socket. `loading` then stays `true` **indefinitely**.
+- Everything gates on it: `src/App.tsx` `RootRoute` → `RouteFallback` (full-screen brand spinner), `src/components/layout/AppLayout.tsx:144` (`authLoading || roleLoading`), `src/components/engineer/EngineerLayout.tsx:98` (`if (authLoading)` spinner).
+- Symptom is exactly "screen stuck loading, spinner forever, no error, pull-to-refresh doesn't help".
 
-### Step 1 — Configure the inbound webhook secret
-Add `WHATSAPP_INBOUND_SECRET` to the project secrets (a random value; it must be readable so it can be pasted into the 360Messenger callback URL as `?s=<secret>`, so it is entered via the secure form rather than machine-generated). Nothing in the function code changes — it already reads this variable and already fails closed without it.
+**B. Engineer data fetch has no per-request timeout. FAIL**
+- `src/hooks/useEngineerJobs.ts:127-248` — every `await supabase...` is bare (no `withRequestTimeout`). `setLoading(false)` is in `finally` (line 251), which is correct, but `finally` is only reached once the awaits settle; a hung request never settles.
+- Mitigating: a localStorage cache is painted first (`src/hooks/useEngineerJobs.ts:115-125`), so a *returning* engineer sees stale data rather than a spinner. A first login on that device, or a cleared cache, gets the spinner.
+- The catch path retries unconditionally every 5s with no cap and no backoff (`src/hooks/useEngineerJobs.ts:249`) — on weak signal that is a permanent retry loop.
 
-### Step 2 — Prove the endpoint end-to-end without the provider
-Using a scratch/test phone number only (never a real customer), POST a realistic 360Messenger payload (`dataType: "message"`, `From`, `Chat`, `createdAt`) to the deployed function with the correct `?s=` value, then verify:
-- HTTP 200 with `{"status":"ok"}`
-- one new inbound `whatsapp_messages` row and one new `message_log` row, correct `customer_id`, `organisation_id`, direction, body, sender and provider timestamp
-- the message appears in that customer's Message History in chronological order, with existing outbound messages unaffected
-- a wrong/absent `?s=` value still returns 401
-- a repeat delivery of the same payload is ignored by the dedupe guard
+**C. iOS Safari's hung/cancelled fetches are deliberately silenced. FAIL (contributing)**
+- `src/lib/globalErrorHandlers.ts:17` ignores `"load failed"` — iOS Safari's generic wording when it cancels a fetch (including on backgrounding). Reasonable for Sentry noise, but it means a stalled iOS request produces no Sentry event and no user-visible error, so there is nothing to see except the spinner. This is why the issue never showed up in desktop Chrome testing.
 
-This proves everything from the callback URL inwards, which is the only part inside our control.
+**iOS-specific behaviours confirmed relevant:** aggressive tab/process suspension (in-flight fetches are cancelled, timers frozen, promises never settle after resume), no error thrown for a stalled request, `AbortController` itself works correctly (used at `src/hooks/useNetworkStatus.ts:12` and `src/components/engineer/EngineerLayout.tsx:56`) — the gap is that auth and engineer fetches don't use one.
 
-### Step 3 — Unblock 360Messenger delivery (your side)
-Once Step 1 is done I will give you the exact callback URL, including the secret query parameter, to paste into the 360Messenger dashboard / registration API. If it still returns 403, the remaining failure is entirely provider-side and the support ticket is the path — the two candidate causes worth putting to them are that the callback URL must be registered on the account's own API key/instance, and that some plans reject callback URLs containing query strings. If it turns out to be the query-string case, the fallback is to move the secret into the URL path segment instead; that is a small change to the same function and I will only make it if the provider confirms it.
+## 2. Safe-area / notch handling — PASS, with small leftovers
 
-### Step 4 — Confirm with a real message
-After the provider accepts the URL, send a real WhatsApp reply from a scratch number and confirm it appears in Message History with the correct direction, content, sender and timestamp.
+Addressed, not accidental:
+- `index.html:7` — `viewport-fit=cover`.
+- `src/index.css:187-206` — safe-area utilities plus `h-screen-dvh` / `min-h-screen-dvh` (`100vh` then `100dvh` fallback pair).
+- `env(safe-area-inset-*)` applied on office header and bottom nav (`src/components/layout/AppLayout.tsx:255,324`), engineer nav and content (`src/components/engineer/EngineerLayout.tsx:190,202`), sheets (`src/components/ui/sheet.tsx:36-63`), update banner (`src/components/pwa/PWAUpdateBanner.tsx:42`), install banner, sound banner, Dashboard and CustomerDetail sticky bars.
 
-## Out of scope
+Remaining raw `100vh` (no `dvh`, no inset) — cosmetic, worth testing:
+- `src/components/engineer/EngineerLayout.tsx:104` — the auth spinner screen itself.
+- `src/App.tsx:193-194` — `height: 100dvh` then `minHeight: 100vh`; the `minHeight` can exceed the visible viewport on iOS.
+- `src/pages/QuoteAcceptance.tsx:191`, `src/components/messages/DirectMessageThread.tsx:135`, `src/components/engineer/ExtraWorkSheet.tsx:204`, `public/offline.html:16`.
 
-No change to the Message History UI, the sender-matching logic, the dedupe guard, outbound senders, or any other Edge Function. No change to how outbound messages display.
+## 3. Installed-PWA differences — PASS (little divergence, therefore little risk)
 
-## Honest limitation
+- `public/manifest.json:8` — `"display": "standalone"`, `orientation: portrait`, `scope: "/"`, `start_url: "/"`.
+- Only two display-mode reads exist, both non-functional: `src/components/pwa/InstallAppBanner.tsx:44` (hide the install prompt when already installed) and `src/lib/sentryContext.ts:82` (diagnostics tag).
+- No `navigator.standalone` anywhere in `src/`. No behaviour branches on installed vs tab.
+- Note: standalone mode has no browser reload button, so a stuck spinner (finding 1) is *worse* in the installed app — the engineer has no way out except force-quitting.
 
-Steps 3 and 4 depend on 360Messenger accepting the callback URL. Steps 1 and 2 make our side provably correct and ready, but I cannot make the provider deliver webhooks while registration returns 403.
+## 4. Background / resume — PARTIAL
+
+- `pageshow` bfcache restore is handled: `src/hooks/useAuth.tsx:153-163` re-validates the session and signs out if it is gone.
+- `visibilitychange` handled in `src/hooks/useEngineerJobs.ts:822`, `src/hooks/useNotifications.ts:368` (throttled), `src/pages/Parts.tsx:138`, `src/pages/engineer/EngineerParts.tsx:167`, `src/components/layout/AppLayout.tsx:112` (audio unlock).
+- **The auth-churn fix does cover mobile.** `nextUserState` (`src/hooks/useAuth.tsx:232`) keys on user identity, not on the trigger, so a lock/unlock cycle that emits `TOKEN_REFRESHED` is suppressed the same as a desktop tab switch.
+- Gaps: no `freeze`/`resume` handling; `src/hooks/useEngineerJobs.ts:822` has **no throttle**, so each unlock fires a full multi-query `fetchAll()` — combined with finding 1B, repeated lock/unlock on weak signal stacks hanging requests.
+
+## 5. Service worker on iOS Safari — PARTIAL / not addressed
+
+Config is sound: `vite.config.ts:17-24` (`registerType: "prompt"`, `injectRegister: null`, `devOptions.enabled:false`), explicit `skipWaiting:false` / `clientsClaim:false` (`vite.config.ts:32-33`), banner-driven activation (`src/components/pwa/PWAUpdateBanner.tsx:32`), `CacheFirst` on `/assets/` so a stale tab still resolves old chunks (`vite.config.ts:126-144`), registration correctly guarded (`src/lib/isPreviewHost.ts:28`).
+
+iOS-specific gaps:
+- No periodic `registration.update()` and no update check on `visibilitychange`. `useRegisterSW` is called without `onRegisteredSW`/interval (`src/components/pwa/PWAUpdateBanner.tsx:22-27`), so an installed iOS PWA that is only ever backgrounded (never force-quit) may not check for a new version for a long time — the update banner effectively never appears for that engineer.
+- iOS evicts service workers and caches after roughly 7 days of non-use, so an infrequent user always gets a cold, uncached start.
+
+## 6. Network detection — the robust detector exists but the office app never uses it. FAIL
+
+- `src/hooks/useNetworkStatus.ts` is genuinely robust: an active HEAD probe (line 16), two-consecutive-failure rule before declaring offline (line 94), backoff while offline, re-probe on visibility.
+- But it has only two consumers: `src/hooks/useEngineerJobs.ts:57` and `src/components/landing/MarketingOfflineGate.tsx:11` (signed-out marketing home only).
+- **The whole office app — Dashboard, Jobs, JobDetail, Schedule, Finance, Customers — has no connectivity awareness at all.** No offline banner, no "connection looks weak" state.
+- Raw `navigator.onLine` still used at `src/pages/Auth.tsx:387`; `src/components/engineer/EngineerLayout.tsx:52-88` duplicates the probe with its own 30s interval instead of reusing the hook.
+- `navigator.onLine` reports `true` on 2-bar 5G with a non-functional connection, so nothing tells the user the app is stalled rather than slow. This directly compounds Barry's report.
+
+---
+
+## Verdict
+
+| # | Area | Status |
+|---|---|---|
+| 1 | Barry's stuck loader | **FAIL** — root cause is unwrapped session restore; today's fixes don't cover it |
+| 2 | Safe areas / notch | PASS, minor `100vh` leftovers |
+| 3 | Installed PWA mode | PASS |
+| 4 | Background / resume | PARTIAL — auth fix covers mobile; unthrottled visibility refetch |
+| 5 | SW on iOS | PARTIAL — no update check on resume |
+| 6 | Network detection | **FAIL** — good detector, office app doesn't use it |
+
+Testing is worth doing now for items 2, 3, 4. Items 1 and 6 should be fixed **before** the device pass, otherwise the test will just keep reproducing the same stuck spinner.
+
+---
+
+## Proposed fix plan (not implemented)
+
+Each step is independently revertible and shipped on its own.
+
+**Step 1 — Bound session restore (highest value, smallest change).** `src/hooks/useAuth.tsx` only: wrap the initial `getSession()` in `withRequestTimeout` and add a `.catch()`, so on timeout/error it resolves to "no session" and clears `loading`. Never leaves the app in a permanent spinner. Regression test on the timeout branch.
+
+**Step 2 — Bound engineer fetches.** `src/hooks/useEngineerJobs.ts` only: wrap each `supabase` read in `withRequestTimeout`; cap the 5s retry loop (max ~3 attempts with backoff); when the fetch fails and cached data was painted, surface a "showing saved data" state instead of retrying silently.
+
+**Step 3 — Connectivity awareness for the office app.** Mount a shared offline/weak-connection banner in `src/components/layout/AppLayout.tsx` using the existing `useNetworkStatus` hook, and point `src/components/engineer/EngineerLayout.tsx` at the same hook instead of its duplicate probe. Presentation only — no query behaviour changes.
+
+**Step 4 — Resume hardening.** Throttle the `visibilitychange` refetch in `src/hooks/useEngineerJobs.ts` (reuse the existing throttle pattern from `src/hooks/useNotifications.ts`), and trigger one `registration.update()` on resume in `src/components/pwa/PWAUpdateBanner.tsx` so installed iOS PWAs see the update banner.
+
+**Step 5 — Cosmetic viewport cleanup.** Replace the remaining raw `100vh` with the existing `dvh` utilities, and drop the conflicting `minHeight: 100vh` in `src/App.tsx`.
+
+Out of scope: offline write queueing, backend, RLS, payments, duplicate detection, and any change to `withRequestTimeout`'s 15s default.
