@@ -218,13 +218,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
           </button>
           <div className="flex items-center justify-center min-h-[50vh] p-2">
             {selectedMedia && isMediaVideo(selectedMedia) ? (
-              <video
-                src={getCloudinaryVideoUrl(selectedMedia.url || "")}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[75vh] max-w-full rounded-lg"
-              />
+              <VideoPlayer url={selectedMedia.url} name={selectedMedia.name} />
+
             ) : (
               <img
                 src={selectedMedia?.url || ""}
