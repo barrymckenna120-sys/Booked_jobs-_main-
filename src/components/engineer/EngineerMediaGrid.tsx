@@ -122,13 +122,8 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
 
           <div className="flex flex-col items-center justify-center min-h-[50vh] p-2">
             {selected && isVideoItem(selected) ? (
-              <video
-                src={getDisplayUrl(selected)}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[75vh] max-w-full rounded-lg"
-              />
+              <VideoPlayer url={getDisplayUrl(selected)} name={selected.file_name} />
+
             ) : selected ? (
               <img
                 src={getDisplayUrl(selected)}
