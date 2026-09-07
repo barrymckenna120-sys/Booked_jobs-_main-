@@ -158,9 +158,17 @@ const AppLayoutInner = () => {
     location.pathname === path || location.pathname.startsWith(path + "/");
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <ConnectionBanner />
-      <WhatsAppConnectionBanner />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Banners live outside the sidebar/content row so they stay full-width
+          strips at the top instead of becoming a flex column beside <main>.
+          Stacked, not overlapping, when both are showing. */}
+      <div className="relative z-50 flex flex-col">
+        <ConnectionBanner />
+        <WhatsAppConnectionBanner />
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row">
+
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
       <aside className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
