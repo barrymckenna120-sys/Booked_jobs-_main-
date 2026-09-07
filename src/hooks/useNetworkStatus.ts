@@ -37,11 +37,12 @@ const probe = async (): Promise<boolean> => {
  *  - while offline, retries with backoff until reachable again,
  *  - re-probes when the tab becomes visible.
  */
-export const useNetworkStatus = () => {
+export const useNetworkStatus = (pollWhileOnlineMs = 0) => {
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
   const prevOnlineRef = useRef<boolean>(isOnline);
+
 
   useEffect(() => {
     if (!prevOnlineRef.current && isOnline) {
