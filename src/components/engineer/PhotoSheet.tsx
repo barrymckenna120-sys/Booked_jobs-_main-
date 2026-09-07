@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Camera, Video } from "lucide-react";
 import { getSignedUrl } from "@/lib/mediaUrl";
+import VideoThumb from "@/components/media/VideoThumb";
 
 interface Props {
   job: any;
@@ -72,9 +73,9 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
       <div className="px-5 pt-4 space-y-4">
         <div className="grid grid-cols-3 gap-2.5">
           {media.map((m, i) => (
-            <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
+            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-secondary">
               {isVideo(m.type) ? (
-                <video src={m.url} className="w-full h-full object-cover" muted playsInline />
+                <VideoThumb url={m.url} name={m.name} />
               ) : (
                 <img src={m.url} alt="" className="w-full h-full object-cover" />
               )}

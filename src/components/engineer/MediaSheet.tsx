@@ -5,11 +5,13 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Video, Play, X } from "lucide-react";
-import { getCloudinaryVideoUrl, getCloudinaryPosterUrl } from "@/lib/cloudinaryUpload";
+import { Camera, Video, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import VideoUploadSheet from "./VideoUploadSheet";
 import { getSignedUrl } from "@/lib/mediaUrl";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
 
 interface Props {
   job: any;
@@ -24,16 +26,8 @@ interface MediaFile {
   type: string;
 }
 
-const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
-
 const isVideo = (type: string) =>
   type?.startsWith("video/") || type === "video";
-
-
-const getCloudinaryThumbnail = (url: string): string => {
-  if (!url || !url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
-};
 
 const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   const { user } = useAuth();
