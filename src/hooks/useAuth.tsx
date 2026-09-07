@@ -121,9 +121,13 @@ export const useAuth = (redirectTo = "/auth") => {
       setUser((prev) => nextUserState(prev, next));
     };
 
-
-    // Get session first before subscribing to changes
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Resolve the initial session, but never let a stalled network hold the app
+    // on a spinner. iOS Safari does not fail a hung request quickly, so an
+    // unbounded getSession() (which refreshes an expired token over the wire)
+    // could leave `loading` true forever — the "stuck loading screen" report.
+    // On timeout/error we fall through to the normal signed-out path; the
+    // onAuthStateChange subscription still corrects state if it arrives late.
+    const applyInitialSession = (session: Session | null) => {
       setUserIfChanged(session?.user ?? null);
       setLoading(false);
       initialCheckDone.current = true;
@@ -133,7 +137,15 @@ export const useAuth = (redirectTo = "/auth") => {
       if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
         navigate(redirectTo, { replace: true });
       }
-    });
+    };
+
+    withRequestTimeout(supabase.auth.getSession())
+      .then(({ data: { session } }) => applyInitialSession(session))
+      .catch((error) => {
+        console.warn("[Auth] initial session check failed:", error);
+        applyInitialSession(null);
+      });
+
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
