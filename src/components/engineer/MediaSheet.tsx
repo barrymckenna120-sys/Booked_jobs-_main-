@@ -5,11 +5,13 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Video, Play, X } from "lucide-react";
-import { getCloudinaryVideoUrl, getCloudinaryPosterUrl } from "@/lib/cloudinaryUpload";
+import { Camera, Video, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import VideoUploadSheet from "./VideoUploadSheet";
 import { getSignedUrl } from "@/lib/mediaUrl";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
 
 interface Props {
   job: any;
@@ -24,16 +26,8 @@ interface MediaFile {
   type: string;
 }
 
-const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
-
 const isVideo = (type: string) =>
   type?.startsWith("video/") || type === "video";
-
-
-const getCloudinaryThumbnail = (url: string): string => {
-  if (!url || !url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/so_0,f_jpg,q_auto/").replace(/\.[^.]+$/, ".jpg");
-};
 
 const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
   const { user } = useAuth();
@@ -119,11 +113,7 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
     }
   };
 
-  const isMediaVideo = (m: MediaFile) =>
-    isVideo(m.type) ||
-    (m.url?.includes("/video/upload/") ?? false) ||
-    VIDEO_EXT_RE.test(m.url || "") ||
-    VIDEO_EXT_RE.test(m.name || "");
+  const isMediaVideo = (m: MediaFile) => isVideo(m.type) || isVideoMedia(m);
 
   const reloadMedia = async () => {
     const { data } = await supabase
@@ -164,20 +154,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
                 className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary relative"
               >
                 {isMediaVideo(m) ? (
-                  <>
-                    {/* Still poster only — one <video> per tile freezes iOS Safari. */}
-                    <img
-                      src={getCloudinaryPosterUrl(m.url || "")}
-                      alt={m.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover bg-black"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                      <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                        <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
-                      </div>
-                    </div>
-                  </>
+                  <VideoThumb url={m.url} name={m.name} />
+
                 ) : (
                   <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
                 )}
@@ -240,13 +218,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
           </button>
           <div className="flex items-center justify-center min-h-[50vh] p-2">
             {selectedMedia && isMediaVideo(selectedMedia) ? (
-              <video
-                src={getCloudinaryVideoUrl(selectedMedia.url || "")}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[75vh] max-w-full rounded-lg"
-              />
+              <VideoPlayer url={selectedMedia.url} name={selectedMedia.name} />
+
             ) : (
               <img
                 src={selectedMedia?.url || ""}

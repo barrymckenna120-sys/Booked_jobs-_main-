@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -6,7 +6,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, ChevronRight, X, Play, Trash2 } from "lucide-react";
-import { getCloudinaryVideoUrl, uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
+import { uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
 import { useToast } from "@/hooks/use-toast";
 import { useSignedMediaUrls } from "@/lib/mediaUrl";
 
@@ -26,45 +29,8 @@ type Props = {
   onUpload?: () => void;
 };
 
-const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+const isVideoItem = (m: MediaItem) => isVideoMedia(m);
 
-const isVideoItem = (m: MediaItem) =>
-  m.file_type === "video" ||
-  !!m.file_type?.startsWith("video/") ||
-  !!(m.public_url && m.public_url.includes("/video/upload/")) ||
-  VIDEO_EXT_RE.test(m.public_url || "") ||
-  VIDEO_EXT_RE.test(m.file_name || "");
-
-const formatDuration = (seconds: number): string | null => {
-  if (!isFinite(seconds) || isNaN(seconds) || seconds <= 0) return null;
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
-/** Hook to detect video durations from Cloudinary MP4 URLs */
-const useVideoDurations = (media: MediaItem[]) => {
-  const [durations, setDurations] = useState<Record<string, number>>({});
-  const resolved = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    media.forEach((m) => {
-      if (!isVideoItem(m) || !m.public_url || resolved.current.has(m.id)) return;
-      resolved.current.add(m.id);
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.src = getCloudinaryVideoUrl(m.public_url);
-      video.onloadedmetadata = () => {
-        if (isFinite(video.duration)) {
-          setDurations((prev) => ({ ...prev, [m.id]: video.duration }));
-        }
-        video.src = "";
-      };
-    });
-  }, [media]);
-
-  return durations;
-};
 
 const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const { toast } = useToast();
@@ -76,11 +42,10 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const durations = useVideoDurations(media);
   const signedUrls = useSignedMediaUrls(media);
 
   const getDisplayUrl = (m: MediaItem): string => {
-    if (isVideoItem(m) && m.public_url) return getCloudinaryVideoUrl(m.public_url);
+    if (isVideoItem(m) && m.public_url) return m.public_url;
     return signedUrls[m.id] || "";
   };
 
@@ -205,25 +170,8 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
               </div>
               <div className="aspect-square relative">
                 {isVideoItem(m) ? (
-                  <>
-                    <video
-                      src={displayUrl + "#t=0.1"}
-                      className="w-full h-full object-cover"
-                      muted
-                      playsInline
-                      preload="metadata"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                        <Play className="w-6 h-6 text-foreground fill-foreground ml-0.5" />
-                      </div>
-                    </div>
-                    {formatDuration(durations[m.id]) ? (
-                      <span className="absolute top-2 right-2 text-[11px] font-bold text-white bg-black/70 px-1.5 py-0.5 rounded">
-                        {formatDuration(durations[m.id])}
-                      </span>
-                    ) : null}
-                  </>
+                  <VideoThumb url={displayUrl} name={m.file_name} large />
+
                 ) : (
                   <img
                     src={displayUrl}
@@ -304,7 +252,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             )}
 
             {current && isVideoItem(current) ? (
-              <video src={getDisplayUrl(current)} controls className="max-h-[80vh] max-w-full" autoPlay playsInline />
+              <VideoPlayer url={getDisplayUrl(current)} name={current.file_name} className="max-h-[80vh] max-w-full" />
             ) : (
               <img src={current ? getDisplayUrl(current) : ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}
