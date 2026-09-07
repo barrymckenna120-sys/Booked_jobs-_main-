@@ -87,34 +87,41 @@ const EngineerLayout = () => {
     <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-20">
       {/* Header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover" />
-            <span className="text-white/80 text-sm font-semibold">BookedJobs</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+            <span className="hidden sm:inline text-white/80 text-sm font-semibold truncate">BookedJobs</span>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Labels are hidden on narrow phones (icon-only) so the row can never
+              overflow the 430px shell; tap targets stay 44px either way. */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {canSwitchToOffice && (
               <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+                className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] justify-center px-1.5 sm:px-2"
                 title="Back to Office"
+                aria-label="Back to Office"
               >
-                <Briefcase className="w-4 h-4" /> Back to Office
+                <Briefcase className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Back to Office</span>
               </button>
             )}
             <button
               onClick={() => navigate("/engineer/parts")}
-              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] justify-center px-1.5 sm:px-2"
               title="Order Parts"
+              aria-label="Order Parts"
             >
-              <Package className="w-4 h-4" /> Order Parts
+              <Package className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Order Parts</span>
             </button>
             <button
               onClick={() => setReportOpen(true)}
-              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] px-2"
+              className="flex items-center gap-1.5 text-white/70 hover:text-white active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] justify-center px-1.5 sm:px-2"
               title="Report an issue"
+              aria-label="Report an issue"
             >
-              <LifeBuoy className="w-4 h-4" />
+              <LifeBuoy className="w-4 h-4 flex-shrink-0" />
             </button>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-white/70 hover:text-white" />
             <button
@@ -126,12 +133,16 @@ const EngineerLayout = () => {
                 }
                 navigate("/auth", { replace: true });
               }}
-              className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] px-2"
+              className="flex items-center gap-1.5 text-white/60 hover:text-white/90 active:text-white transition-colors text-xs font-semibold min-h-[44px] min-w-[44px] justify-center px-1.5 sm:px-2"
+              title="Log Out"
+              aria-label="Log Out"
             >
-              <LogOut className="w-4 h-4" /> Log Out
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Log Out</span>
             </button>
           </div>
         </div>
+
       </div>
 
 
