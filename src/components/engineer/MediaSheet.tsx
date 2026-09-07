@@ -113,11 +113,7 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
     }
   };
 
-  const isMediaVideo = (m: MediaFile) =>
-    isVideo(m.type) ||
-    (m.url?.includes("/video/upload/") ?? false) ||
-    VIDEO_EXT_RE.test(m.url || "") ||
-    VIDEO_EXT_RE.test(m.name || "");
+  const isMediaVideo = (m: MediaFile) => isVideo(m.type) || isVideoMedia(m);
 
   const reloadMedia = async () => {
     const { data } = await supabase
@@ -158,20 +154,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
                 className="aspect-square rounded-xl overflow-hidden border border-border bg-secondary relative"
               >
                 {isMediaVideo(m) ? (
-                  <>
-                    {/* Still poster only — one <video> per tile freezes iOS Safari. */}
-                    <img
-                      src={getCloudinaryPosterUrl(m.url || "")}
-                      alt={m.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover bg-black"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                      <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                        <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
-                      </div>
-                    </div>
-                  </>
+                  <VideoThumb url={m.url} name={m.name} />
+
                 ) : (
                   <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
                 )}
