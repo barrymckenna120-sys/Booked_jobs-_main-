@@ -22,6 +22,8 @@ const VideoPlayer = ({ url, name, className }: Props) => {
     setFailed(false);
   }, [src]);
 
+  // Tear the decoder down on unmount ONLY. Running this when the source
+  // changes would strip the src React had just set for the next video.
   useEffect(() => {
     const video = ref.current;
     return () => {
@@ -38,7 +40,7 @@ const VideoPlayer = ({ url, name, className }: Props) => {
         /* ignore */
       }
     };
-  }, [src]);
+  }, []);
 
   if (!src) return null;
 
