@@ -86,6 +86,9 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications("office");
   const unreadMessages = useUnreadMessages();
+  // Owned here (not inside ConnectionBanner) so the fixed desktop sidebar can be
+  // offset by the banner height while it is showing. Single probe either way.
+  const { isOnline } = useNetworkStatus(30_000);
   const userId = user?.id;
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
