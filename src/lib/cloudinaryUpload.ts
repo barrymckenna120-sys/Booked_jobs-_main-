@@ -11,7 +11,8 @@ export interface CloudinaryUploadResult {
 
 export const uploadVideoToCloudinary = (
   file: File,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal
 ): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
@@ -38,8 +39,27 @@ export const uploadVideoToCloudinary = (
     xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
+    if (signal) {
+      if (signal.aborted) {
+        reject(new Error("Upload cancelled"));
+        return;
+      }
+      signal.addEventListener("abort", () => xhr.abort(), { once: true });
+    }
+
     xhr.send(formData);
   });
+};
+
+/**
+ * Still poster frame for a Cloudinary video — used for grid thumbnails so iOS
+ * never has to spin up one video decoder per tile.
+ */
+export const getCloudinaryPosterUrl = (url: string): string => {
+  if (!url || !url.includes("cloudinary.com")) return url;
+  return url
+    .replace("/upload/", "/upload/so_0,f_jpg,q_auto,w_400/")
+    .replace(/\.[^./]+$/, ".jpg");
 };
 
 /**
