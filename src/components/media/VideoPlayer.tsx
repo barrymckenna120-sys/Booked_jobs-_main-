@@ -22,10 +22,20 @@ const VideoPlayer = ({ url, name, className }: Props) => {
     setFailed(false);
   }, [src]);
 
-  // Tear the decoder down on unmount ONLY. Running this when the source
-  // changes would strip the src React had just set for the next video.
+  // Tear the decoder down when this player closes or swaps source. The source
+  // is re-applied on every run so a teardown can never leave the element blank
+  // (React will not re-set an unchanged src prop by itself).
   useEffect(() => {
     const video = ref.current;
+    if (!src) return;
+    if (video && video.getAttribute("src") !== src) {
+      video.setAttribute("src", src);
+      try {
+        video.load();
+      } catch {
+        /* ignore */
+      }
+    }
     return () => {
       if (!video) return;
       try {
@@ -40,7 +50,7 @@ const VideoPlayer = ({ url, name, className }: Props) => {
         /* ignore */
       }
     };
-  }, []);
+  }, [src]);
 
   if (!src) return null;
 
