@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
 import { useSignedMediaUrls } from "@/lib/mediaUrl";
-import { Play, X, Image, ChevronDown, Video } from "lucide-react";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
+import { X, Image, ChevronDown, Video } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -17,14 +19,8 @@ type MediaItem = {
   uploaded_by: string | null;
 };
 
-const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|avi|hevc|mkv)(\?|#|$)/i;
+const isVideoItem = (m: MediaItem) => isVideoMedia(m);
 
-const isVideoItem = (m: MediaItem) =>
-  m.file_type === "video" ||
-  !!m.file_type?.startsWith("video/") ||
-  !!(m.public_url && m.public_url.includes("/video/upload/")) ||
-  VIDEO_EXT_RE.test(m.public_url || "") ||
-  VIDEO_EXT_RE.test(m.file_name || "");
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "Unknown date";
