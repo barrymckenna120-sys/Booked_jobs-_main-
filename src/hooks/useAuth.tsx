@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
+import { withRequestTimeout } from "@/lib/queryDefaults";
+
 
 
 /** Auto-link engineer record to auth account on first login, then store FCM token.
