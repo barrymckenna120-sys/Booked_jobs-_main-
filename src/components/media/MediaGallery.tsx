@@ -252,7 +252,7 @@ const MediaGallery = ({ jobId, showUpload, onUpload }: Props) => {
             )}
 
             {current && isVideoItem(current) ? (
-              <video src={getDisplayUrl(current)} controls className="max-h-[80vh] max-w-full" autoPlay playsInline />
+              <VideoPlayer url={getDisplayUrl(current)} name={current.file_name} className="max-h-[80vh] max-w-full" />
             ) : (
               <img src={current ? getDisplayUrl(current) : ""} alt={current?.file_name} className="max-h-[80vh] max-w-full object-contain" />
             )}

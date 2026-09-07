@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { Camera, Play } from "lucide-react";
+import { Camera } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { isVideoMedia } from "@/lib/mediaPlayback";
+import VideoThumb from "@/components/media/VideoThumb";
+import VideoPlayer from "@/components/media/VideoPlayer";
 
 interface MediaItem {
   url: string;
@@ -12,8 +15,7 @@ interface JobPhotoThumbnailsProps {
   photos: MediaItem[];
 }
 
-const isVideo = (item: MediaItem) =>
-  item.type?.startsWith("video/") || /\.(mp4|mov|webm|avi)$/i.test(item.name);
+const isVideo = (item: MediaItem) => isVideoMedia(item);
 
 const JobPhotoThumbnails = ({ photos }: JobPhotoThumbnailsProps) => {
   const [selected, setSelected] = useState<MediaItem | null>(null);
