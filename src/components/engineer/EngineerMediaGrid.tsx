@@ -54,7 +54,7 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
   const signedUrls = useSignedMediaUrls(media);
 
   const getDisplayUrl = (m: MediaItem): string => {
-    if (isVideoItem(m) && m.public_url) return getCloudinaryVideoUrl(m.public_url);
+    if (isVideoItem(m) && m.public_url) return m.public_url;
     return signedUrls[m.id] || "";
   };
 
@@ -90,20 +90,7 @@ const EngineerMediaGrid = ({ jobId }: { jobId: string }) => {
                 >
                   <div className="aspect-square relative bg-muted">
                     {isVideoItem(m) ? (
-                      <>
-                        <video
-                          src={displayUrl + "#t=0.1"}
-                          className="w-full h-full object-cover"
-                          muted
-                          playsInline
-                          preload="metadata"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                          <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">
-                            <Play className="w-5 h-5 text-foreground fill-foreground ml-0.5" />
-                          </div>
-                        </div>
-                      </>
+                      <VideoThumb url={displayUrl} name={m.file_name} />
                     ) : (
                       <img
                         src={displayUrl}
