@@ -19,6 +19,7 @@ import { WifiOff, X, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
+import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -137,12 +138,7 @@ const EngineerLayout = () => {
       <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="engineer" />
 
       {/* Offline banner */}
-      {!isOnline && (
-        <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
-          <WifiOff className="w-4 h-4 flex-shrink-0" />
-          <span>No signal — changes won't save until you're back online</span>
-        </div>
-      )}
+      <ConnectionBanner message="No signal — changes won't save until you're back online" />
 
       {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
       <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">

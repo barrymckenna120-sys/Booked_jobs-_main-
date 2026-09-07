@@ -8,8 +8,9 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
  * useNetworkStatus hook (active probe + two-failure rule), so this never
  * trusts navigator.onLine on its own — which lies on weak mobile signal.
  */
-const ConnectionBanner = () => {
-  const { isOnline } = useNetworkStatus();
+const ConnectionBanner = ({ message }: { message?: string }) => {
+  // 30s active poll — matches the interval the engineer app already used.
+  const { isOnline } = useNetworkStatus(30_000);
 
   if (isOnline) return null;
 
@@ -20,7 +21,7 @@ const ConnectionBanner = () => {
       className="w-full bg-[hsl(var(--warning))] text-white px-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm"
     >
       <WifiOff className="w-4 h-4 flex-shrink-0" />
-      <span>No connection — changes won't save until you're back online</span>
+      <span>{message ?? "No connection — changes won't save until you're back online"}</span>
     </div>
   );
 };
