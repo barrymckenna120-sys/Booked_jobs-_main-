@@ -89,6 +89,19 @@ const AppLayoutInner = () => {
   // Owned here (not inside ConnectionBanner) so the fixed desktop sidebar can be
   // offset by the banner height while it is showing. Single probe either way.
   const { isOnline } = useNetworkStatus(30_000);
+  // The desktop sidebar is position:fixed, so a banner in normal flow would sit
+  // on top of it. Measure the banner stack and push the sidebar down instead.
+  const bannerStackRef = useRef<HTMLDivElement | null>(null);
+  const [bannerHeight, setBannerHeight] = useState(0);
+  useEffect(() => {
+    const el = bannerStackRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => setBannerHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const userId = user?.id;
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
@@ -171,7 +184,7 @@ const AppLayoutInner = () => {
         <WhatsAppConnectionBanner />
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row" style={{ marginTop: 0 }}>
+      <div className="flex-1 flex flex-col md:flex-row">
 
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
