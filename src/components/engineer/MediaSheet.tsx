@@ -165,12 +165,12 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
               >
                 {isMediaVideo(m) ? (
                   <>
-                    <video
-                      src={getCloudinaryVideoUrl(m.url || "") + "#t=0.1"}
-                      className="w-full h-full object-cover"
-                      muted
-                      playsInline
-                      preload="metadata"
+                    {/* Still poster only — one <video> per tile freezes iOS Safari. */}
+                    <img
+                      src={getCloudinaryPosterUrl(m.url || "")}
+                      alt={m.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover bg-black"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
                       <div className="w-10 h-10 rounded-full bg-background/90 flex items-center justify-center shadow-lg">

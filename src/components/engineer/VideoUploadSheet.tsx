@@ -4,9 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadVideoToCloudinary } from "@/lib/cloudinaryUpload";
-import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
-import { CheckCircle2, AlertTriangle, RefreshCw, Trash2, Send } from "lucide-react";
+import { uploadVideoToCloudinary, getCloudinaryPosterUrl } from "@/lib/cloudinaryUpload";
+import {
+  extractStillFrame,
+  formatDuration,
+  formatFileSize,
+  isVideoTooLarge,
+  TOO_LARGE_MESSAGE,
+} from "@/lib/videoPreview";
+import { CheckCircle2, AlertTriangle, RefreshCw, Trash2, Send, Film } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -17,21 +23,38 @@ interface Props {
   onSuccess: () => void;
 }
 
-type Stage = "preview" | "uploading" | "success" | "error";
+type Stage = "preview" | "uploading" | "success" | "error" | "too_large";
 
 const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) => {
   const { user } = useAuth();
-  const [stage, setStage] = useState<Stage>("preview");
+  const [stage, setStage] = useState<Stage>(() =>
+    isVideoTooLarge(file.size) ? "too_large" : "preview"
+  );
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [uploadedUrl, setUploadedUrl] = useState("");
   const [uploadedAt, setUploadedAt] = useState<Date | null>(null);
-  const previewUrl = useRef<string>("");
+  const [stillFrame, setStillFrame] = useState<string | null>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
+  // Grab a single still frame and release the decoder immediately. iOS Safari
+  // cannot hold a raw camera recording in a live <video> element without
+  // freezing the whole PWA, so we never render one for the local file.
   useEffect(() => {
-    previewUrl.current = URL.createObjectURL(file);
-    return () => URL.revokeObjectURL(previewUrl.current);
+    if (isVideoTooLarge(file.size)) return;
+    let cancelled = false;
+    extractStillFrame(file).then((frame) => {
+      if (cancelled) return;
+      setStillFrame(frame.dataUrl);
+      setDuration(frame.duration);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [file]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const doUpload = async () => {
     if (!user) return;
@@ -39,8 +62,15 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
     setProgress(0);
     setErrorMsg("");
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const result = await uploadVideoToCloudinary(file, (pct) => setProgress(pct));
+      const result = await uploadVideoToCloudinary(
+        file,
+        (pct) => setProgress(pct),
+        controller.signal
+      );
 
       await supabase.from("job_media").insert({
         organisation_id: job.organisation_id,
@@ -60,45 +90,86 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
       onSuccess();
       toast({ title: "✅ Video sent successfully", description: "The office has been notified." });
     } catch (err: any) {
+      if (controller.signal.aborted) {
+        onClose();
+        return;
+      }
       setErrorMsg(err?.message || "Network error — please try again");
       setStage("error");
       toast({ title: "❌ Upload failed", description: "Tap retry to try again.", variant: "destructive" });
+    } finally {
+      abortRef.current = null;
     }
+  };
+
+  const handleCancelUpload = () => {
+    abortRef.current?.abort();
   };
 
   const handleDeleteRetake = () => {
     onClose();
   };
 
-  // Prevent closing during upload
+  // Prevent closing by tapping outside during upload — use the Cancel button.
   const handleSheetClose = () => {
     if (stage === "uploading") return;
     onClose();
   };
 
+  const sizeLabel = formatFileSize(file.size);
+  const durationLabel = formatDuration(duration);
+
   return (
     <EngineerSheet onClose={handleSheetClose}>
       <div className="px-5 py-3 border-b border-border">
         <div className="text-xl font-extrabold text-foreground">🎬 Video Upload</div>
-        <div className="text-[13px] text-muted-foreground mt-0.5">
+        <div className="text-[13px] text-muted-foreground mt-0.5 break-all">
           {customer?.name} · {file.name}
         </div>
       </div>
 
       <div className="px-5 pt-4 pb-6 space-y-4">
-        {/* PREVIEW stage */}
+        {/* TOO LARGE stage */}
+        {stage === "too_large" && (
+          <>
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="w-9 h-9 text-destructive" />
+              </div>
+              <p className="text-base font-extrabold text-destructive text-center">
+                Video too large ({sizeLabel})
+              </p>
+              <p className="text-xs text-muted-foreground text-center">{TOO_LARGE_MESSAGE}</p>
+            </div>
+            <Button className="w-full h-12 text-base font-extrabold" onClick={onClose}>
+              OK
+            </Button>
+          </>
+        )}
+
+        {/* PREVIEW stage — still frame only, never a live decoder */}
         {stage === "preview" && (
           <>
-            <div className="rounded-xl overflow-hidden border border-border bg-black">
-              <video
-                src={previewUrl.current}
-                controls
-                playsInline
-                className="w-full max-h-[50vh] object-contain"
-              />
+            <div className="rounded-xl overflow-hidden border border-border bg-secondary">
+              {stillFrame ? (
+                <img
+                  src={stillFrame}
+                  alt="Video first frame"
+                  className="w-full max-h-[40vh] object-contain bg-black"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
+                  <Film className="w-8 h-8" />
+                  <span className="text-xs font-semibold">Video ready to send</span>
+                </div>
+              )}
+              <div className="px-3 py-2 flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+                <span>{sizeLabel}</span>
+                {durationLabel && <span>{durationLabel}</span>}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Review your video before sending
+              Keep clips short — around 30 seconds is plenty.
             </p>
             <Button
               className="w-full h-14 text-base font-extrabold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -132,9 +203,13 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
               </div>
               <Progress value={progress} className="h-2" />
             </div>
-            <p className="text-[11px] text-destructive/80 text-center font-semibold">
-              ⚠️ Please don't close this screen
-            </p>
+            <Button
+              variant="outline"
+              className="w-full h-11 text-sm font-semibold"
+              onClick={handleCancelUpload}
+            >
+              Cancel upload
+            </Button>
           </div>
         )}
 
@@ -150,10 +225,9 @@ const VideoUploadSheet = ({ job, customer, file, onClose, onSuccess }: Props) =>
 
             {uploadedUrl && (
               <div className="rounded-xl overflow-hidden border border-border bg-black">
-                <video
-                  src={getCloudinaryVideoUrl(uploadedUrl)}
-                  controls
-                  playsInline
+                <img
+                  src={getCloudinaryPosterUrl(uploadedUrl)}
+                  alt="Uploaded video"
                   className="w-full max-h-[30vh] object-contain"
                 />
               </div>
