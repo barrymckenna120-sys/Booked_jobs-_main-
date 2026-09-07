@@ -31,6 +31,7 @@ import WhatsAppConnectionBanner from "@/components/whatsapp/WhatsAppConnectionBa
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
+import ConnectionBanner from "@/components/shared/ConnectionBanner";
 
 /* ──────────────────────────────────────────────
    DESKTOP sidebar nav — 11 items
@@ -158,6 +159,7 @@ const AppLayoutInner = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      <ConnectionBanner />
       <WhatsAppConnectionBanner />
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
