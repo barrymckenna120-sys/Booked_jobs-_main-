@@ -39,12 +39,7 @@ const JobPhotoThumbnails = ({ photos }: JobPhotoThumbnailsProps) => {
               className="w-16 h-16 rounded-xl overflow-hidden border border-border bg-secondary shrink-0 focus:ring-2 focus:ring-primary relative"
             >
               {isVideo(p) ? (
-                <>
-                  <video src={p.url} className="w-full h-full object-cover" muted preload="metadata" playsInline />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Play className="w-5 h-5 text-white fill-white" />
-                  </div>
-                </>
+                <VideoThumb url={p.url} name={p.name} />
               ) : (
                 <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
               )}
@@ -56,13 +51,8 @@ const JobPhotoThumbnails = ({ photos }: JobPhotoThumbnailsProps) => {
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-[95vw] max-h-[90vh] p-2 bg-black/95 border-none">
           {selected && isVideo(selected) ? (
-            <video
-              src={selected.url}
-              controls
-              autoPlay
-              playsInline
-              className="w-full max-h-[80vh] rounded-lg"
-            />
+            <VideoPlayer url={selected.url} name={selected.name} className="w-full max-h-[80vh] rounded-lg" />
+
           ) : selected ? (
             <img
               src={selected.url}
