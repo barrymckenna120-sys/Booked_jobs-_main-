@@ -322,7 +322,8 @@ const AppLayoutInner = () => {
         <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
           <Outlet />
         </ErrorBoundary>
-      </main>
+        </main>
+      </div>
 
       <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="office" />
 
