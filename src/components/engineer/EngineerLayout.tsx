@@ -19,6 +19,7 @@ import { WifiOff, X, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
+import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -33,10 +34,6 @@ const EngineerLayout = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const [browserOnline, setBrowserOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
-
   useEffect(() => {
     if (isOnline) setDismissed(false);
   }, [isOnline]);
@@ -48,44 +45,6 @@ const EngineerLayout = () => {
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
-
-  // Active connectivity check against Supabase (avoids navigator.onLine lying on weak 5G)
-  useEffect(() => {
-    let cancelled = false;
-
-    const checkConnectivity = async () => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      try {
-        // Any HTTP response proves network reachability. The auth health
-        // endpoint plus the public key answers 200, so the probe no longer
-        // logs a 401 as console noise — semantics unchanged (any response at
-        // all, including a failure status, means we're online).
-        await fetch("https://ktkfuquqxbrmuqrmbmdj.supabase.co/auth/v1/health", {
-          method: "GET",
-          headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string },
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        if (!cancelled) setBrowserOnline(true);
-      } catch {
-        if (!cancelled) setBrowserOnline(false);
-      } finally {
-        clearTimeout(timeout);
-      }
-    };
-
-
-    checkConnectivity();
-    const interval = setInterval(checkConnectivity, 30000);
-    window.addEventListener("online", checkConnectivity);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      window.removeEventListener("online", checkConnectivity);
-    };
-  }, []);
 
   // /engineer/parts lives inside the Completed section, so it keeps that tab lit.
   const currentTab = location.pathname.includes("/upcoming")
@@ -179,12 +138,7 @@ const EngineerLayout = () => {
       <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="engineer" />
 
       {/* Offline banner */}
-      {!browserOnline && (
-        <div className="w-full bg-[hsl(var(--warning))] text-white pl-4 py-2 flex items-center justify-center gap-2 text-xs font-bold shadow-sm relative">
-          <WifiOff className="w-4 h-4 flex-shrink-0" />
-          <span>No signal — changes won't save until you're back online</span>
-        </div>
-      )}
+      <ConnectionBanner message="No signal — changes won't save until you're back online" />
 
       {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
       <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
