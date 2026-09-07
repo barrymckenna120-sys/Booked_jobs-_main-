@@ -110,14 +110,27 @@ export const useNetworkStatus = (pollWhileOnlineMs = 0) => {
     };
 
     const handleVisibilityChange = () => {
-      // Only verify on focus when we currently think we're offline, or when the
-      // browser reports offline — no cost for healthy sessions.
       if (document.visibilityState !== "visible") return;
-      if (!navigator.onLine || !prevOnlineRef.current) void check();
+      // Verify when we think we're offline, when the browser says offline, or —
+      // for opted-in consumers — on every return to the tab, because a mobile
+      // radio can go dead without ever firing an `offline` event.
+      if (pollWhileOnlineMs > 0 || !navigator.onLine || !prevOnlineRef.current) void check();
     };
 
     // Initial verification only if the browser already reports offline.
     if (typeof navigator !== "undefined" && !navigator.onLine) handleOffline();
+
+    // Opt-in active polling for consumers that surface a connection warning.
+    // navigator.onLine reports `true` on a 2-bar connection that passes no
+    // traffic, so an event-only detector never notices. Off by default: no
+    // background cost for consumers that don't need it.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    if (pollWhileOnlineMs > 0) {
+      void check();
+      poll = setInterval(() => {
+        if (document.visibilityState === "visible") void check();
+      }, pollWhileOnlineMs);
+    }
 
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
@@ -126,11 +139,13 @@ export const useNetworkStatus = (pollWhileOnlineMs = 0) => {
     return () => {
       cancelled = true;
       clear();
+      if (poll) clearInterval(poll);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [pollWhileOnlineMs]);
+
 
   return { isOnline };
 };
