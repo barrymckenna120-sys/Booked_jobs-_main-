@@ -90,7 +90,7 @@ const EngineerLayout = () => {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <img src={bookedJobsLogo} alt="BookedJobs" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-            <span className="text-white/80 text-sm font-semibold truncate">BookedJobs</span>
+            <span className="hidden sm:inline text-white/80 text-sm font-semibold truncate">BookedJobs</span>
           </div>
           {/* Labels are hidden on narrow phones (icon-only) so the row can never
               overflow the 430px shell; tap targets stay 44px either way. */}
