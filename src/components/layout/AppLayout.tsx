@@ -9,7 +9,7 @@ import {
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { LifeBuoy } from "lucide-react";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
    DESKTOP sidebar nav — 11 items
@@ -85,6 +86,26 @@ const AppLayoutInner = () => {
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications("office");
   const unreadMessages = useUnreadMessages();
+  // Owned here (not inside ConnectionBanner) so the fixed desktop sidebar can be
+  // offset by the banner height while it is showing. Single probe either way.
+  const { isOnline } = useNetworkStatus(30_000);
+  // The desktop sidebar is position:fixed, so a banner in normal flow would sit
+  // on top of it. Measure the banner stack and push the sidebar down instead.
+  // Re-measured whenever a banner appears/disappears (the ref only exists once
+  // the full layout renders, so this cannot run on mount alone).
+  const [bannerHeight, setBannerHeight] = useState(0);
+  const measureBannerStack = useCallback((el: HTMLDivElement | null) => {
+    setBannerHeight(el ? el.getBoundingClientRect().height : 0);
+  }, []);
+  const bannerStackRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      measureBannerStack(el);
+      if (!el || typeof ResizeObserver === "undefined") return;
+      const ro = new ResizeObserver(() => measureBannerStack(el));
+      ro.observe(el);
+    },
+    [measureBannerStack]
+  );
   const userId = user?.id;
   const { data: partsCount = 0 } = useQuery({
     queryKey: ["parts-nav-count"],
@@ -158,12 +179,23 @@ const AppLayoutInner = () => {
     location.pathname === path || location.pathname.startsWith(path + "/");
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <ConnectionBanner />
-      <WhatsAppConnectionBanner />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Banners live outside the sidebar/content row so they stay full-width
+          strips at the top instead of becoming a flex column beside <main>.
+          Stacked, not overlapping, when both are showing. */}
+      <div ref={bannerStackRef} className="relative z-50 flex flex-col">
+        <ConnectionBanner offline={!isOnline} />
+        <WhatsAppConnectionBanner />
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row">
+
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
-      <aside className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 top-0 z-30">
+      <aside
+        className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 z-30"
+        style={{ top: bannerHeight }}
+      >
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
           <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
           <div className="flex items-center gap-1">
@@ -314,7 +346,8 @@ const AppLayoutInner = () => {
         <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
           <Outlet />
         </ErrorBoundary>
-      </main>
+        </main>
+      </div>
 
       <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="office" />
 
