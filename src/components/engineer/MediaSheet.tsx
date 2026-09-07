@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Video, Play, X } from "lucide-react";
-import { getCloudinaryVideoUrl } from "@/lib/cloudinaryUpload";
+import { getCloudinaryVideoUrl, getCloudinaryPosterUrl } from "@/lib/cloudinaryUpload";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import VideoUploadSheet from "./VideoUploadSheet";
 import { getSignedUrl } from "@/lib/mediaUrl";
