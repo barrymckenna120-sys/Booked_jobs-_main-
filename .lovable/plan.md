@@ -5,28 +5,29 @@ Bring the phone experience of both workspaces up to the reference mockup's clari
 ## What changes on screen
 
 ### Shared mobile header (both workspaces)
-- One compact 56–64px header: logo mark (24–28px) → workspace name ("Office" / "Engineer" / "Admin") → workspace switch → notifications → one "More" menu.
+- One compact 56–64px header: logo mark (24–28px) → workspace identity → workspace switch → notifications → one "More" menu.
 - Consistent padding, alignment, 18–20px icons, 44px tap areas, subtle bottom border, light neutral surface.
-- New small shared pieces: a mobile header shell, a workspace identity chip (text, not a banner), and a workspace-switch control used identically in both apps.
+- New small shared pieces: a mobile header shell, a compact workspace identity label, and a workspace-switch control used identically in both apps. No pill unless needed for spacing or contrast; prefer plain text or a very subtle container.
+- There must be exactly one visible mobile workspace-switch control at any time. It reflects the current workspace and the existing permission state, and is never shown to a user who is not authorised to use it.
 
 ### Office mobile
-- Header becomes: logo, "Office", "Engineer" switch (only when permitted today), `+ New Job`, bell, More.
+- Header priority at narrow widths: logo → workspace identity → workspace switch → bell → More. New Job remains immediately accessible in the existing mobile action area, but must not cause header crowding or wrapping.
 - Settings, Report a Bug and Sign Out move into the single More menu — nothing is removed.
 - Tabs (Dashboard / Follow-ups / Parts) get better spacing, no awkward wrapping at 320px, clearer blue active state, badges kept.
 - KPI cards: tighter height and padding, number as the dominant element, semantic colour only (blue info, orange upcoming, red overdue). Same four cards, same destinations.
 - Full Schedule, Needs Attention, Jobs Update, Today's Revenue, Sales Report: spacing/hierarchy only — customer name first, address second, status and amount scannable, chevron visible. Same queries, ordering, loading and empty states.
-- Five-item bottom nav kept; icons/labels/badges tuned to match the engineer nav language.
+- Five-item bottom nav destinations, labels, routes, badge behaviour and order remain unchanged; only visual sizing, spacing, icon treatment and active-state styling may change.
 
 ### Engineer mobile
-- The solid blue gradient header is replaced by the same light header: logo, "Engineer", "Office" switch (still gated by the existing office-access check), Alerts, More (Order Parts, Report a Bug, Sign Out).
+- The solid blue gradient header is replaced by the same light header. Always visible: logo, "Engineer", Office switch (still gated by the existing office-access check), bell, More. Behind More: Order Parts, Report a Bug, Sign Out.
 - Job card keeps every field, action and section; hierarchy is restructured: status → job ref → customer → location → date/service metadata → engineer/assist → Call/WhatsApp/Nav → Details/Certificates → collapsible sections.
 - Button language: one primary blue action, white bordered secondary, subtle informational, red only for destructive. No four equally dominant buttons.
 - Collapsible rows (Service History, Notes, Photos & Videos, Messages) get one consistent row treatment with icon, label, chevron.
-- Bottom nav kept as-is functionally: fixed, safe-area aware, always-visible labels, badges preserved.
+- Bottom nav destinations, labels, routes, badge behaviour and order stay unchanged; fixed, safe-area aware, only sizing/spacing/icon/active-state styling changes.
 
 ## Files expected to change
-- `src/components/layout/AppLayout.tsx` — mobile header block, More menu, bottom nav polish.
-- `src/components/engineer/EngineerLayout.tsx` — mobile header replacement, More menu, bottom nav labels.
+- `src/components/layout/AppLayout.tsx` — mobile header block, More menu, bottom nav styling.
+- `src/components/engineer/EngineerLayout.tsx` — mobile header replacement, More menu, bottom nav styling.
 - `src/components/shared/` — new `MobileHeader.tsx`, `WorkspaceIdentity.tsx`, `WorkspaceSwitchButton.tsx`, `HeaderOverflowMenu.tsx`; `AppLogo.tsx` mobile mark sizing.
 - `src/pages/Dashboard.tsx`, `src/components/dashboard/DashboardStatCards.tsx`, `NeedsAttentionCard.tsx`, `TodayTimeline.tsx`, `JobsUpdateSection.tsx`, `TodaysRevenueCard.tsx` — mobile spacing/hierarchy classes.
 - `src/components/engineer/EngineerJobCard.tsx` and `src/components/engineer/job-card/*` — card hierarchy and button tiers.
