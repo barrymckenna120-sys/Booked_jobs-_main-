@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
-import { supabase } from "@/integrations/supabase/client";
+
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 
 
