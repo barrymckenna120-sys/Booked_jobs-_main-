@@ -32,6 +32,8 @@ import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
+import AppLogo from "@/components/shared/AppLogo";
+import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
@@ -196,38 +198,34 @@ const AppLayoutInner = () => {
         className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 z-30"
         style={{ top: bannerHeight }}
       >
-        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border">
-          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border min-w-0">
+          <AppLogo />
+          <div className="flex items-center gap-2 shrink-0">
             {canSwitchToEngineer && (
-              <button
+              <HeaderIconButton
                 onClick={() => navigate("/engineer/today")}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 title="Switch to Engineer View"
+                aria-label="Engineer View"
               >
-                <Hammer className="w-4 h-4" /> Engineer View
-              </button>
+                <Hammer />
+              </HeaderIconButton>
             )}
-            <button
+            <HeaderIconButton
               onClick={() => setReportOpen(true)}
-              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Report an issue"
               aria-label="Report an issue"
             >
-              <LifeBuoy className="w-5 h-5" />
-            </button>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-            <button
+              <LifeBuoy />
+            </HeaderIconButton>
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+            <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
-              className={`p-2 rounded-md transition-colors ${
-                isActive("/settings")
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              active={isActive("/settings")}
               title="Settings"
+              aria-label="Settings"
             >
-              <Settings className="w-5 h-5" />
-            </button>
+              <Settings />
+            </HeaderIconButton>
           </div>
         </div>
         <div className="px-3 pt-3">
@@ -286,47 +284,40 @@ const AppLayoutInner = () => {
       </aside>
 
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8" />
-        </div>
-        <div className="flex items-center gap-1.5">
+      <header className="md:hidden flex items-center justify-between gap-2 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30 min-w-0 overflow-hidden">
+        <AppLogo />
+        <div className="flex items-center gap-1 shrink-0">
           {canSwitchToEngineer && (
-            <button
+            <HeaderIconButton
               onClick={() => navigate("/engineer/today")}
-              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Switch to Engineer View"
               aria-label="Engineer View"
             >
-              <Hammer className="w-5 h-5" />
-            </button>
+              <Hammer />
+            </HeaderIconButton>
           )}
-          <Button size="sm" className="gap-1 font-bold" onClick={() => setShowNewJob(true)}>
+          <Button size="sm" className="gap-1 font-bold shrink-0 px-2.5" onClick={() => setShowNewJob(true)}>
             <Plus className="w-3.5 h-3.5" /> New Job
           </Button>
-          <button
+          <HeaderIconButton
             onClick={() => setReportOpen(true)}
-            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Report an issue"
             aria-label="Report an issue"
           >
-            <LifeBuoy className="w-5 h-5" />
-          </button>
-          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted" />
-          <button
+            <LifeBuoy />
+          </HeaderIconButton>
+          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+          <HeaderIconButton
             onClick={() => guardedNavigate("/settings")}
-            className={`p-2 rounded-md transition-colors ${
-              isActive("/settings")
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
+            active={isActive("/settings")}
             title="Settings"
+            aria-label="Settings"
           >
-            <Settings className="w-5 h-5" />
-          </button>
-          <Button
-            variant="ghost"
-            size="icon"
+            <Settings />
+          </HeaderIconButton>
+          <HeaderIconButton
+            title="Sign Out"
+            aria-label="Sign Out"
             onClick={async () => {
               try {
                 await supabase.auth.signOut();
@@ -336,8 +327,8 @@ const AppLayoutInner = () => {
               navigate("/auth", { replace: true });
             }}
           >
-            <LogOut className="w-5 h-5" />
-          </Button>
+            <LogOut />
+          </HeaderIconButton>
         </div>
       </header>
 

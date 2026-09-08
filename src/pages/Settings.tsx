@@ -29,6 +29,7 @@ import FinanceTab from "@/components/settings/FinanceTab";
 import ReceiptsTab from "@/components/settings/ReceiptsTab";
 import JobTimeBlocksSection from "@/components/settings/JobTimeBlocksSection";
 import { Separator } from "@/components/ui/separator";
+import ScrollRow from "@/components/shared/ScrollRow";
 
 const TABS = [
   { key: "general", label: "General", icon: SettingsIcon },
@@ -211,7 +212,10 @@ const Settings = () => {
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar tabs (desktop) / Horizontal tabs (mobile) */}
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-border pb-2 md:pb-0 md:pr-4">
+        <ScrollRow
+          wrapperClassName="md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-border pb-2 md:pb-0 md:pr-4"
+          className="md:flex-col gap-1 md:overflow-x-visible"
+        >
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.key;
@@ -230,7 +234,7 @@ const Settings = () => {
               </button>
             );
           })}
-        </nav>
+        </ScrollRow>
 
         {/* Content */}
         <div className="flex-1 min-w-0">

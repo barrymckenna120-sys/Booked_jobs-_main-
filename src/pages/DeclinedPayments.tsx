@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, CreditCard, Loader2, Phone, MessageCircle, Send } from "lucide-react";
 import { format } from "date-fns";
-import { formatWhatsApp } from "@/lib/whatsappLink";
+import ContactActions from "@/components/shared/ContactActions";
 
 const DECLINED_STATUSES = ["FAILED", "EXPIRED", "CANCELLED", "CANCELED"];
 
@@ -258,22 +258,7 @@ const DeclinedPayments = () => {
                           onClick={(e) => e.stopPropagation()}
                         >
                           {customer?.phone ? (
-                            <>
-                              <a
-                                href={`tel:${customer.phone}`}
-                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
-                              >
-                                <Phone className="w-4 h-4" /> Call
-                              </a>
-                              <a
-                                href={`https://wa.me/${formatWhatsApp(customer.phone)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"
-                              >
-                                <MessageCircle className="w-4 h-4" /> WhatsApp
-                              </a>
-                            </>
+                            <ContactActions phone={customer.phone} size="compact" />
                           ) : (
                             <span className="text-muted-foreground/30">—</span>
                           )}
