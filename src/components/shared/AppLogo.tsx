@@ -4,26 +4,26 @@ const WORDMARK_URL =
   "https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png";
 
 interface AppLogoProps {
-  /** onColor headers show the square mark + light label instead of the wordmark. */
+  /** onColor headers show the mark + light label instead of the dark wordmark. */
   variant?: "default" | "onColor";
   className?: string;
 }
 
 /**
  * Single logo component for both app shells. Never clipped, never squeezed:
- * the square mark is used on the narrowest phones and the full wordmark
- * appears once there is room for it.
+ * the mark is fully contained inside its box, and the label only appears once
+ * there is room for it.
  */
 const AppLogo = ({ variant = "default", className = "" }: AppLogoProps) => {
   if (variant === "onColor") {
     return (
-      <div className={`flex items-center gap-2.5 min-w-0 ${className}`}>
+      <div className={`flex items-center gap-2 min-w-0 ${className}`}>
         <img
           src={bookedJobsMark}
           alt="BookedJobs"
-          className="w-8 h-8 rounded-lg object-cover shrink-0"
+          className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0"
         />
-        <span className="hidden sm:inline text-white/80 text-sm font-semibold truncate">
+        <span className="hidden xs:inline text-white/85 text-sm font-bold truncate">
           BookedJobs
         </span>
       </div>
@@ -35,7 +35,7 @@ const AppLogo = ({ variant = "default", className = "" }: AppLogoProps) => {
       <img
         src={bookedJobsMark}
         alt="BookedJobs"
-        className="xs:hidden w-8 h-8 rounded-lg object-cover shrink-0"
+        className="xs:hidden w-9 h-9 rounded-lg object-contain shrink-0"
       />
       <img
         src={WORDMARK_URL}
