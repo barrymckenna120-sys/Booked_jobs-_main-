@@ -198,29 +198,43 @@ const AppLayoutInner = () => {
         className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 z-30"
         style={{ top: bannerHeight }}
       >
-        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border min-w-0">
-          <AppLogo />
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="px-3 py-4 border-b border-border min-w-0 space-y-3">
+          <div className="px-2 min-w-0">
+            <AppLogo />
+          </div>
+          {/* Desktop gets visible labels (icon-only controls are routinely
+              misread); the tooltip carries the fuller wording. */}
+          <div className="grid grid-cols-2 gap-1 min-w-0">
             {canSwitchToEngineer && (
               <HeaderIconButton
                 onClick={() => navigate("/engineer/today")}
+                className="w-full justify-start px-2"
+                label="Engineer"
                 title="Switch to Engineer View"
-                aria-label="Engineer View"
+                aria-label="Switch to Engineer View"
               >
                 <Hammer />
               </HeaderIconButton>
             )}
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
+              className="w-full justify-start px-2"
+              label="Help"
               title="Report an issue"
               aria-label="Report an issue"
             >
               <LifeBuoy />
             </HeaderIconButton>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+            <NotificationBell
+              unreadCount={unreadCount}
+              onClick={() => setNotifOpen(true)}
+              className="w-full justify-start px-2"
+            />
             <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
               active={isActive("/settings")}
+              className="w-full justify-start px-2"
+              label="Settings"
               title="Settings"
               aria-label="Settings"
             >
@@ -228,6 +242,7 @@ const AppLayoutInner = () => {
             </HeaderIconButton>
           </div>
         </div>
+
         <div className="px-3 pt-3">
           <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4" /> New Job
