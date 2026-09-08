@@ -7,7 +7,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
+  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2, Briefcase,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { LifeBuoy } from "lucide-react";
@@ -35,6 +35,10 @@ import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
+import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
+import WorkspaceIdentity from "@/components/shared/WorkspaceIdentity";
+import WorkspaceSwitchButton from "@/components/shared/WorkspaceSwitchButton";
+import HeaderOverflowMenu from "@/components/shared/HeaderOverflowMenu";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
@@ -295,63 +299,36 @@ const AppLayoutInner = () => {
       </aside>
 
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
-      <header className="md:hidden flex items-center justify-between gap-1 px-2 xs:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30 min-w-0">
-        <AppLogo />
-        <div className="flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Button
-            size="sm"
-            className="gap-1 font-bold shrink-0 px-2.5 min-h-[44px]"
-            onClick={() => setShowNewJob(true)}
-            aria-label="New Job"
-            title="New Job"
-          >
-            <Plus className="w-4 h-4" /> <span>New Job</span>
-          </Button>
-          {canSwitchToEngineer && (
-            <HeaderIconButton
-              onClick={() => navigate("/engineer/today")}
-              label="Engineer View"
-              title="Switch to Engineer View"
-              aria-label="Engineer View"
-            >
-              <Hammer />
-            </HeaderIconButton>
-          )}
-          <HeaderIconButton
-            onClick={() => setReportOpen(true)}
-            label="Report an issue"
-            title="Report an issue"
-            aria-label="Report an issue"
-          >
-            <LifeBuoy />
-          </HeaderIconButton>
-          <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
-          <HeaderIconButton
-            onClick={() => guardedNavigate("/settings")}
-            active={isActive("/settings")}
-            label="Settings"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <Settings />
-          </HeaderIconButton>
-          <HeaderIconButton
-            label="Sign Out"
-            title="Sign Out"
-            aria-label="Sign Out"
-            onClick={async () => {
-              try {
-                await supabase.auth.signOut();
-              } catch (err) {
-                console.error("Sign out error:", err);
-              }
-              navigate("/auth", { replace: true });
-            }}
-          >
-            <LogOut />
-          </HeaderIconButton>
-        </div>
-      </header>
+      <MobileWorkspaceHeader
+        identity={<WorkspaceIdentity label="Office" icon={Briefcase} />}
+        switchControl={
+          canSwitchToEngineer ? (
+            <WorkspaceSwitchButton label="Engineer" icon={Hammer} onClick={() => navigate("/engineer/today")} />
+          ) : undefined
+        }
+        bell={<NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />}
+        overflow={
+          <HeaderOverflowMenu
+            items={[
+              { label: "Settings", icon: Settings, onSelect: () => guardedNavigate("/settings") },
+              { label: "Report an issue", icon: LifeBuoy, onSelect: () => setReportOpen(true) },
+              {
+                label: "Sign Out",
+                icon: LogOut,
+                separatorBefore: true,
+                onSelect: async () => {
+                  try {
+                    await supabase.auth.signOut();
+                  } catch (err) {
+                    console.error("Sign out error:", err);
+                  }
+                  navigate("/auth", { replace: true });
+                },
+              },
+            ]}
+          />
+        }
+      />
 
        {/* ═══════════ MAIN CONTENT ═══════════ */}
        <main className="flex-1 min-w-0 md:ml-[200px] lg:ml-[232px] pb-20 md:pb-0">

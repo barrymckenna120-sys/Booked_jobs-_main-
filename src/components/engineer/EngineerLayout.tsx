@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, Briefcase, Package } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, ArrowLeft, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
-import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
+import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
+import WorkspaceIdentity from "@/components/shared/WorkspaceIdentity";
+import WorkspaceSwitchButton from "@/components/shared/WorkspaceSwitchButton";
+import HeaderOverflowMenu from "@/components/shared/HeaderOverflowMenu";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
@@ -95,54 +98,57 @@ const EngineerLayout = () => {
         onSignOut={signOut}
       />
       <div className="max-w-[430px] md:max-w-none mx-auto min-h-screen bg-secondary pb-20 md:pb-0">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative md:bg-none md:bg-card md:border-b md:border-border md:px-6 md:py-2.5 md:sticky md:top-0 md:z-20">
+      {/* Mobile header — same shared shell as the office workspace */}
+      <MobileWorkspaceHeader
+        identity={<WorkspaceIdentity label="Engineer" icon={Wrench} />}
+        switchControl={
+          canSwitchToOffice ? (
+            <WorkspaceSwitchButton label="Office" icon={ArrowLeft} onClick={() => navigate("/dashboard")} />
+          ) : undefined
+        }
+        bell={<NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />}
+        overflow={
+          <HeaderOverflowMenu
+            items={[
+              { label: "Order Parts", icon: Package, onSelect: () => navigate("/engineer/parts") },
+              { label: "Report a Bug", icon: Bug, onSelect: () => setReportOpen(true) },
+              { label: "Sign Out", icon: LogOut, separatorBefore: true, onSelect: () => signOut() },
+            ]}
+          />
+        }
+      />
+
+      {/* Desktop header */}
+      <div className="hidden md:block bg-card border-b border-border px-6 py-2.5 sticky top-0 z-20">
         <div className="flex items-center justify-between gap-2">
-          <AppLogo variant="onColor" className="md:hidden" />
-          <div className="hidden md:block min-w-0">
+          <div className="min-w-0">
             <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Engineer workspace</div>
             <div className="text-lg font-bold text-foreground">Field service</div>
           </div>
-          {/* Labels are hidden on narrow phones (icon-only) so the row can never
-              overflow the 430px shell; tap targets stay 44px either way. */}
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            {canSwitchToOffice && (
-              <HeaderIconButton
-                onClick={() => navigate("/dashboard")}
-                tone="onColor"
-                className="md:hidden"
-                label="Back to Office"
-                title="Back to Office"
-                aria-label="Back to Office"
-              >
-                <Briefcase  />
-              </HeaderIconButton>
-            )}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <HeaderIconButton
               onClick={() => navigate("/engineer/parts")}
-              tone="onColor"
-              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Order Parts"
               title="Order Parts"
               aria-label="Order Parts"
             >
-              <Package  />
+              <Package />
             </HeaderIconButton>
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
-              tone="onColor"
-              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Report a Bug"
               title="Report a Bug"
               aria-label="Report a Bug"
             >
               <Bug />
             </HeaderIconButton>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted" />
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} label="Alerts" className="text-muted-foreground hover:text-foreground hover:bg-muted" />
           </div>
         </div>
-
       </div>
+
 
 
       <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app="engineer" />
@@ -170,19 +176,19 @@ const EngineerLayout = () => {
             <button
               key={item.key}
               onClick={() => navigate(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] py-2 text-xs font-semibold transition-colors ${
-                active ? "text-primary" : "text-muted-foreground/70"
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] py-2 transition-colors ${
+                active ? "text-primary font-bold" : "text-muted-foreground/70 font-semibold"
               }`}
             >
               <div className="relative">
-                <item.icon className="w-7 h-7" />
+                <item.icon className="w-6 h-6" strokeWidth={active ? 2.5 : 2} />
                 {item.count > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     {item.count}
                   </span>
                 )}
               </div>
-              {active && <span className="text-[11px] leading-tight">{item.label}</span>}
+              <span className="text-[11px] leading-tight">{item.label}</span>
             </button>
           );
         })}

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Plus, Loader2, AlertTriangle, Package, BookOpen, ChevronRight, Wrench } from "lucide-react";
+import { CalendarDays, Plus, Loader2, AlertTriangle, Package, BookOpen, ChevronRight } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import NewJobPanel from "@/components/jobs/NewJobPanel";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -50,7 +50,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
-  const { isEngineer, canAccessOffice } = useUserRole(user);
+  const { isEngineer } = useUserRole(user);
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -173,8 +173,8 @@ const Dashboard = () => {
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex items-start justify-between gap-3 sm:items-center">
+        <div className="min-w-0">
           <h1 className="text-2xl font-extrabold text-foreground leading-tight">
             {greeting()}, {displayName}
           </h1>
@@ -182,11 +182,11 @@ const Dashboard = () => {
             {format(new Date(), "EEEE d MMMM yyyy")}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/schedule")}>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" className="hidden sm:inline-flex" onClick={() => navigate("/schedule")}>
             <CalendarDays className="w-4 h-4 mr-1.5" /> Schedule
           </Button>
-          <Button onClick={() => setShowNewJob(true)}>
+          <Button className="h-11 rounded-xl px-4 font-bold shadow-sm" onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4 mr-1.5" /> New Job
           </Button>
         </div>
@@ -200,7 +200,7 @@ const Dashboard = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-colors ${
+              className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-bold transition-colors ${
                 active
                   ? "text-primary border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -280,18 +280,6 @@ const Dashboard = () => {
       {activeTab === "parts" && <PartsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
-
-      {canAccessOffice && (
-        <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
-          <Button
-            onClick={() => navigate("/engineer/today")}
-            className="w-full h-auto gap-2 rounded-xl py-3 text-base font-semibold shadow-lg"
-          >
-            <Wrench className="h-5 w-5" />
-            Switch to Engineer View
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
