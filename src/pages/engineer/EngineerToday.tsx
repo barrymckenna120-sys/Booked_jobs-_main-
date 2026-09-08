@@ -104,6 +104,21 @@ const EngineerToday = () => {
 
   return (
     <>
+      {/* Job Stats — pinned to top on all view dimensions */}
+      <div className="flex gap-2 xs:gap-4 min-w-0">
+        {([
+          { count: todayActive.length, label: "Scheduled", Icon: ClipboardList, borderColor: "border-t-primary", iconColor: "text-primary" },
+          { count: completedTodayCount, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
+          { count: todayCancelled.length, label: "Cancelled", Icon: XCircle, borderColor: "border-t-destructive", iconColor: "text-destructive" },
+        ] as const).map((stat) => (
+          <div key={stat.label} className={`flex-1 min-w-0 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-4 p-3 xs:p-5 text-center shadow-sm`}>
+            <stat.Icon className={`w-5 h-5 mx-auto mb-2 ${stat.iconColor}`} />
+            <div className="text-2xl xs:text-3xl font-black tracking-tighter leading-none mb-1.5">{stat.count}</div>
+            <div className="text-[11px] font-semibold text-muted-foreground/70 leading-snug">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
       {/* In progress banner */}
       {todayInProgress.length > 0 && (() => {
         const ProgressIcon = IN_PROGRESS_ICON[todayInProgress[0].status] || Wrench;
