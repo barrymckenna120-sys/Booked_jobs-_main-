@@ -176,12 +176,12 @@ const EngineerLayout = () => {
             <button
               key={item.key}
               onClick={() => navigate(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[48px] py-2 text-xs font-semibold transition-colors ${
-                active ? "text-primary" : "text-muted-foreground/70"
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] py-2 transition-colors ${
+                active ? "text-primary font-bold" : "text-muted-foreground/70 font-semibold"
               }`}
             >
               <div className="relative">
-                <item.icon className="w-7 h-7" />
+                <item.icon className="w-6 h-6" strokeWidth={active ? 2.5 : 2} />
                 {item.count > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     {item.count}
