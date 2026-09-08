@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, ArrowLeft, LogOut } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
@@ -103,7 +103,7 @@ const EngineerLayout = () => {
         identity={<WorkspaceIdentity label="Engineer" icon={Wrench} />}
         switchControl={
           canSwitchToOffice ? (
-            <WorkspaceSwitchButton label="Office" icon={ArrowLeft} onClick={() => navigate("/dashboard")} />
+            <WorkspaceSwitchButton label="Office" logoMark onClick={() => navigate("/dashboard")} />
           ) : undefined
         }
         bell={<NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />}
