@@ -698,7 +698,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
     <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
-      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} onSignOut={signOut} />
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
         <button onClick={() => navigate("/engineer/today")} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
@@ -714,7 +714,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   if (authLoading || loading) {
     return (
       <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary flex items-center justify-center">
-        <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
+        <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} onSignOut={signOut} />
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -765,7 +765,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   return (
     <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
-      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} onSignOut={signOut} />
       {/* Compact header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />

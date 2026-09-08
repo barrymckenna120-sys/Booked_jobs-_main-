@@ -139,23 +139,6 @@ const EngineerLayout = () => {
               <Bug />
             </HeaderIconButton>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted" />
-            <HeaderIconButton
-              onClick={async () => {
-                try {
-                  await supabase.auth.signOut();
-                } catch (err) {
-                  console.error("Sign out error:", err);
-                }
-                navigate("/auth", { replace: true });
-              }}
-              tone="onColor"
-              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
-              label="Log Out"
-              title="Log Out"
-              aria-label="Log Out"
-            >
-              <LogOut  />
-            </HeaderIconButton>
           </div>
         </div>
 
