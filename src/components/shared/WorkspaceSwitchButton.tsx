@@ -19,10 +19,10 @@ const WorkspaceSwitchButton = ({ label, icon: Icon, onClick, className = "" }: W
     onClick={onClick}
     aria-label={`Switch to ${label}`}
     title={`Switch to ${label}`}
-    className={`flex shrink-0 items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3.5 min-h-[44px] text-[14px] font-bold text-primary active:opacity-70 transition-colors ${className}`}
+    className={`flex min-w-0 shrink items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-2.5 min-h-[44px] max-w-full text-[14px] font-bold text-primary active:opacity-70 transition-colors ${className}`}
   >
-    <Icon className="w-5 h-5 shrink-0" strokeWidth={2.25} />
-    <span className="whitespace-nowrap">{label}</span>
+    <Icon className="w-[22px] h-[22px] shrink-0" strokeWidth={2.25} />
+    <span className="whitespace-nowrap truncate">{label}</span>
   </button>
 );
 
