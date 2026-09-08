@@ -173,8 +173,8 @@ const Dashboard = () => {
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex items-start justify-between gap-3 sm:items-center">
+        <div className="min-w-0">
           <h1 className="text-2xl font-extrabold text-foreground leading-tight">
             {greeting()}, {displayName}
           </h1>
@@ -182,11 +182,11 @@ const Dashboard = () => {
             {format(new Date(), "EEEE d MMMM yyyy")}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/schedule")}>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="outline" className="hidden sm:inline-flex" onClick={() => navigate("/schedule")}>
             <CalendarDays className="w-4 h-4 mr-1.5" /> Schedule
           </Button>
-          <Button onClick={() => setShowNewJob(true)}>
+          <Button className="h-11 rounded-xl px-4 font-bold shadow-sm" onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4 mr-1.5" /> New Job
           </Button>
         </div>
