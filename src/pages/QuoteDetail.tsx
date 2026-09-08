@@ -211,7 +211,7 @@ const QuoteDetail = () => {
   const statusLabel = q.status?.charAt(0).toUpperCase() + q.status?.slice(1);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+    <div className="w-full min-w-0 max-w-3xl mx-auto px-4 sm:px-6 py-6 overflow-x-hidden">
       <div className="flex items-center gap-3 mb-6">
         <Button variant="ghost" size="icon" onClick={() => returnTo ? navigate(returnTo) : navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1">
@@ -244,26 +244,33 @@ const QuoteDetail = () => {
 
       {/* Line Items */}
       {displayLineItems.length > 0 && (
-        <Card className="mb-4">
+        <Card className="mb-4 min-w-0 overflow-hidden">
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[10%]" />
+                <col className="w-[32%]" />
+                <col className="w-[12%]" />
+                <col className="w-[23%]" />
+                <col className="w-[23%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border text-left">
-                  <th className="px-4 py-2.5 text-muted-foreground font-semibold">#</th>
-                  <th className="px-4 py-2.5 text-muted-foreground font-semibold">Description</th>
-                  <th className="px-4 py-2.5 text-muted-foreground font-semibold text-right">Qty</th>
-                  <th className="px-4 py-2.5 text-muted-foreground font-semibold text-right">Unit Price</th>
-                  <th className="px-4 py-2.5 text-muted-foreground font-semibold text-right">Total</th>
+                  <th className="px-2 sm:px-4 py-2.5 text-muted-foreground font-semibold">#</th>
+                  <th className="px-2 sm:px-4 py-2.5 text-muted-foreground font-semibold">Description</th>
+                  <th className="px-1 sm:px-4 py-2.5 text-muted-foreground font-semibold text-right">Qty</th>
+                  <th className="px-1 sm:px-4 py-2.5 text-muted-foreground font-semibold text-right leading-tight">Unit Price</th>
+                  <th className="px-2 sm:px-4 py-2.5 text-muted-foreground font-semibold text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {displayLineItems.map((li: any, i: number) => (
                   <tr key={li.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-2.5 font-medium">{li.description}</td>
-                    <td className="px-4 py-2.5 text-right">{li.qty}</td>
-                    <td className="px-4 py-2.5 text-right">€{Number(li.unit_price).toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold">€{Number(li.line_total).toFixed(2)}</td>
+                    <td className="px-2 sm:px-4 py-2.5 text-muted-foreground">{i + 1}</td>
+                    <td className="px-2 sm:px-4 py-2.5 font-medium break-words">{li.description}</td>
+                    <td className="px-1 sm:px-4 py-2.5 text-right">{li.qty}</td>
+                    <td className="px-1 sm:px-4 py-2.5 text-right whitespace-nowrap">€{Number(li.unit_price).toFixed(2)}</td>
+                    <td className="px-2 sm:px-4 py-2.5 text-right font-semibold whitespace-nowrap">€{Number(li.line_total).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
