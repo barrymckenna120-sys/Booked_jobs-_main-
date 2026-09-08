@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, Briefcase, Package } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, ArrowLeft, LogOut } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
-import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
+import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
+import WorkspaceIdentity from "@/components/shared/WorkspaceIdentity";
+import WorkspaceSwitchButton from "@/components/shared/WorkspaceSwitchButton";
+import HeaderOverflowMenu from "@/components/shared/HeaderOverflowMenu";
 import { useNotifications } from "@/hooks/useNotifications";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
