@@ -1,59 +1,63 @@
-# Urgent: bookedjobs.ie unreachable on mobile data — IPv6 investigation
+# bookedjobs.ie mobile-data outage — revised fix: Route B (A + AAAA), CNAME abandoned
 
-## Your theory is confirmed by the evidence
+## What changed
 
-I re-tested along the IPv6 line and it holds up. Carrier filtering is out; the missing IPv6 address is the cause.
+Route A (CNAME/proxy mode) is not viable for kngasservices.bookedjobs.ie:
 
-What I verified just now:
+- A CNAME cannot coexist with any other record at the same name (DNS standard, enforced by Blacknight).
+- A `facebook-domain-verification` TXT record sits directly at `kngasservices.bookedjobs.ie`, blocking the CNAME.
+- That TXT likely verifies the subdomain for Meta/Facebook (typically because it was used as an ads landing page). Deleting it is harmless only if K&N no longer runs Meta ads pointing at this subdomain — and there is no need to make that trade-off.
 
-- kngasservices.bookedjobs.ie and dublin-gas.bookedjobs.ie publish an IPv4 address only (185.158.133.1). Neither has an IPv6 address.
-- karlsgas.lovable.app publishes both IPv4 and IPv6 (2a07:8240::1 and ::2). That is the one difference between the address that works on mobile data and the two that fail.
-- The hosting edge already serves both customer domains correctly over IPv6. I forced a request to the IPv6 edge with each custom hostname and got the real app back — page title "BookedJobs — Boiler Service Management", HTTP 200, and the correct certificate for each domain, valid to 24 Oct 2026. Both IPv6 edge addresses answered.
+Route B (A + AAAA records) coexists with the Facebook TXT and any future records, so it is the chosen fix.
 
-So the servers already support IPv6 for these domains; only the DNS entries are missing. On an IPv6-only mobile network whose IPv4 translation is unreliable, that produces exactly the reported symptom: silent timeout on mobile data across unrelated carriers and countries, fine on dual-stack Wi-Fi.
+## URGENT first step — service is currently down
 
-## The fix: publish IPv6 addresses for both domains
+The A record was deleted during the CNAME attempt, so `kngasservices.bookedjobs.ie` currently resolves to nothing for everyone (Wi-Fi and mobile). Re-add it immediately at Blacknight:
 
-Two routes. I recommend trying route A first because it is Lovable's supported mechanism.
+```text
+Type: A   Name: kngasservices   Value: 185.158.133.1
+```
 
-### Route A — switch the domains to proxy/CNAME mode (recommended)
+## The fix — DNS records at Blacknight for kngasservices
 
-In Project Settings → Domains, reconnect each domain with the Advanced option that switches from A-record setup to CNAME-based setup. A CNAME follows the hosting edge's own dual-stack record, so IPv6 arrives automatically and stays correct if the edge addresses ever change.
-
-Do kngasservices.bookedjobs.ie first, confirm mobile data works, then repeat for dublin-gas.bookedjobs.ie. Records are edited at Blacknight, the DNS provider for bookedjobs.ie.
-
-### Route B — add AAAA records directly (fast, needs monitoring)
-
-At Blacknight, add to each subdomain, alongside the existing A record:
+After the A record is back, add both IPv6 addresses (the hosting edge already answers on these; verified earlier with forced IPv6 requests returning HTTP 200 and the correct certificate for this hostname):
 
 ```text
 Type: AAAA   Name: kngasservices   Value: 2a07:8240::1
 Type: AAAA   Name: kngasservices   Value: 2a07:8240::2
-Type: AAAA   Name: dublin-gas      Value: 2a07:8240::1
-Type: AAAA   Name: dublin-gas      Value: 2a07:8240::2
 ```
 
-These are the addresses the hosting edge answers on today, and I confirmed both serve the customer domains correctly. The trade-off: they are not part of the published setup instructions, so if the edge ever renumbers, mobile access breaks again. If we take this route, we should confirm the addresses with Lovable support and re-check them periodically.
+Final state at the name `kngasservices.bookedjobs.ie`:
 
-Existing A records stay in place either way, so nothing changes for IPv4 visitors.
+```text
+A      185.158.133.1          (existing — restored)
+AAAA   2a07:8240::1           (new)
+AAAA   2a07:8240::2           (new)
+TXT    facebook-domain-verification=...   (untouched)
+```
 
-## While the change propagates
+The `_lovable` verification TXT lives at a different name (`_lovable.kngasservices`) and is unaffected.
 
-- karlsgas.lovable.app is dual-stack and works on mobile data now — usable by staff immediately.
-- Wi-Fi keeps working on the branded addresses.
+## Known trade-off of Route B (accepted)
 
-## Verification after the DNS change
+The AAAA addresses are the edge's current addresses, not from Lovable's published setup docs. If Lovable ever renumbers its edge, mobile access breaks again. Mitigations:
 
-1. Confirm both domains return an IPv6 address from several public DNS services.
-2. Confirm the site loads over IPv6 with the correct certificate on both domains.
-3. Test on both previously failing mobile networks with Wi-Fi off.
-4. Re-check IPv4 still works, and confirm the domains still show as connected.
+- Re-check periodically that the AAAA values still answer (quick dig/curl check).
+- Optionally confirm the addresses with Lovable support so the values are on record.
 
-Allow up to an hour for the change to spread, as the records carry a one-hour lifetime.
+## dublin-gas.bookedjobs.ie — hold
 
-## Technical notes
+Do not touch until kngasservices is verified working on mobile data. Then repeat the identical record set (A already exists there; add the two AAAA records). Check first whether it also has a Facebook TXT — irrelevant for Route B, no action needed either way.
 
-- Evidence for the edge already supporting these hostnames over IPv6: forced requests to `[2a07:8240::1]` and `[2a07:8240::2]` with SNI/Host set to each custom domain returned HTTP 200 and the app HTML; the presented leaf certificate matched each hostname exactly.
-- Reverse lookup of 185.158.133.1 gives lovable-app-cd-1-4.p.l5e.io, the custom-domain edge; lovable.app itself resolves to 185.41.148.1/.2 plus 2a07:8240::1/::2.
-- DNS is authoritative on ns1-ns4.blacknightdns.com; the verification TXT record is present and correct; delegation is intact.
-- No application, database, or Edge Function change is involved. This is a DNS-only fix.
+## Verification after the change
+
+1. `kngasservices.bookedjobs.ie` returns both AAAA addresses from several public DNS resolvers.
+2. Site loads over IPv6 with the correct certificate (I can re-run the forced-IPv6 curl checks).
+3. Real test: both previously failing mobile networks, Wi-Fi off — site loads.
+4. IPv4/Wi-Fi still works; domain still shows connected/Active in Lovable settings.
+
+Records carry a one-hour TTL; allow up to an hour to propagate.
+
+## No application changes
+
+DNS-only fix. No code, database, or Edge Function changes.
