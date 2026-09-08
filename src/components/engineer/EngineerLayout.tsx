@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, LogOut, Briefcase, Package } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Briefcase, Package } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
@@ -28,7 +28,7 @@ import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth("/auth");
+  const { user, signOut } = useAuth("/auth");
   const { role, canAccessOffice } = useUserRole(user);
   const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const engineerJobs = useEngineerJobs();
@@ -92,6 +92,7 @@ const EngineerLayout = () => {
         upcomingCount={upcomingJobs.length}
         completedCount={completedJobs.length}
         canSwitchToOffice={canSwitchToOffice}
+        onSignOut={signOut}
       />
       <div className="max-w-[430px] md:max-w-none mx-auto min-h-screen bg-secondary pb-20 md:pb-0">
       {/* Header */}

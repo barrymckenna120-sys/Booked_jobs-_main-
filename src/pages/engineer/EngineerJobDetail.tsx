@@ -67,7 +67,7 @@ interface EngineerJobDetailProps {}
 
 const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { role, canAccessOffice } = useUserRole(user);
   const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const navigate = useNavigate();

@@ -20,7 +20,7 @@ const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c
 const EngineerCertificates = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { role, canAccessOffice } = useUserRole(user);
   const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const { toast } = useToast();
