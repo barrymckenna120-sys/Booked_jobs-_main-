@@ -46,7 +46,7 @@ const EnableSoundBanner = () => {
 
   return createPortal(
     <div
-      className="fixed left-1/2 -translate-x-1/2 z-[2000] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 w-[min(92vw,420px)] rounded-2xl border border-border bg-background shadow-xl p-3 flex items-center gap-3"
+      className="fixed left-1/2 -translate-x-1/2 z-40 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 w-[min(92vw,420px)] rounded-2xl border border-border bg-background shadow-xl p-3 flex items-center gap-3"
       style={{ pointerEvents: "auto" }}
       role="status"
     >
