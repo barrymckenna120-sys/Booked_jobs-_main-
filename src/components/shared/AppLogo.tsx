@@ -13,7 +13,7 @@ interface AppLogoProps {
 
 const markSizes = {
   compact: "h-8 w-8 p-0.5",
-  shell: "h-8 w-8 p-0.5 md:h-11 md:w-11 md:p-1.5",
+  shell: "h-10 w-10 p-1 md:h-11 md:w-11 md:p-1.5",
   large: "h-12 w-12 p-1",
 };
 
