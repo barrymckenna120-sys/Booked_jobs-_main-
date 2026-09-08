@@ -135,7 +135,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         <CardHeader><CardTitle className="text-base">Business Logo</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {logoUrl ? (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4 min-w-0">
               <img src={logoUrl} alt="Business logo" className="h-16 w-auto max-w-[200px] object-contain rounded-lg border border-border p-1" />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
@@ -243,12 +243,12 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         <CardHeader><CardTitle className="text-base">Opening Hours</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {hours.map((h, i) => (
-            <div key={h.day} className="flex items-center gap-3">
+            <div key={h.day} className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
               <span className="w-10 text-sm font-medium">{h.day}</span>
               <Switch checked={h.enabled} onCheckedChange={(v) => updateHour(i, "enabled", v)} />
-              <Input type="time" value={h.start} onChange={(e) => updateHour(i, "start", e.target.value)} disabled={!h.enabled} className="w-28" />
+              <Input type="time" value={h.start} onChange={(e) => updateHour(i, "start", e.target.value)} disabled={!h.enabled} className="w-[104px] sm:w-28" />
               <span className="text-muted-foreground text-sm">to</span>
-              <Input type="time" value={h.end} onChange={(e) => updateHour(i, "end", e.target.value)} disabled={!h.enabled} className="w-28" />
+              <Input type="time" value={h.end} onChange={(e) => updateHour(i, "end", e.target.value)} disabled={!h.enabled} className="w-[104px] sm:w-28" />
             </div>
           ))}
         </CardContent>
