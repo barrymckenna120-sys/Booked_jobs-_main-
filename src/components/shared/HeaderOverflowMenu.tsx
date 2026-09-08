@@ -42,7 +42,7 @@ const HeaderOverflowMenu = ({ items, label = "More" }: HeaderOverflowMenuProps) 
           <MoreVertical className="w-5 h-5" strokeWidth={2.25} />
         </button>
       </DrawerTrigger>
-      <DrawerContent className="rounded-t-2xl border-x-0 border-b-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <DrawerContent className="rounded-t-2xl border-x-0 border-b-0 min-h-[52vh] max-h-[85vh] pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between px-4 pt-1 pb-2">
           <DrawerTitle className="text-base font-bold">{label}</DrawerTitle>
           <DrawerClose asChild>
@@ -58,6 +58,8 @@ const HeaderOverflowMenu = ({ items, label = "More" }: HeaderOverflowMenuProps) 
         <div className="flex flex-col px-2">
           {items.map((item) => {
             const destructive = item.label === "Sign Out" || item.label === "Log Out";
+            const tone = destructive ? "text-destructive" : item.primary ? "text-primary" : "text-foreground";
+            const iconTone = destructive ? "text-destructive" : item.primary ? "text-primary" : "text-muted-foreground";
             return (
               <div key={item.label}>
                 {item.separatorBefore && <div className="mx-2 my-1 h-px bg-border" />}
@@ -65,12 +67,10 @@ const HeaderOverflowMenu = ({ items, label = "More" }: HeaderOverflowMenuProps) 
                   <button
                     type="button"
                     onClick={item.onSelect}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 min-h-[48px] text-[15px] font-semibold active:bg-muted transition-colors ${
-                      destructive ? "text-destructive" : "text-foreground"
-                    }`}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 min-h-[48px] text-[15px] font-semibold active:bg-muted transition-colors ${tone}`}
                   >
                     <item.icon
-                      className={`w-5 h-5 shrink-0 ${destructive ? "text-destructive" : "text-muted-foreground"}`}
+                      className={`w-5 h-5 shrink-0 ${iconTone}`}
                       strokeWidth={2.25}
                     />
                     {item.label}
