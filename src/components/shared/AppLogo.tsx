@@ -5,42 +5,68 @@ const MARK_URL =
 
 interface AppLogoProps {
   /** onColor headers show the mark + light label instead of the dark wordmark. */
-  variant?: "default" | "onColor";
+  variant?: "default" | "onColor" | "mark";
+  /** shell is the shared responsive workspace size; large is for centred identity surfaces. */
+  size?: "compact" | "shell" | "large";
   className?: string;
 }
+
+const markSizes = {
+  compact: "h-8 w-8 p-0.5",
+  shell: "h-8 w-8 p-0.5 md:h-11 md:w-11 md:p-1.5",
+  large: "h-12 w-12 p-1",
+};
+
+const wordmarkSizes = {
+  compact: "h-8 max-w-[144px]",
+  shell: "h-9 max-w-[152px] md:h-10 md:max-w-[168px]",
+  large: "h-12 max-w-[190px]",
+};
 
 /**
  * Single logo component for both app shells. Never clipped, never squeezed:
  * the mark is fully contained inside its box, and the label only appears once
  * there is room for it.
  */
-const AppLogo = ({ variant = "default", className = "" }: AppLogoProps) => {
+const AppLogo = ({ variant = "default", size = "shell", className = "" }: AppLogoProps) => {
   if (variant === "onColor") {
     return (
-      <div className={`flex items-center gap-2 min-w-0 ${className}`}>
+      <div className={`flex min-h-10 items-center gap-2 min-w-0 ${className}`}>
         <img
           src={MARK_URL}
           alt="BookedJobs"
-          className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0"
+          className={`${markSizes[size]} rounded-lg bg-card object-contain shrink-0`}
         />
-        <span className="hidden xs:inline text-white/85 text-sm font-bold truncate">
+        <span className="hidden xs:inline text-primary-foreground/85 text-sm font-bold truncate">
           BookedJobs
         </span>
       </div>
     );
   }
 
+  if (variant === "mark") {
+    return (
+      <div className={`flex items-center justify-center shrink-0 ${className}`}>
+        <img
+          src={MARK_URL}
+          alt="BookedJobs"
+          className={`${markSizes[size]} rounded-lg object-contain shrink-0`}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex items-center min-w-0 shrink-0 ${className}`}>
+    <div className={`flex min-h-10 items-center min-w-0 shrink-0 ${className}`}>
       <img
         src={MARK_URL}
         alt="BookedJobs"
-        className="xs:hidden w-9 h-9 rounded-lg object-contain shrink-0"
+        className={`${markSizes[size]} xs:hidden rounded-lg object-contain shrink-0`}
       />
       <img
         src={bookedJobsWordmark}
         alt="BookedJobs"
-        className="hidden xs:block h-7 w-auto max-w-[140px] object-contain shrink-0"
+        className={`hidden xs:block w-auto ${wordmarkSizes[size]} object-contain object-left shrink-0`}
       />
     </div>
   );

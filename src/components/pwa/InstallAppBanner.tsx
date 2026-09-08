@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { X, Share2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AppLogo from "@/components/shared/AppLogo";
 
 
 const DISMISSED_KEY = "install_banner_dismissed";
@@ -129,16 +130,7 @@ const InstallAppBannerInner = () => {
 
       {/* Header row */}
       <div className="flex items-center gap-3 pr-8">
-        <img
-          src="/icons/icon-192.png"
-          alt="BookedJobs"
-          width={48}
-          height={48}
-          decoding="async"
-          loading="eager"
-          className="w-12 h-12 rounded-xl flex-shrink-0 block"
-          style={{ aspectRatio: "1 / 1" }}
-        />
+        <AppLogo variant="mark" size="large" />
         <div>
           <p className="font-bold text-foreground text-sm">Install BookedJobs</p>
           <p className="text-xs text-muted-foreground">

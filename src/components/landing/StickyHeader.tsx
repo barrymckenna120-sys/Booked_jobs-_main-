@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import AppLogo from "@/components/shared/AppLogo";
 
 export const StickyHeader = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,7 +26,7 @@ export const StickyHeader = () => {
       }`}
     >
       <div className="section-container py-2 flex items-center justify-between">
-        <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-8 object-contain object-left" />
+        <AppLogo size="compact" />
         <div className="flex items-center gap-3">
           {loggedIn ? (
             <Button size="sm" asChild>

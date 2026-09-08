@@ -43,7 +43,7 @@ export default function EngineerDesktopNav({
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-[216px] lg:w-[232px] flex-col border-r border-sidebar-border bg-sidebar">
       <div className="px-5 pt-5 pb-1"><AppLogo /></div>
-      <div className="px-6 pb-5 text-xs font-semibold text-muted-foreground">Engineer workspace</div>
+      <div className="px-5 pb-5 text-xs font-semibold text-muted-foreground">Engineer workspace</div>
       <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-5" aria-label="Engineer workspace">
         {groups.map((group) => (
           <div key={group.label}>

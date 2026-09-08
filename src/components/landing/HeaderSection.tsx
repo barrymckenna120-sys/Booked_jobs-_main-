@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import bookedjobsLogo from "@/assets/bookedjobs-logo.jpg";
 import { supabase } from "@/integrations/supabase/client";
+import AppLogo from "@/components/shared/AppLogo";
 
 export const HeaderSection = () => {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -14,7 +14,7 @@ export const HeaderSection = () => {
 
   return (
     <header className="section-container pt-6 pb-4 flex items-center justify-between">
-      <img src={bookedjobsLogo} alt="BookedJobs" className="h-10 object-contain object-left" />
+      <AppLogo />
       <div className="flex items-center gap-3">
         {loggedIn ? (
           <Button size="sm" asChild>
