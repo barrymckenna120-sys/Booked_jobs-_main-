@@ -10,7 +10,7 @@ import {
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Bug } from "lucide-react";
+import { LifeBuoy } from "lucide-react";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -319,11 +319,11 @@ const AppLayoutInner = () => {
           )}
           <HeaderIconButton
             onClick={() => setReportOpen(true)}
-            label="Report a Bug"
-            title="Report a Bug"
-            aria-label="Report a Bug"
+            label="Report an issue"
+            title="Report an issue"
+            aria-label="Report an issue"
           >
-            <Bug />
+            <LifeBuoy />
           </HeaderIconButton>
           <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
           <HeaderIconButton
@@ -370,8 +370,8 @@ const AppLayoutInner = () => {
                 </HeaderIconButton>
               )}
               <div className="mx-2 h-6 w-px bg-border" />
-              <HeaderIconButton onClick={() => setReportOpen(true)} label="Report a Bug" showLabel={false} title="Report a Bug" aria-label="Report a Bug">
-                <Bug />
+              <HeaderIconButton onClick={() => setReportOpen(true)} label="Help" showLabel={false} title="Report an issue" aria-label="Report an issue">
+                <LifeBuoy />
               </HeaderIconButton>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
               <HeaderIconButton
