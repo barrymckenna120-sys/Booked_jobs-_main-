@@ -1,58 +1,59 @@
-# Urgent: kngasservices.bookedjobs.ie unreachable on mobile data
+# Urgent: bookedjobs.ie unreachable on mobile data — IPv6 investigation
 
-## What the checks found
+## Your theory is confirmed by the evidence
 
-The site itself is healthy. Nothing on our side is broken, and no code change will fix this.
+I re-tested along the IPv6 line and it holds up. Carrier filtering is out; the missing IPv6 address is the cause.
 
-- The address answers normally from outside: six consecutive requests returned the live app in about 0.1 seconds.
-- The domain is connected and verified, the project is published, and the security certificate is valid until 24 Oct 2026 with a complete, trusted chain.
-- All four name servers and four independent public DNS services return the same correct address for both kngasservices.bookedjobs.ie and dublin-gas.bookedjobs.ie.
-- Dublin Gas is equally healthy, and karlsgas.lovable.app is healthy.
+What I verified just now:
 
-Reported behaviour: fails on mobile data, works on Wi-Fi, affects more than one person, and the lovable.app address keeps working on the same phones.
+- kngasservices.bookedjobs.ie and dublin-gas.bookedjobs.ie publish an IPv4 address only (185.158.133.1). Neither has an IPv6 address.
+- karlsgas.lovable.app publishes both IPv4 and IPv6 (2a07:8240::1 and ::2). That is the one difference between the address that works on mobile data and the two that fail.
+- The hosting edge already serves both customer domains correctly over IPv6. I forced a request to the IPv6 edge with each custom hostname and got the real app back — page title "BookedJobs — Boiler Service Management", HTTP 200, and the correct certificate for each domain, valid to 24 Oct 2026. Both IPv6 edge addresses answered.
 
-That pattern points to one cause: the mobile network is blocking or mis-resolving the bookedjobs.ie name. Irish mobile carriers run content filters that silently drop domains they have not classified, and a newer domain like bookedjobs.ie is a typical casualty. The lovable.app name is long-classified, which is why it still loads.
+So the servers already support IPv6 for these domains; only the DNS entries are missing. On an IPv6-only mobile network whose IPv4 translation is unreliable, that produces exactly the reported symptom: silent timeout on mobile data across unrelated carriers and countries, fine on dual-stack Wi-Fi.
 
-## Step 1 — Confirm the carrier is the blocker (no changes, minutes)
+## The fix: publish IPv6 addresses for both domains
 
-On an affected phone, still on mobile data with Wi-Fi off:
+Two routes. I recommend trying route A first because it is Lovable's supported mechanism.
 
-1. Open kngasservices.bookedjobs.ie — expect the same failure.
-2. Open dublin-gas.bookedjobs.ie — if it also fails, the whole bookedjobs.ie name is being blocked, not one customer site.
-3. Note the carrier name (Eir, Three, Vodafone, Sky, etc.) and whether the account has any parental control or content filter enabled.
-4. Ask a second person on a different carrier to try on mobile data. If their carrier works, that isolates it to the one network.
+### Route A — switch the domains to proxy/CNAME mode (recommended)
 
-If step 2 shows only kngasservices failing while dublin-gas works on the same phone, that changes the diagnosis and I will re-investigate that single name specifically.
+In Project Settings → Domains, reconnect each domain with the Advanced option that switches from A-record setup to CNAME-based setup. A CNAME follows the hosting edge's own dual-stack record, so IPv6 arrives automatically and stays correct if the edge addresses ever change.
 
-## Step 2 — Immediate workaround for staff and customers
+Do kngasservices.bookedjobs.ie first, confirm mobile data works, then repeat for dublin-gas.bookedjobs.ie. Records are edited at Blacknight, the DNS provider for bookedjobs.ie.
 
-While the block is in place:
+### Route B — add AAAA records directly (fast, needs monitoring)
 
-- karlsgas.lovable.app serves the same K&N app and is reachable on mobile data. Staff can use it today.
-- Turning on Wi-Fi restores the branded address.
-- On iPhone, switching to a private DNS/secure DNS profile (e.g. Cloudflare's 1.1.1.1 app) bypasses most carrier filters and is a quick per-device fix.
+At Blacknight, add to each subdomain, alongside the existing A record:
 
-## Step 3 — Get the block lifted
+```text
+Type: AAAA   Name: kngasservices   Value: 2a07:8240::1
+Type: AAAA   Name: kngasservices   Value: 2a07:8240::2
+Type: AAAA   Name: dublin-gas      Value: 2a07:8240::1
+Type: AAAA   Name: dublin-gas      Value: 2a07:8240::2
+```
 
-Contact the affected carrier's business support and ask them to remove bookedjobs.ie from their content filter or classify it as a business site. Points to give them:
+These are the addresses the hosting edge answers on today, and I confirmed both serve the customer domains correctly. The trade-off: they are not part of the published setup instructions, so if the edge ever renumbers, mobile access breaks again. If we take this route, we should confirm the addresses with Lovable support and re-check them periodically.
 
-- Domain: bookedjobs.ie and its subdomains, hosted at 185.158.133.1.
-- It is a legitimate business application for gas service companies, not adult or restricted content.
-- The site resolves and serves correctly worldwide; only their mobile network fails.
+Existing A records stay in place either way, so nothing changes for IPv4 visitors.
 
-Blacknight is the DNS provider for bookedjobs.ie and can confirm no zone-level issue if the carrier pushes back.
+## While the change propagates
 
-## Step 4 — Reduce future exposure (optional, after the outage)
+- karlsgas.lovable.app is dual-stack and works on mobile data now — usable by staff immediately.
+- Wi-Fi keeps working on the branded addresses.
 
-Once service is restored, worth considering:
+## Verification after the DNS change
 
-- Adding an always-available fallback address for staff (the lovable.app address already serves this purpose — worth documenting internally).
-- Checking the domain against common blocklists so a future classification problem is spotted before customers hit it.
+1. Confirm both domains return an IPv6 address from several public DNS services.
+2. Confirm the site loads over IPv6 with the correct certificate on both domains.
+3. Test on both previously failing mobile networks with Wi-Fi off.
+4. Re-check IPv4 still works, and confirm the domains still show as connected.
+
+Allow up to an hour for the change to spread, as the records carry a one-hour lifetime.
 
 ## Technical notes
 
-- DNS: A record for both subdomains resolves to 185.158.133.1 on ns1-ns4.blacknightdns.com and via 1.1.1.1, 8.8.8.8, 9.9.9.9 and OpenDNS. Verification TXT record present and correct. TTL 3600.
-- TLS: leaf issued to each subdomain, chained through Google Trust Services WE1 to GTS Root R4; OpenSSL verify code 0. TLS 1.2 and 1.3 both negotiate; HTTP/2 200 responses.
-- Edge: served through Cloudflare, HSTS with includeSubDomains, same deployment id on both custom domains.
-- No AAAA records exist for either subdomain, so this is not an IPv6-only-path failure.
-- No application, database, or Edge Function changes are proposed. Nothing in this plan touches code.
+- Evidence for the edge already supporting these hostnames over IPv6: forced requests to `[2a07:8240::1]` and `[2a07:8240::2]` with SNI/Host set to each custom domain returned HTTP 200 and the app HTML; the presented leaf certificate matched each hostname exactly.
+- Reverse lookup of 185.158.133.1 gives lovable-app-cd-1-4.p.l5e.io, the custom-domain edge; lovable.app itself resolves to 185.41.148.1/.2 plus 2a07:8240::1/::2.
+- DNS is authoritative on ns1-ns4.blacknightdns.com; the verification TXT record is present and correct; delegation is intact.
+- No application, database, or Edge Function change is involved. This is a DNS-only fix.
