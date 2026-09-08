@@ -246,7 +246,23 @@ const QuoteDetail = () => {
       {displayLineItems.length > 0 && (
         <Card className="mb-4 min-w-0 overflow-hidden">
           <CardContent className="p-0">
-            <table className="w-full table-fixed text-sm">
+            {/* Mobile: stacked rows (avoids horizontal overflow) */}
+            <ul className="sm:hidden divide-y divide-border">
+              {displayLineItems.map((li: any, i: number) => (
+                <li key={li.id} className="p-3 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span className="text-muted-foreground text-xs mt-0.5 shrink-0">{i + 1}.</span>
+                    <span className="flex-1 min-w-0 font-medium text-sm break-words">{li.description}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{li.qty} × €{Number(li.unit_price).toFixed(2)}</span>
+                    <span className="font-semibold text-foreground text-sm">€{Number(li.line_total).toFixed(2)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <table className="hidden sm:table w-full table-fixed text-sm">
+
               <colgroup>
                 <col className="w-[10%]" />
                 <col className="w-[32%]" />
