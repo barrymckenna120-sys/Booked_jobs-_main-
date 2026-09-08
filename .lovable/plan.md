@@ -23,11 +23,11 @@ Bring the phone experience of both workspaces up to the reference mockup's clari
 - Job card keeps every field, action and section; hierarchy is restructured: status → job ref → customer → location → date/service metadata → engineer/assist → Call/WhatsApp/Nav → Details/Certificates → collapsible sections.
 - Button language: one primary blue action, white bordered secondary, subtle informational, red only for destructive. No four equally dominant buttons.
 - Collapsible rows (Service History, Notes, Photos & Videos, Messages) get one consistent row treatment with icon, label, chevron.
-- Bottom nav kept as-is functionally: fixed, safe-area aware, always-visible labels, badges preserved.
+- Bottom nav destinations, labels, routes, badge behaviour and order stay unchanged; fixed, safe-area aware, only sizing/spacing/icon/active-state styling changes.
 
 ## Files expected to change
-- `src/components/layout/AppLayout.tsx` — mobile header block, More menu, bottom nav polish.
-- `src/components/engineer/EngineerLayout.tsx` — mobile header replacement, More menu, bottom nav labels.
+- `src/components/layout/AppLayout.tsx` — mobile header block, More menu, bottom nav styling.
+- `src/components/engineer/EngineerLayout.tsx` — mobile header replacement, More menu, bottom nav styling.
 - `src/components/shared/` — new `MobileHeader.tsx`, `WorkspaceIdentity.tsx`, `WorkspaceSwitchButton.tsx`, `HeaderOverflowMenu.tsx`; `AppLogo.tsx` mobile mark sizing.
 - `src/pages/Dashboard.tsx`, `src/components/dashboard/DashboardStatCards.tsx`, `NeedsAttentionCard.tsx`, `TodayTimeline.tsx`, `JobsUpdateSection.tsx`, `TodaysRevenueCard.tsx` — mobile spacing/hierarchy classes.
 - `src/components/engineer/EngineerJobCard.tsx` and `src/components/engineer/job-card/*` — card hierarchy and button tiers.
