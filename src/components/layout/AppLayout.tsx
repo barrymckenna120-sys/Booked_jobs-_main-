@@ -10,7 +10,7 @@ import {
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { LifeBuoy } from "lucide-react";
+import { Bug } from "lucide-react";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
