@@ -188,7 +188,7 @@ const EngineerLayout = () => {
                   </span>
                 )}
               </div>
-              {active && <span className="text-[11px] leading-tight">{item.label}</span>}
+              <span className="text-[11px] leading-tight">{item.label}</span>
             </button>
           );
         })}
