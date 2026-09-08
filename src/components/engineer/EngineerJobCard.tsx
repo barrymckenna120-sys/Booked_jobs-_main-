@@ -251,44 +251,49 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           </div>
         )}
 
-        {/* Last Service Info */}
-        <div className="flex gap-4 mb-3 text-xs">
-          <div>
-            <span className="text-muted-foreground/60 font-semibold">Last Service: </span>
-            <span className="font-bold text-foreground">{lastService?.date || "No previous service"}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground/60 font-semibold">Engineer: </span>
-            <span className="font-bold text-foreground">{lastService?.engineerName || "—"}</span>
-          </div>
-        </div>
-
-        {assistingEngineers.length > 0 && (
+        {/* Job metadata — one stacked run on phones, two columns once there's
+            room (md+). Same fields, same order, nothing hidden. */}
+        <div className="md:grid md:grid-cols-2 md:gap-x-8">
+          {/* Last Service Info */}
           <div className="flex gap-4 mb-3 text-xs">
             <div>
-              <span className="text-muted-foreground/60 font-semibold">Assisting: </span>
-              <span className="font-bold text-foreground">{assistingEngineers.join(", ")}</span>
+              <span className="text-muted-foreground/60 font-semibold">Last Service: </span>
+              <span className="font-bold text-foreground">{lastService?.date || "No previous service"}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground/60 font-semibold">Engineer: </span>
+              <span className="font-bold text-foreground">{lastService?.engineerName || "—"}</span>
             </div>
           </div>
-        )}
 
-        {/* Boiler model / location from customer record */}
-        {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim() || customer?.boiler_location?.trim()) && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs">
-            {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim()) && (
-              <div className="flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                <span className="font-bold text-foreground">{(customer.boiler_make_model?.trim() || customer.boiler_model?.trim())}</span>
+          {assistingEngineers.length > 0 && (
+            <div className="flex gap-4 mb-3 text-xs">
+              <div>
+                <span className="text-muted-foreground/60 font-semibold">Assisting: </span>
+                <span className="font-bold text-foreground">{assistingEngineers.join(", ")}</span>
               </div>
-            )}
-            {customer?.boiler_location?.trim() && (
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                <span className="font-bold text-foreground">{customer.boiler_location.trim()}</span>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* Boiler model / location from customer record */}
+          {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim() || customer?.boiler_location?.trim()) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs">
+              {(customer?.boiler_make_model?.trim() || customer?.boiler_model?.trim()) && (
+                <div className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                  <span className="font-bold text-foreground">{(customer.boiler_make_model?.trim() || customer.boiler_model?.trim())}</span>
+                </div>
+              )}
+              {customer?.boiler_location?.trim() && (
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                  <span className="font-bold text-foreground">{customer.boiler_location.trim()}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
 
         {/* Customer receipt note (read-only) */}
         {job.customer_facing_notes?.trim() && (
