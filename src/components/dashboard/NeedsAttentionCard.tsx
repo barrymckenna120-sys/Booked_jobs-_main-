@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Inbox, AlertTriangle, Clock, ChevronRight, CalendarClock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { endOfWeek, format, startOfWeek } from "date-fns";
 
 interface AttentionRow {
   icon: LucideIcon;
@@ -45,11 +46,8 @@ const NeedsAttentionCard = () => {
     queryKey: ["dashboard-attention", user?.id],
     queryFn: async () => {
       const today = new Date();
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+      const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
       const [incomingRes, customersRes, incompleteRes] = await Promise.all([
         supabase
@@ -66,8 +64,8 @@ const NeedsAttentionCard = () => {
         supabase
           .from("service_calls")
           .select("id", { count: "exact", head: true })
-          .gte("scheduled_date", dateKey(monday))
-          .lte("scheduled_date", dateKey(sunday))
+          .gte("scheduled_date", weekStart)
+          .lte("scheduled_date", weekEnd)
           .not("status", "in", '("Completed","Cancelled")'),
       ]);
 

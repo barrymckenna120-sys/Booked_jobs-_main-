@@ -258,9 +258,10 @@ const Dashboard = () => {
 
 
           {/* Sales Ledger link card */}
-          <button
+          <Button
             onClick={() => navigate("/finance")}
-            className="w-full flex items-center gap-4 p-5 bg-card border border-border/80 rounded-xl shadow-sm hover:border-primary/30 hover:bg-accent/40 transition-colors text-left group"
+            variant="outline"
+            className="w-full h-auto justify-start gap-4 p-5 bg-card border-border/80 rounded-xl shadow-sm hover:shadow-sm hover:border-primary/30 hover:bg-accent/40 text-left group"
           >
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary shrink-0">
               <BookOpen className="w-5 h-5" />
@@ -270,7 +271,7 @@ const Dashboard = () => {
               <div className="text-xs text-muted-foreground mt-0.5">View full payment & invoice history</div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground/60 group-hover:text-primary transition-colors shrink-0" />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -282,13 +283,13 @@ const Dashboard = () => {
 
       {canAccessOffice && (
         <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
-          <button
+          <Button
             onClick={() => navigate("/engineer/today")}
-            className="w-full flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-3 text-base font-semibold hover:bg-[#1d4ed8] transition-colors shadow-lg"
+            className="w-full h-auto gap-2 rounded-xl py-3 text-base font-semibold shadow-lg"
           >
             <Wrench className="h-5 w-5" />
             Switch to Engineer View
-          </button>
+          </Button>
         </div>
       )}
     </div>
