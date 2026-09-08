@@ -37,7 +37,7 @@ const AppLogo = ({ variant = "default", size = "shell", className = "" }: AppLog
           alt="BookedJobs"
           className={`${markSizes[size]} rounded-lg bg-card object-contain shrink-0`}
         />
-        <span className="hidden xs:inline text-primary-foreground/85 text-sm font-bold truncate">
+        <span className="hidden min-[380px]:inline text-primary-foreground/85 text-sm font-bold truncate">
           BookedJobs
         </span>
       </div>
@@ -61,12 +61,12 @@ const AppLogo = ({ variant = "default", size = "shell", className = "" }: AppLog
       <img
         src={MARK_URL}
         alt="BookedJobs"
-        className={`${markSizes[size]} xs:hidden rounded-lg object-contain shrink-0`}
+        className={`${markSizes[size]} md:hidden rounded-lg object-contain shrink-0`}
       />
       <img
         src={bookedJobsWordmark}
         alt="BookedJobs"
-        className={`hidden xs:block w-auto ${wordmarkSizes[size]} object-contain object-left shrink-0`}
+        className={`hidden md:block w-auto ${wordmarkSizes[size]} object-contain object-left shrink-0`}
       />
     </div>
   );
