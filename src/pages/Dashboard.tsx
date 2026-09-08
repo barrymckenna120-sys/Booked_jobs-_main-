@@ -280,18 +280,6 @@ const Dashboard = () => {
       {activeTab === "parts" && <PartsPanel />}
 
       {showNewJob && <NewJobPanel onClose={() => setShowNewJob(false)} />}
-
-      {canAccessOffice && (
-        <div className="md:hidden fixed left-0 right-0 z-40 px-4" style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}>
-          <Button
-            onClick={() => navigate("/engineer/today")}
-            className="w-full h-auto gap-2 rounded-xl py-3 text-base font-semibold shadow-lg"
-          >
-            <Wrench className="h-5 w-5" />
-            Switch to Engineer View
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
