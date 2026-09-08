@@ -198,29 +198,44 @@ const AppLayoutInner = () => {
         className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 z-30"
         style={{ top: bannerHeight }}
       >
-        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-border min-w-0">
-          <AppLogo />
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="px-3 py-4 border-b border-border min-w-0 space-y-3">
+          <div className="px-2 min-w-0">
+            <AppLogo />
+          </div>
+          {/* Desktop gets visible labels (icon-only controls are routinely
+              misread); the tooltip carries the fuller wording. */}
+          <div className="grid grid-cols-1 gap-0.5 min-w-0">
             {canSwitchToEngineer && (
               <HeaderIconButton
                 onClick={() => navigate("/engineer/today")}
+                className="w-full !justify-start md:!px-2 gap-2 text-xs"
+                label="Engineer View"
                 title="Switch to Engineer View"
-                aria-label="Engineer View"
+                aria-label="Switch to Engineer View"
               >
                 <Hammer />
               </HeaderIconButton>
             )}
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
+              className="w-full !justify-start md:!px-2 gap-2 text-xs"
+              label="Help"
               title="Report an issue"
               aria-label="Report an issue"
             >
               <LifeBuoy />
             </HeaderIconButton>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
+            <NotificationBell
+              unreadCount={unreadCount}
+              onClick={() => setNotifOpen(true)}
+              className="w-full !justify-start md:!px-2 gap-2 text-xs"
+              label="Notifications"
+            />
             <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
               active={isActive("/settings")}
+              className="w-full !justify-start md:!px-2 gap-2 text-xs"
+              label="Settings"
               title="Settings"
               aria-label="Settings"
             >
@@ -228,6 +243,7 @@ const AppLayoutInner = () => {
             </HeaderIconButton>
           </div>
         </div>
+
         <div className="px-3 pt-3">
           <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4" /> New Job
@@ -299,6 +315,7 @@ const AppLayoutInner = () => {
           {canSwitchToEngineer && (
             <HeaderIconButton
               onClick={() => navigate("/engineer/today")}
+              label="Engineer View"
               title="Switch to Engineer View"
               aria-label="Engineer View"
             >
@@ -307,6 +324,7 @@ const AppLayoutInner = () => {
           )}
           <HeaderIconButton
             onClick={() => setReportOpen(true)}
+            label="Report an issue"
             title="Report an issue"
             aria-label="Report an issue"
           >
@@ -316,12 +334,14 @@ const AppLayoutInner = () => {
           <HeaderIconButton
             onClick={() => guardedNavigate("/settings")}
             active={isActive("/settings")}
+            label="Settings"
             title="Settings"
             aria-label="Settings"
           >
             <Settings />
           </HeaderIconButton>
           <HeaderIconButton
+            label="Sign Out"
             title="Sign Out"
             aria-label="Sign Out"
             onClick={async () => {
