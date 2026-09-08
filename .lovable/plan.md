@@ -2,6 +2,18 @@
 
 Bring the phone experience of both workspaces up to the reference mockup's clarity: one shared header architecture, visible workspace identity, an obvious workspace switch, tidier cards and bottom navigation. Desktop and tablet stay exactly as approved — every change is behind mobile-only styles.
 
+## Reference mockup details to match
+
+Taken from the attached mobile reference (structure and quality, not its sample data):
+
+- Header row: small rounded logo mark with tiny "BookedJobs" caption, a bordered white workspace control reading "Office"/"Engineer", then a blue-outlined switch button ("Engineer" with a tool icon / "← Office"), a bell with a red count, and a vertical "more" dots button.
+- Office greeting block: large two-line greeting, muted full date beneath, and the blue `+ New Job` button aligned right on the same block (not in the header).
+- Tabs row: underlined blue active tab, plain grey inactive labels, amber/orange count badges beside Follow-ups and Parts.
+- KPI cards: 2×2 grid, soft tinted rounded icon tile top-left, small uppercase context label with chevron top-right, very large number, muted label under it.
+- Full Schedule card: title with "N job · N done · N remaining" subline, blue "View calendar ›" link, grey uppercase time-band rows, then customer name, address with pin, amount and status pill, chevron.
+- Engineer page: "Today's Jobs" title with a soft blue "N left" pill; job card outlined blue with "NEXT JOB" pill and status pill, big Job Ref line, customer name with chevron, address with pin, then metadata pills (date · slot, service type, product), plain metadata lines for Last Service/Engineer/Assisting, three equal white bordered buttons (Call / WhatsApp in green / Nav), a full-width white Details button, one dark full-width Certificates button, then plain rows with icon + label + chevron for Service History, Notes, Photos & Videos.
+- Bottom nav: light surface, icon over small label, blue active item, small count badges on the icons.
+
 ## What changes on screen
 
 ### Shared mobile header (both workspaces)
