@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, LogOut, Package } from "lucide-react";
 import AppLogo from "@/components/shared/AppLogo";
 import { Button } from "@/components/ui/button";
 import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
@@ -10,6 +10,7 @@ interface EngineerDesktopNavProps {
   upcomingCount?: number;
   completedCount?: number;
   canSwitchToOffice: boolean;
+  onSignOut: () => void;
 }
 
 export default function EngineerDesktopNav({
@@ -17,6 +18,7 @@ export default function EngineerDesktopNav({
   upcomingCount = 0,
   completedCount = 0,
   canSwitchToOffice,
+  onSignOut,
 }: EngineerDesktopNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -71,15 +73,23 @@ export default function EngineerDesktopNav({
           </div>
         ))}
       </nav>
-      {canSwitchToOffice && (
-        <div className="border-t border-border px-3 py-3">
+      <div className="px-3 py-3 border-t border-border">
+        {canSwitchToOffice && (
           <SidebarWorkspaceSwitch
             icon={ArrowLeftRight}
             label="Back to Office"
             onClick={() => navigate("/dashboard")}
           />
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>Sign Out</span>
+        </button>
+      </div>
     </aside>
   );
 }
