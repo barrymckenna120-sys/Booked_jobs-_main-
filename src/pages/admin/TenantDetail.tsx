@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
+import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
 import {
   ArrowLeft,
   Loader2,
@@ -570,33 +571,42 @@ export default function TenantDetail() {
     navigate("/dashboard");
   };
 
+  const openAdminSection = (section: AdminSection) => {
+    navigate("/admin", { state: { adminSection: section } });
+  };
+
   if (!authChecked) return null;
 
   if (loading) {
     return (
+      <AdminWorkspaceShell activeSection="tenants" onSectionChange={openAdminSection} title="Tenant details">
       <div className="container mx-auto max-w-5xl p-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
       </div>
+      </AdminWorkspaceShell>
     );
   }
 
   if (!org) {
     return (
+      <AdminWorkspaceShell activeSection="tenants" onSectionChange={openAdminSection} title="Tenant details">
       <div className="container mx-auto max-w-5xl p-6 space-y-4">
         <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin
         </Button>
         <p className="text-muted-foreground">Tenant not found.</p>
       </div>
+      </AdminWorkspaceShell>
     );
   }
 
   const archived = !!org.is_archived;
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-6 p-6">
+    <AdminWorkspaceShell activeSection="tenants" onSectionChange={openAdminSection} title={org.name}>
+    <div className="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
       <div>
         <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin
@@ -1229,5 +1239,6 @@ export default function TenantDetail() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminWorkspaceShell>
   );
 }

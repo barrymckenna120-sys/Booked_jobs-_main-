@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
 import { invokeFunction } from "@/lib/invokeFunction";
@@ -46,6 +46,7 @@ import UnblockUserCard from "@/components/admin/UnblockUserCard";
 import BlockedUsersCard from "@/components/admin/BlockedUsersCard";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
+import AdminWorkspaceShell, { ADMIN_SECTION_LABELS, type AdminSection } from "@/components/admin/AdminWorkspaceShell";
 import {
   Loader2,
   History,
@@ -545,6 +546,7 @@ function TransactionsRlsDebugCard() {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     setViewingOrg,
@@ -668,8 +670,9 @@ export default function AdminPanel() {
     setActivityModalOrg,
   ] = useState<Tenant | null>(null);
 
+  const requestedSection = (location.state as { adminSection?: AdminSection } | null)?.adminSection;
   const [tabValue, setTabValue] =
-    useState<string>("tenants");
+    useState<AdminSection>(requestedSection ?? "tenants");
 
   const [
     messagingOrgId,
@@ -1691,13 +1694,18 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-6 p-6">
+    <AdminWorkspaceShell
+      activeSection={tabValue}
+      onSectionChange={setTabValue}
+      title={ADMIN_SECTION_LABELS[tabValue]}
+    >
+    <div className="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
       <Tabs
         value={tabValue}
-        onValueChange={setTabValue}
+        onValueChange={(value) => setTabValue(value as AdminSection)}
         className="space-y-6"
       >
-        <TabsList>
+        <TabsList className="sr-only">
           <TabsTrigger value="tenants">
             Tenants
           </TabsTrigger>
@@ -2835,5 +2843,6 @@ export default function AdminPanel() {
         </DialogContent>
       </Dialog>
     </div>
+    </AdminWorkspaceShell>
   );
 }

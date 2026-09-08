@@ -56,6 +56,17 @@ interface AdminWorkspaceShellProps {
   title?: string;
 }
 
+export const ADMIN_SECTION_LABELS: Record<AdminSection, string> = {
+  tenants: "Tenants",
+  integrations: "Customer Integrations",
+  messaging: "Messaging",
+  "unblock-users": "Unblock Users",
+  "user-activity": "User Activity",
+  "import-runs": "Import Runs",
+  "delivery-issues": "Delivery Issues",
+  "support-reports": "Support Reports",
+};
+
 const AdminNavigation = ({
   activeSection,
   onSelect,
