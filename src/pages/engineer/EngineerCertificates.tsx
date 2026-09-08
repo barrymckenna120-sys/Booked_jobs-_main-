@@ -12,6 +12,8 @@ import Cert2Flow from "@/components/engineer/Cert2Flow";
 import Cert3Flow from "@/components/engineer/Cert3Flow";
 import GasInstallationFlow from "@/components/engineer/GasInstallationFlow";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
+import { useUserRole } from "@/hooks/useUserRole";
+import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 
 const HAZARD_LABELS: Record<string, string> = { type_a: "A", type_b: "B", type_c: "C" };
 
@@ -19,6 +21,8 @@ const EngineerCertificates = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { role, canAccessOffice } = useUserRole(user);
+  const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const { toast } = useToast();
 
   const [job, setJob] = useState<any>(null);
@@ -98,7 +102,8 @@ const EngineerCertificates = () => {
   };
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+    <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
         <button onClick={() => navigate(`/engineer/job/${id}`)} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
@@ -106,12 +111,12 @@ const EngineerCertificates = () => {
         </button>
         <div className="text-xl font-extrabold text-white">Certificates</div>
       </div>
-      <div className="px-4 pt-4">{children}</div>
+      <div className="px-4 pt-4 md:px-8 md:pt-6">{children}</div>
     </div>
   );
 
   if (authLoading || loading) {
-    return <div className="max-w-[430px] mx-auto min-h-screen bg-secondary flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
+    return <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary flex items-center justify-center"><EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} /><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
 
   if (!user) {
@@ -169,7 +174,8 @@ const EngineerCertificates = () => {
   const s = statusCfg[job.status] || statusCfg.Scheduled;
 
   return (
-    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-32">
+    <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
       {/* Header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
@@ -179,7 +185,7 @@ const EngineerCertificates = () => {
         <div className="text-xl font-extrabold text-white">Certificates</div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-4 space-y-4 md:px-8 md:pt-6 md:max-w-[1040px] md:mx-auto">
         {/* Job summary strip */}
         <div className="bg-card rounded-2xl border border-border p-4">
           <div className="flex justify-between items-start">

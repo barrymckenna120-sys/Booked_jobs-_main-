@@ -22,16 +22,17 @@ import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import { supabase } from "@/integrations/supabase/client";
+import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 
 
 const EngineerLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth("/auth");
+  const { user } = useAuth("/auth");
   const { role, canAccessOffice } = useUserRole(user);
   const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const engineerJobs = useEngineerJobs();
-  const { authLoading, todayActive, upcomingJobs, completedJobs, engineerName, isEngineerNotLinked, isOnline } = engineerJobs;
+  const { authLoading, todayActive, upcomingJobs, completedJobs, isOnline } = engineerJobs;
   const [notifOpen, setNotifOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -85,11 +86,22 @@ const EngineerLayout = () => {
   ];
 
   return (
-    <div className="max-w-[430px] md:max-w-[900px] mx-auto min-h-screen bg-secondary pb-20">
+    <div className="min-h-screen bg-background md:pl-[216px] lg:pl-[232px]">
+      <EngineerDesktopNav
+        todayCount={todayActive.length}
+        upcomingCount={upcomingJobs.length}
+        completedCount={completedJobs.length}
+        canSwitchToOffice={canSwitchToOffice}
+      />
+      <div className="max-w-[430px] md:max-w-none mx-auto min-h-screen bg-secondary pb-20 md:pb-0">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative md:bg-none md:bg-card md:border-b md:border-border md:px-6 md:py-2.5 md:sticky md:top-0 md:z-20">
         <div className="flex items-center justify-between gap-2">
-          <AppLogo variant="onColor" />
+          <AppLogo variant="onColor" className="md:hidden" />
+          <div className="hidden md:block min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Engineer workspace</div>
+            <div className="text-lg font-bold text-foreground">Field service</div>
+          </div>
           {/* Labels are hidden on narrow phones (icon-only) so the row can never
               overflow the 430px shell; tap targets stay 44px either way. */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -97,6 +109,7 @@ const EngineerLayout = () => {
               <HeaderIconButton
                 onClick={() => navigate("/dashboard")}
                 tone="onColor"
+                className="md:hidden"
                 label="Back to Office"
                 title="Back to Office"
                 aria-label="Back to Office"
@@ -107,6 +120,7 @@ const EngineerLayout = () => {
             <HeaderIconButton
               onClick={() => navigate("/engineer/parts")}
               tone="onColor"
+              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
               label="Order Parts"
               title="Order Parts"
               aria-label="Order Parts"
@@ -116,13 +130,14 @@ const EngineerLayout = () => {
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
               tone="onColor"
+              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
               label="Help"
               title="Report an issue"
               aria-label="Report an issue"
             >
               <LifeBuoy  />
             </HeaderIconButton>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" />
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted" />
             <HeaderIconButton
               onClick={async () => {
                 try {
@@ -133,6 +148,7 @@ const EngineerLayout = () => {
                 navigate("/auth", { replace: true });
               }}
               tone="onColor"
+              className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
               label="Log Out"
               title="Log Out"
               aria-label="Log Out"
@@ -151,7 +167,7 @@ const EngineerLayout = () => {
       <ConnectionBanner message="No signal — changes won't save until you're back online" />
 
       {/* Page content — bottom padding clears the fixed nav + iOS home indicator */}
-      <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))]">
+      <div className="px-4 py-6 space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))] md:px-6 lg:px-8 md:pb-8 md:max-w-[1180px] md:mx-auto">
         <ErrorBoundary key={location.pathname} name="engineer-route" homePath="/engineer/today">
           <Outlet context={engineerJobs} />
         </ErrorBoundary>
@@ -163,7 +179,7 @@ const EngineerLayout = () => {
 
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] md:max-w-[900px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)]" style={{ minHeight: 64 }}>
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)] md:hidden" style={{ minHeight: 64 }}>
         {navItems.map((item) => {
           const active = currentTab === item.key;
           return (
@@ -218,6 +234,7 @@ const EngineerLayout = () => {
           onClose={closeTour}
         />
       )}
+      </div>
     </div>
   );
 };
