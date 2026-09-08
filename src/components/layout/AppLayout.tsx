@@ -319,11 +319,11 @@ const AppLayoutInner = () => {
           )}
           <HeaderIconButton
             onClick={() => setReportOpen(true)}
-            label="Report an issue"
-            title="Report an issue"
-            aria-label="Report an issue"
+            label="Report a Bug"
+            title="Report a Bug"
+            aria-label="Report a Bug"
           >
-            <LifeBuoy />
+            <Bug />
           </HeaderIconButton>
           <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />
           <HeaderIconButton
@@ -355,25 +355,37 @@ const AppLayoutInner = () => {
 
        {/* ═══════════ MAIN CONTENT ═══════════ */}
        <main className="flex-1 min-w-0 md:ml-[200px] lg:ml-[232px] pb-20 md:pb-0">
-         <header className="hidden md:flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-5 lg:px-8 sticky top-0 z-20">
-           <p className="text-sm font-semibold text-muted-foreground">Office workspace</p>
-           <div className="flex items-center gap-1">
-             <HeaderIconButton onClick={() => setReportOpen(true)} label="Help" showLabel={false} title="Report an issue" aria-label="Report an issue">
-               <LifeBuoy />
-             </HeaderIconButton>
-             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
-             <HeaderIconButton
-               onClick={() => guardedNavigate("/settings")}
-               active={isActive("/settings")}
-               label="Settings"
-               showLabel={false}
-               title="Settings"
-               aria-label="Settings"
-             >
-               <Settings />
-             </HeaderIconButton>
-           </div>
-         </header>
+          <header className="hidden md:flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-5 lg:px-8 sticky top-0 z-20">
+            <p className="text-sm font-semibold text-muted-foreground">Office workspace</p>
+            <div className="flex items-center gap-1">
+              {canSwitchToEngineer && (
+                <HeaderIconButton
+                  onClick={() => navigate("/engineer/today")}
+                  label="Engineer View"
+                  title="Switch to Engineer View"
+                  aria-label="Switch to Engineer View"
+                  className="text-primary hover:text-primary"
+                >
+                  <Hammer />
+                </HeaderIconButton>
+              )}
+              <div className="mx-2 h-6 w-px bg-border" />
+              <HeaderIconButton onClick={() => setReportOpen(true)} label="Report a Bug" showLabel={false} title="Report a Bug" aria-label="Report a Bug">
+                <Bug />
+              </HeaderIconButton>
+              <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
+              <HeaderIconButton
+                onClick={() => guardedNavigate("/settings")}
+                active={isActive("/settings")}
+                label="Settings"
+                showLabel={false}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <Settings />
+              </HeaderIconButton>
+            </div>
+          </header>
         <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
           <Outlet />
         </ErrorBoundary>
