@@ -208,7 +208,7 @@ const AppLayoutInner = () => {
             {canSwitchToEngineer && (
               <HeaderIconButton
                 onClick={() => navigate("/engineer/today")}
-                className="w-full justify-start px-2"
+                className="w-full justify-start px-1.5 gap-1 text-[11px]"
                 label="Engineer"
                 title="Switch to Engineer View"
                 aria-label="Switch to Engineer View"
@@ -218,7 +218,7 @@ const AppLayoutInner = () => {
             )}
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
-              className="w-full justify-start px-2"
+              className="w-full justify-start px-1.5 gap-1 text-[11px]"
               label="Help"
               title="Report an issue"
               aria-label="Report an issue"
@@ -228,13 +228,13 @@ const AppLayoutInner = () => {
             <NotificationBell
               unreadCount={unreadCount}
               onClick={() => setNotifOpen(true)}
-              className="w-full justify-start px-2"
+              className="w-full justify-start px-1.5 gap-1 text-[11px]"
               label="Alerts"
             />
             <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
               active={isActive("/settings")}
-              className="w-full justify-start px-2"
+              className="w-full justify-start px-1.5 gap-1 text-[11px]"
               label="Settings"
               title="Settings"
               aria-label="Settings"
