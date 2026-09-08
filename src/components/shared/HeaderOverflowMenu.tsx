@@ -14,6 +14,8 @@ export interface OverflowMenuItem {
   onSelect: () => void;
   /** Renders a divider above this item. */
   separatorBefore?: boolean;
+  /** Highlights the row as the primary action (brand blue). */
+  primary?: boolean;
 }
 
 interface HeaderOverflowMenuProps {
