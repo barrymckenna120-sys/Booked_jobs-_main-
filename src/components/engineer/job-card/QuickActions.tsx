@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, MapPin, MessageCircle, Eye, FileText } from "lucide-react";
+import { MapPin, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ContactActions from "@/components/shared/ContactActions";
 
 interface QuickActionsProps {
   jobId: string;
@@ -25,8 +26,6 @@ const QuickActions = ({ jobId, customerPhone, customerAddress, customerEircode }
     },
   });
 
-  const openPhone = () => window.open(`tel:${customerPhone}`);
-  const openWhatsApp = () => window.open(`https://wa.me/${customerPhone?.replace(/[^0-9]/g, "")}`, "_blank");
   const openNav = () =>
     window.open(
       `https://maps.google.com/?q=${encodeURIComponent((customerAddress || "") + " " + (customerEircode || "") + " Ireland")}`,
@@ -34,19 +33,25 @@ const QuickActions = ({ jobId, customerPhone, customerAddress, customerEircode }
     );
 
   return (
-    <div className="space-y-2.5 mb-3">
-      <div className="flex gap-2.5">
-        <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={openPhone}>
-          <Phone className="w-3.5 h-3.5" /> Call
+    <div className="space-y-2.5 mb-3 min-w-0">
+      {/* Wraps to a second line on narrow phones instead of clipping the row */}
+      <div className="flex flex-wrap gap-2.5 min-w-0">
+        <ContactActions phone={customerPhone} className="flex-[2] min-w-[180px]" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 min-w-[100px] gap-1.5 text-xs h-11 text-primary"
+          onClick={openNav}
+        >
+          <MapPin className="w-3.5 h-3.5 shrink-0" /> Nav
         </Button>
-        <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11 text-success" onClick={openWhatsApp}>
-          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-        </Button>
-        <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11 text-primary" onClick={openNav}>
-          <MapPin className="w-3.5 h-3.5" /> Nav
-        </Button>
-        <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={() => navigate(`/engineer/job/${jobId}`)}>
-          <Eye className="w-3.5 h-3.5" /> Details
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 min-w-[100px] gap-1.5 text-xs h-11"
+          onClick={() => navigate(`/engineer/job/${jobId}`)}
+        >
+          <Eye className="w-3.5 h-3.5 shrink-0" /> Details
         </Button>
       </div>
       <Button

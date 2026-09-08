@@ -17,7 +17,8 @@ import { extractRefDigits, matchesJobRef } from "@/lib/jobRefSearch";
 import JobConfirmedBadge from "@/components/jobs/JobConfirmedBadge";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 import PossibleDuplicateBadge from "@/components/jobs/PossibleDuplicateBadge";
-import { formatWhatsApp } from "@/lib/whatsappLink";
+import ContactActions from "@/components/shared/ContactActions";
+import ScrollRow from "@/components/shared/ScrollRow";
 import { withRequestTimeout, queryRetryDelay } from "@/lib/queryDefaults";
 import { useQuery } from "@tanstack/react-query";
 import { groupJobAssists, buildJobTeamLines } from "@/lib/jobTeam";
@@ -582,16 +583,7 @@ const Jobs = () => {
       </div>
 
       {/* Contact links */}
-      {j.customer_phone && (
-        <div className="flex lg:hidden items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <a href={`tel:${j.customer_phone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
-            <Phone className="w-4 h-4" /> Call
-          </a>
-          <a href={`https://wa.me/${formatWhatsApp(j.customer_phone)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-            <MessageCircle className="w-4 h-4" /> WhatsApp
-          </a>
-        </div>
-      )}
+      <ContactActions phone={j.customer_phone} size="compact" className="lg:hidden" />
 
       {/* Row 4: Job ref + Source + View */}
       <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -723,7 +715,7 @@ const Jobs = () => {
       {/* ── MOBILE: Counter chips + Date header ── */}
       {isMobile && !loading && (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 no-scrollbar">
+          <ScrollRow className="gap-2 pb-1 px-1" wrapperClassName="-mx-1">
             {[
               { label: "In Progress", count: inProgressJobs.length, colors: "bg-warning/10 text-warning border-warning/30" },
               { label: "Completed", count: completedTodayJobs.length, colors: "bg-emerald-500/10 text-emerald-600 border-emerald-200" },
@@ -734,7 +726,7 @@ const Jobs = () => {
                 {chip.label} <span className="font-black">{chip.count}</span>
               </span>
             ))}
-          </div>
+          </ScrollRow>
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">
               {new Date().toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" })}

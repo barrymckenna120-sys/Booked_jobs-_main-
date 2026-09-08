@@ -1,20 +1,23 @@
 import { Bell } from "lucide-react";
+import HeaderIconButton from "@/components/shared/HeaderIconButton";
 
 interface Props {
   unreadCount: number;
   onClick: () => void;
   className?: string;
+  /** Header sits on a coloured background (engineer app). */
+  tone?: "default" | "onColor";
 }
 
-const NotificationBell = ({ unreadCount, onClick, className = "" }: Props) => (
-  <button className={`relative p-1.5 rounded-lg hover:bg-white/10 transition-colors ${className}`} onClick={onClick} aria-label="Notifications">
-    <Bell className="w-7 h-7" />
+const NotificationBell = ({ unreadCount, onClick, className = "", tone = "default" }: Props) => (
+  <HeaderIconButton onClick={onClick} tone={tone} className={className} aria-label="Notifications" title="Notifications">
+    <Bell />
     {unreadCount > 0 && (
-      <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[11px] font-extrabold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 ring-2 ring-card">
+      <span className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground text-[10px] font-extrabold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
         {unreadCount > 99 ? "99+" : unreadCount}
       </span>
     )}
-  </button>
+  </HeaderIconButton>
 );
 
 export default NotificationBell;
