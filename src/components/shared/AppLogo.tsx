@@ -1,6 +1,6 @@
 import bookedJobsWordmark from "@/assets/bookedjobs-logo.jpg";
 
-const MARK_URL =
+export const MARK_URL =
   "https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png";
 
 interface AppLogoProps {
@@ -13,7 +13,7 @@ interface AppLogoProps {
 
 const markSizes = {
   compact: "h-8 w-8 p-0.5",
-  shell: "h-12 w-12 p-1 md:h-11 md:w-11 md:p-1.5",
+  shell: "h-[60px] w-[60px] p-1.5 md:h-11 md:w-11 md:p-1.5",
   large: "h-12 w-12 p-1",
 };
 
