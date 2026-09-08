@@ -200,7 +200,7 @@ const Dashboard = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-colors ${
+              className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-bold transition-colors ${
                 active
                   ? "text-primary border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
