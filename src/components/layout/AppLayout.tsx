@@ -310,6 +310,7 @@ const AppLayoutInner = () => {
         overflow={
           <HeaderOverflowMenu
             items={[
+              { label: "New Job", icon: Plus, primary: true, onSelect: () => setShowNewJob(true) },
               { label: "Settings", icon: Settings, onSelect: () => guardedNavigate("/settings") },
               { label: "Report an issue", icon: LifeBuoy, onSelect: () => setReportOpen(true) },
               {
