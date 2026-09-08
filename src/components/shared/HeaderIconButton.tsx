@@ -43,7 +43,7 @@ const HeaderIconButton = forwardRef<HTMLButtonElement, HeaderIconButtonProps>(
         } ${toneClasses} ${className}`}
       >
         {children}
-        {label && showLabel && <span className="hidden md:inline whitespace-nowrap">{label}</span>}
+        {label && showLabel && <span className="hidden md:inline truncate">{label}</span>}
       </button>
     );
 

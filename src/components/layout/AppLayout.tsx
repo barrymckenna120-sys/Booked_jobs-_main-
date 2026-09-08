@@ -229,6 +229,7 @@ const AppLayoutInner = () => {
               unreadCount={unreadCount}
               onClick={() => setNotifOpen(true)}
               className="w-full justify-start px-2"
+              label="Alerts"
             />
             <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
@@ -314,6 +315,7 @@ const AppLayoutInner = () => {
           {canSwitchToEngineer && (
             <HeaderIconButton
               onClick={() => navigate("/engineer/today")}
+              label="Engineer View"
               title="Switch to Engineer View"
               aria-label="Engineer View"
             >
@@ -322,6 +324,7 @@ const AppLayoutInner = () => {
           )}
           <HeaderIconButton
             onClick={() => setReportOpen(true)}
+            label="Report an issue"
             title="Report an issue"
             aria-label="Report an issue"
           >
@@ -331,12 +334,14 @@ const AppLayoutInner = () => {
           <HeaderIconButton
             onClick={() => guardedNavigate("/settings")}
             active={isActive("/settings")}
+            label="Settings"
             title="Settings"
             aria-label="Settings"
           >
             <Settings />
           </HeaderIconButton>
           <HeaderIconButton
+            label="Sign Out"
             title="Sign Out"
             aria-label="Sign Out"
             onClick={async () => {

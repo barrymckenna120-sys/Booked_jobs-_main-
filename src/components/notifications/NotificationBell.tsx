@@ -9,14 +9,16 @@ interface Props {
   tone?: "default" | "onColor";
   /** Set false to keep the bell icon-only (tooltip still applies). */
   showLabel?: boolean;
+  /** Override the control name (space-constrained shells use a shorter one). */
+  label?: string;
 }
 
-const NotificationBell = ({ unreadCount, onClick, className = "", tone = "default", showLabel = true }: Props) => (
+const NotificationBell = ({ unreadCount, onClick, className = "", tone = "default", showLabel = true, label = "Notifications" }: Props) => (
   <HeaderIconButton
     onClick={onClick}
     tone={tone}
     className={className}
-    label="Notifications"
+    label={label}
     showLabel={showLabel}
   >
     <Bell />
