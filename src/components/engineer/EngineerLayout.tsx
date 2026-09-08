@@ -103,7 +103,7 @@ const EngineerLayout = () => {
         identity={<WorkspaceIdentity label="Engineer" icon={Wrench} />}
         switchControl={
           canSwitchToOffice ? (
-            <WorkspaceSwitchButton label="Office" logoMark onClick={() => navigate("/dashboard")} />
+            <WorkspaceSwitchButton label="Office" icon={Briefcase} onClick={() => navigate("/dashboard")} />
           ) : undefined
         }
         bell={<NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} />}
