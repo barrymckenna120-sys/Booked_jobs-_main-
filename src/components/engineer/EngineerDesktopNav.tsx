@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, LogOut, Package } from "lucide-react";
 import AppLogo from "@/components/shared/AppLogo";
 import { Button } from "@/components/ui/button";
 import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
@@ -10,6 +10,7 @@ interface EngineerDesktopNavProps {
   upcomingCount?: number;
   completedCount?: number;
   canSwitchToOffice: boolean;
+  onSignOut: () => void;
 }
 
 export default function EngineerDesktopNav({
