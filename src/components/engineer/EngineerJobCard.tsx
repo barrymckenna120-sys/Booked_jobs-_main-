@@ -173,10 +173,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         {/* Header */}
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="text-2xl font-bold text-gray-900 leading-tight mb-0.5">Job Ref: {getJobRef(job)}</div>
-            <div className="text-xl font-bold text-gray-900 leading-tight flex items-center gap-1">
+            <div className="text-2xl font-bold text-foreground leading-tight mb-0.5">Job Ref: {getJobRef(job)}</div>
+            <div className="text-xl font-bold text-foreground leading-tight flex items-center gap-1">
               {customer.name}
-              {isNextJob && <ChevronRight className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
+              {isNextJob && <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />}
             </div>
           </div>
         <div className="flex items-center shrink-0">
@@ -211,8 +211,8 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
         )}
 
         {/* Address */}
-        <div className="text-base font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5 shrink-0" /> {[customer.address, job.area_code || customer.area_code, customer.eircode].filter(Boolean).join(", ")}
+        <div className="text-[15px] font-semibold text-foreground mb-3 flex items-start gap-1.5">
+          <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground" /> <span className="min-w-0">{[customer.address, job.area_code || customer.area_code, customer.eircode].filter(Boolean).join(", ")}</span>
         </div>
 
         {/* Always-visible phone for completed cards */}
@@ -359,10 +359,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
           <div onClick={stopProp}>
             <Button
               variant="outline"
-              className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-white border-[#4A86E8] text-[#4A86E8] hover:bg-[#4A86E8]/5"
+              className="w-full h-[52px] text-base font-extrabold gap-2 mt-2 bg-card border-primary/40 text-primary hover:bg-primary/5"
               onClick={() => setShowMessageOffice(true)}
             >
-              <Mail className="w-5 h-5" /> 📩 Message Office
+              <Mail className="w-5 h-5" /> Message Office
             </Button>
           </div>
         )}
