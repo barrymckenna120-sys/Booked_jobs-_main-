@@ -6,3 +6,4 @@
 - [ ] Inbound WhatsApp → Customer Message History: configure `WHATSAPP_INBOUND_SECRET` (missing → deployed `whatsapp-inbound` returns 401), run isolated scratch-customer end-to-end webhook test (persistence, matching, dedupe, UI), then hand off callback URL to 360Messenger (registration currently 403 — provider-side blocker).
 - [x] Mobile client-readiness follow-up: remove Quote Detail line-item overflow and place the labelled New Job action before the office-header utility icons.
 - [x] Dashboard UI redesign — grouped office navigation, compact utility header, refined KPI/schedule/attention/revenue hierarchy, and responsive verification without logic or route changes.
+- [x] Engineer View + Admin shell desktop refinement — persistent grouped navigation, explicit workspace switching, responsive Engineer content/detail views, and mobile-safe Admin navigation without route or workflow changes.

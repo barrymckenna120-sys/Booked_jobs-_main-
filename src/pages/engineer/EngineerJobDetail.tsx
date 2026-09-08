@@ -31,6 +31,8 @@ import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
+import { useUserRole } from "@/hooks/useUserRole";
+import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -66,6 +68,8 @@ interface EngineerJobDetailProps {}
 const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
+  const { role, canAccessOffice } = useUserRole(user);
+  const canSwitchToOffice = canAccessOffice || role === "admin" || role === "office";
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -693,7 +697,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   };
 
   const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="max-w-[430px] md:max-w-[1040px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+    <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
         <button onClick={() => navigate("/engineer/today")} className="flex items-center gap-1.5 text-white/80 text-sm font-semibold mb-3">
@@ -708,7 +713,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="max-w-[430px] md:max-w-[1040px] mx-auto min-h-screen bg-secondary flex items-center justify-center">
+      <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary flex items-center justify-center">
+        <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -758,7 +764,8 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const todayStr = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="max-w-[430px] md:max-w-[1040px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+    <div className="max-w-[430px] md:max-w-none md:ml-[216px] lg:ml-[232px] mx-auto min-h-screen bg-secondary pb-32 md:pb-10">
+      <EngineerDesktopNav canSwitchToOffice={canSwitchToOffice} />
       {/* Compact header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-4 pt-12 pb-5 relative overflow-hidden">
         <div className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/[0.07] pointer-events-none" />
@@ -806,7 +813,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         </div>
       </div>
 
-      <div className="px-4 pt-3 space-y-4 md:px-8 md:pt-6">
+      <div className="px-4 pt-3 space-y-4 md:px-8 md:pt-6 md:max-w-[1040px] md:mx-auto">
         {/* Tab bar */}
         <div className="flex rounded-lg border border-border overflow-hidden">
           <button

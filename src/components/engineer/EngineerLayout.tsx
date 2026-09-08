@@ -95,7 +95,7 @@ const EngineerLayout = () => {
       />
       <div className="max-w-[430px] md:max-w-none mx-auto min-h-screen bg-secondary pb-20 md:pb-0">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative md:bg-card md:border-b md:border-border md:px-6 md:py-2.5 md:sticky md:top-0 md:z-20">
+      <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative md:bg-none md:bg-card md:border-b md:border-border md:px-6 md:py-2.5 md:sticky md:top-0 md:z-20">
         <div className="flex items-center justify-between gap-2">
           <AppLogo variant="onColor" className="md:hidden" />
           <div className="hidden md:block min-w-0">
