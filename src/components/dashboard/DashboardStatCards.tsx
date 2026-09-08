@@ -72,8 +72,8 @@ const DashboardStatCards = () => {
       label: "New Incoming",
       count: data?.incoming || 0,
       trend: "This week",
-      iconBg: "bg-warning/15",
-      iconColor: "text-warning",
+      iconBg: "bg-primary/10",
+      iconColor: "text-primary",
       path: "/jobs",
     },
   {
@@ -106,25 +106,25 @@ const DashboardStatCards = () => {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
       {cards.map((card) => (
         <button
           key={card.label}
           onClick={() => navigate(card.path)}
-          className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm text-left transition-colors hover:bg-accent/50 active:bg-accent/70 cursor-pointer"
+          className="bg-card rounded-xl border border-border/80 p-4 sm:p-5 shadow-sm text-left transition-colors hover:border-primary/25 hover:bg-accent/30 active:bg-accent/60 cursor-pointer group"
         >
           <div className="flex items-start justify-between mb-3">
-            <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
-              <card.icon className={`w-5 h-5 ${card.iconColor}`} />
+            <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center`}>
+              <card.icon className={`w-5 h-5 ${card.iconColor}`} strokeWidth={2} />
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                 {card.trend}
               </span>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
             </div>
           </div>
-          <p className="text-3xl sm:text-4xl font-bold font-mono text-foreground leading-none">
+          <p className="text-3xl sm:text-4xl font-bold font-mono text-foreground leading-none tracking-normal">
             {card.count}
           </p>
           <p className="text-xs font-medium text-muted-foreground mt-1.5">{card.label}</p>

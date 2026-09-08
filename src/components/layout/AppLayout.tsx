@@ -42,18 +42,33 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
    Message Log is deprecated: messaging lives in
    Chat Inbox + the Dashboard feed
    ────────────────────────────────────────────── */
-const DESKTOP_NAV = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Jobs", icon: ClipboardList, path: "/jobs" },
-  { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
-  { label: "Customers", icon: Users, path: "/customers" },
-  { label: "Warranty", icon: Shield, path: "/warranty" },
-  { label: "Calendar", icon: CalendarDays, path: "/schedule" },
-  { label: "Finance", icon: PoundSterling, path: "/finance" },
-  { label: "Reports", icon: BarChart2, path: "/insights" },
-  { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
-  { label: "Parts", icon: Wrench, path: "/parts" },
-  { label: "Products", icon: Package, path: "/products" },
+const DESKTOP_NAV_GROUPS = [
+  {
+    label: "Work",
+    items: [
+      { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+      { label: "Jobs", icon: ClipboardList, path: "/jobs" },
+      { label: "Pipeline", icon: GitBranch, path: "/pipeline" },
+      { label: "Customers", icon: Users, path: "/customers" },
+      { label: "Warranty", icon: Shield, path: "/warranty" },
+      { label: "Calendar", icon: CalendarDays, path: "/schedule" },
+    ],
+  },
+  {
+    label: "Business",
+    items: [
+      { label: "Finance", icon: PoundSterling, path: "/finance" },
+      { label: "Reports", icon: BarChart2, path: "/insights" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { label: "Chat Inbox", icon: MessageCircle, path: "/inbox" },
+      { label: "Parts", icon: Wrench, path: "/parts" },
+      { label: "Products", icon: Package, path: "/products" },
+    ],
+  },
 ];
 
 /* ──────────────────────────────────────────────
@@ -194,99 +209,71 @@ const AppLayoutInner = () => {
 
 
       {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
-      <aside
-        className="hidden md:flex flex-col w-[200px] lg:w-[220px] border-r border-border bg-card min-h-screen fixed left-0 z-30"
+       <aside
+         className="hidden md:flex flex-col w-[200px] lg:w-[232px] border-r border-sidebar-border bg-sidebar min-h-screen fixed left-0 z-30"
         style={{ top: bannerHeight }}
       >
-        <div className="px-3 py-4 border-b border-border min-w-0 space-y-3">
-          <div className="px-2 min-w-0">
+         <div className="px-4 pt-5 pb-4 min-w-0">
+           <div className="px-1 min-w-0">
             <AppLogo />
-          </div>
-          {/* Desktop gets visible labels (icon-only controls are routinely
-              misread); the tooltip carries the fuller wording. */}
-          <div className="grid grid-cols-1 gap-0.5 min-w-0">
-            {canSwitchToEngineer && (
-              <HeaderIconButton
-                onClick={() => navigate("/engineer/today")}
-                className="w-full !justify-start md:!px-2 gap-2 text-xs"
-                label="Engineer View"
-                title="Switch to Engineer View"
-                aria-label="Switch to Engineer View"
-              >
-                <Hammer />
-              </HeaderIconButton>
-            )}
-            <HeaderIconButton
-              onClick={() => setReportOpen(true)}
-              className="w-full !justify-start md:!px-2 gap-2 text-xs"
-              label="Help"
-              title="Report an issue"
-              aria-label="Report an issue"
-            >
-              <LifeBuoy />
-            </HeaderIconButton>
-            <NotificationBell
-              unreadCount={unreadCount}
-              onClick={() => setNotifOpen(true)}
-              className="w-full !justify-start md:!px-2 gap-2 text-xs"
-              label="Notifications"
-            />
-            <HeaderIconButton
-              onClick={() => guardedNavigate("/settings")}
-              active={isActive("/settings")}
-              className="w-full !justify-start md:!px-2 gap-2 text-xs"
-              label="Settings"
-              title="Settings"
-              aria-label="Settings"
-            >
-              <Settings />
-            </HeaderIconButton>
           </div>
         </div>
 
-        <div className="px-3 pt-3">
-          <Button className="w-full gap-1.5 font-extrabold" onClick={() => setShowNewJob(true)}>
+         <div className="px-4 pb-5">
+           <Button className="w-full gap-2 font-bold shadow-sm hover:shadow-sm" onClick={() => setShowNewJob(true)}>
             <Plus className="w-4 h-4" /> New Job
           </Button>
         </div>
-        <nav className="flex-1 py-3 px-3 space-y-0.5">
-          {DESKTOP_NAV.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => guardedNavigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                isActive(item.path)
-                  ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <item.icon className="w-5 h-5 shrink-0" />
-              <span className="flex-1 text-left">{item.label}</span>
-              {item.path === "/inbox" && unreadMessages > 0 && (
-                <span className="bg-[#4A86E8] text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                  {unreadMessages}
-                </span>
-              )}
-              {item.path === "/parts" && partsCount > 0 && (
-                <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                  {partsCount}
-                </span>
-              )}
-            </button>
-          ))}
-          {isSuperAdmin && (
-            <button
-              onClick={() => guardedNavigate("/admin")}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                isActive("/admin")
-                  ? "bg-primary/10 text-primary font-bold border-l-[3px] border-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Shield className="w-5 h-5 shrink-0" />
-              <span className="flex-1 text-left">Admin</span>
-            </button>
-          )}
+         <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-5">
+           {DESKTOP_NAV_GROUPS.map((group) => (
+             <div key={group.label}>
+               <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">
+                 {group.label}
+               </div>
+               <div className="space-y-0.5">
+                 {group.items.map((item) => (
+                   <button
+                     key={item.path}
+                     onClick={() => guardedNavigate(item.path)}
+                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                       isActive(item.path)
+                         ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold"
+                         : "text-muted-foreground font-medium hover:bg-muted hover:text-foreground"
+                     }`}
+                   >
+                     <item.icon className="w-[19px] h-[19px] shrink-0" strokeWidth={2} />
+                     <span className="flex-1 text-left">{item.label}</span>
+                     {item.path === "/inbox" && unreadMessages > 0 && (
+                       <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                         {unreadMessages}
+                       </span>
+                     )}
+                     {item.path === "/parts" && partsCount > 0 && (
+                       <span className="bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                         {partsCount}
+                       </span>
+                     )}
+                   </button>
+                 ))}
+               </div>
+             </div>
+           ))}
+           {isSuperAdmin && (
+             <div>
+               <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">System</div>
+               <button
+                 onClick={() => guardedNavigate("/admin")}
+                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                   isActive("/admin")
+                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold"
+                     : "text-muted-foreground font-medium hover:bg-muted hover:text-foreground"
+                 }`}
+               >
+                 <Shield className="w-[19px] h-[19px] shrink-0" strokeWidth={2} />
+                 <span className="flex-1 text-left">Admin</span>
+               </button>
+             </div>
+           )}
         </nav>
         <div className="px-3 py-3 border-t border-border">
           <button
@@ -358,8 +345,39 @@ const AppLayoutInner = () => {
         </div>
       </header>
 
-      {/* ═══════════ MAIN CONTENT ═══════════ */}
-      <main className="flex-1 min-w-0 md:ml-[200px] lg:ml-[220px] pb-20 md:pb-0">
+       {/* ═══════════ MAIN CONTENT ═══════════ */}
+       <main className="flex-1 min-w-0 md:ml-[200px] lg:ml-[232px] pb-20 md:pb-0">
+         <header className="hidden md:flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-5 lg:px-8 sticky top-0 z-20">
+           <p className="text-sm font-semibold text-muted-foreground">Office workspace</p>
+           <div className="flex items-center gap-1">
+             {canSwitchToEngineer && (
+               <HeaderIconButton
+                 onClick={() => navigate("/engineer/today")}
+                 label="Engineer View"
+                 title="Switch to Engineer View"
+                 aria-label="Switch to Engineer View"
+                 className="text-primary hover:text-primary"
+               >
+                 <Hammer />
+               </HeaderIconButton>
+             )}
+             <div className="mx-2 h-6 w-px bg-border" />
+             <HeaderIconButton onClick={() => setReportOpen(true)} label="Help" showLabel={false} title="Report an issue" aria-label="Report an issue">
+               <LifeBuoy />
+             </HeaderIconButton>
+             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
+             <HeaderIconButton
+               onClick={() => guardedNavigate("/settings")}
+               active={isActive("/settings")}
+               label="Settings"
+               showLabel={false}
+               title="Settings"
+               aria-label="Settings"
+             >
+               <Settings />
+             </HeaderIconButton>
+           </div>
+         </header>
         <ErrorBoundary key={location.pathname} name="office-route" homePath="/dashboard">
           <Outlet />
         </ErrorBoundary>
