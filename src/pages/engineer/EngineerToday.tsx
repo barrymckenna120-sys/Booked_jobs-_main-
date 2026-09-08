@@ -105,19 +105,20 @@ const EngineerToday = () => {
   return (
     <>
       {/* Job Stats — pinned to top on all view dimensions */}
-      <div className="flex gap-2 xs:gap-4 min-w-0">
+      <div className="grid grid-cols-3 gap-2.5 xs:gap-3 md:gap-4 min-w-0 md:max-w-2xl">
         {([
           { count: todayActive.length, label: "Scheduled", Icon: ClipboardList, borderColor: "border-t-primary", iconColor: "text-primary" },
           { count: completedTodayCount, label: "Completed", Icon: CheckCircle2, borderColor: "border-t-success", iconColor: "text-success" },
           { count: todayCancelled.length, label: "Cancelled", Icon: XCircle, borderColor: "border-t-destructive", iconColor: "text-destructive" },
         ] as const).map((stat) => (
-          <div key={stat.label} className={`flex-1 min-w-0 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-4 p-3 xs:p-5 text-center shadow-sm`}>
-            <stat.Icon className={`w-5 h-5 mx-auto mb-2 ${stat.iconColor}`} />
-            <div className="text-2xl xs:text-3xl font-black tracking-tighter leading-none mb-1.5">{stat.count}</div>
-            <div className="text-[11px] font-semibold text-muted-foreground/70 leading-snug">{stat.label}</div>
+          <div key={stat.label} className={`min-w-0 bg-card rounded-2xl border border-border/60 ${stat.borderColor} border-t-[3px] px-2 py-3 xs:px-3 xs:py-4 flex flex-col items-center justify-center gap-1 text-center shadow-sm`}>
+            <stat.Icon className={`w-4 h-4 xs:w-[18px] xs:h-[18px] ${stat.iconColor}`} strokeWidth={2.25} />
+            <div className="text-[22px] xs:text-2xl md:text-3xl font-black tracking-tighter leading-none">{stat.count}</div>
+            <div className="text-[11px] font-semibold text-muted-foreground/70 leading-none truncate max-w-full">{stat.label}</div>
           </div>
         ))}
       </div>
+
 
       {/* In progress banner */}
       {todayInProgress.length > 0 && (() => {
