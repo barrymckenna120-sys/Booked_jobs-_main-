@@ -1,63 +1,40 @@
-# bookedjobs.ie mobile-data outage — revised fix: Route B (A + AAAA), CNAME abandoned
+# kngasservices.bookedjobs.ie still failing on mobile data — do NOT revert the AAAA records
 
-## What changed
+## New evidence (checked just now from outside)
 
-Route A (CNAME/proxy mode) is not viable for kngasservices.bookedjobs.ie:
+| Hostname | IPv4 | IPv6 | Mobile data |
+|---|---|---|---|
+| karlsgas.lovable.app | 185.41.148.1 / .2 | 2a07:8240::1 / ::2 | works |
+| kngasservices.bookedjobs.ie | 185.158.133.1 | 2a07:8240::1 / ::2 | fails |
+| dublin-gas.bookedjobs.ie | 185.158.133.1 | none | fails |
 
-- A CNAME cannot coexist with any other record at the same name (DNS standard, enforced by Blacknight).
-- A `facebook-domain-verification` TXT record sits directly at `kngasservices.bookedjobs.ie`, blocking the CNAME.
-- That TXT likely verifies the subdomain for Meta/Facebook (typically because it was used as an ads landing page). Deleting it is harmless only if K&N no longer runs Meta ads pointing at this subdomain — and there is no need to make that trade-off.
+Two facts settle the IPv6 question:
 
-Route B (A + AAAA records) coexists with the Facebook TXT and any future records, so it is the chosen fix.
+1. The hostname that **works** on mobile data uses the **exact same two IPv6 addresses** as the one that fails. If the carrier could not route those addresses, karlsgas.lovable.app would fail too. It doesn't.
+2. dublin-gas.bookedjobs.ie has **no IPv6 at all** and fails on mobile data in the same way. So the failure existed in a pure IPv4-only state.
 
-## URGENT first step — service is currently down
+So removing the AAAA records cannot restore anything — that is exactly the state dublin-gas is in, and it is broken. Reverting costs an hour of propagation and buys nothing.
 
-The A record was deleted during the CNAME attempt, so `kngasservices.bookedjobs.ie` currently resolves to nothing for everyone (Wi-Fi and mobile). Re-add it immediately at Blacknight:
+The one thing the two failing names share and the working name does not: the IPv4 address **185.158.133.1** (a different edge range from 185.41.148.x used by lovable.app). Both answer fine from here (HTTP 200 over IPv4 and IPv6, valid certificates), so this is a path/reachability problem between mobile networks and that specific address, not a DNS or hosting-config problem.
 
-```text
-Type: A   Name: kngasservices   Value: 185.158.133.1
-```
+## Recommendation right now, for Karl
 
-## The fix — DNS records at Blacknight for kngasservices
+Do not change DNS. Have Karl use **https://karlsgas.lovable.app** for today — same app, same data, same login, and it is proven to work on mobile data on both carriers. That unblocks him in seconds with zero propagation wait.
 
-After the A record is back, add both IPv6 addresses (the hosting edge already answers on these; verified earlier with forced IPv6 requests returning HTTP 200 and the correct certificate for this hostname):
+## Investigation steps (in order)
 
-```text
-Type: AAAA   Name: kngasservices   Value: 2a07:8240::1
-Type: AAAA   Name: kngasservices   Value: 2a07:8240::2
-```
+1. **Confirm what the phone actually sees.** On the failing phone, mobile data only:
+   - open `https://kngasservices.bookedjobs.ie` — note whether it hangs or errors instantly;
+   - then open `https://185.158.133.1` — a certificate warning proves the address is reachable; a hang proves it is not.
+   This single test separates "carrier can't reach that address" from "TLS/SNI problem for this hostname".
+2. **Force IPv4-only vs IPv6-only from the phone's network** (Wi‑Fi off) by asking a mobile-network device to load the site while the AAAA records are temporarily ignored — done via a test hostname, not by touching the live records.
+3. **If the address is unreachable from mobile networks**, this is on the hosting edge, not on Blacknight. Raise it with Lovable support with the evidence above: custom domains resolve to 185.158.133.1 which is unreachable from at least two mobile carriers, while *.lovable.app on 185.41.148.x works. Ask whether custom domains can be served from the same edge range, or via the CNAME/proxy mode target.
+4. **Route A (CNAME/proxy mode) becomes attractive again**, because it points the name at a hostname rather than that single address — the proxy edge is a different network path. It is blocked only by the `facebook-domain-verification` TXT sitting at the same name. If Karl is not running Meta ads at this subdomain, deleting that TXT unblocks Route A and is re-verifiable later.
 
-Final state at the name `kngasservices.bookedjobs.ie`:
+## dublin-gas.bookedjobs.ie
 
-```text
-A      185.158.133.1          (existing — restored)
-AAAA   2a07:8240::1           (new)
-AAAA   2a07:8240::2           (new)
-TXT    facebook-domain-verification=...   (untouched)
-```
-
-The `_lovable` verification TXT lives at a different name (`_lovable.kngasservices`) and is unaffected.
-
-## Known trade-off of Route B (accepted)
-
-The AAAA addresses are the edge's current addresses, not from Lovable's published setup docs. If Lovable ever renumbers its edge, mobile access breaks again. Mitigations:
-
-- Re-check periodically that the AAAA values still answer (quick dig/curl check).
-- Optionally confirm the addresses with Lovable support so the values are on record.
-
-## dublin-gas.bookedjobs.ie — hold
-
-Do not touch until kngasservices is verified working on mobile data. Then repeat the identical record set (A already exists there; add the two AAAA records). Check first whether it also has a Facebook TXT — irrelevant for Route B, no action needed either way.
-
-## Verification after the change
-
-1. `kngasservices.bookedjobs.ie` returns both AAAA addresses from several public DNS resolvers.
-2. Site loads over IPv6 with the correct certificate (I can re-run the forced-IPv6 curl checks).
-3. Real test: both previously failing mobile networks, Wi-Fi off — site loads.
-4. IPv4/Wi-Fi still works; domain still shows connected/Active in Lovable settings.
-
-Records carry a one-hour TTL; allow up to an hour to propagate.
+Leave as is. Do not add AAAA there yet — nothing is proven to help.
 
 ## No application changes
 
-DNS-only fix. No code, database, or Edge Function changes.
+DNS/hosting only. No code, database, or Edge Function changes.
