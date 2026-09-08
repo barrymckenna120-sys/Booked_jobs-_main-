@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Briefcase, Package, AlertTriangle, ChevronRight } from "lucide-react";
+import { Loader2, ClipboardList, CheckCircle2, XCircle, Car, MapPin, Wrench, PartyPopper, Package, AlertTriangle, ChevronRight } from "lucide-react";
 import EngineerJobCard from "@/components/engineer/EngineerJobCard";
 import EngineerCompactJobRow from "@/components/engineer/EngineerCompactJobRow";
 
 import EngineerOutstandingBalances from "@/components/engineer/EngineerOutstandingBalances";
 import { getNextJobId, type EngineerJobsState } from "@/hooks/useEngineerJobs";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,7 +27,6 @@ const EngineerToday = () => {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }); }, []);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { canAccessOffice } = useUserRole(user);
   const { todayActive, todayPaidNeedsCompletion, todayCancelled, todayInProgress, completedJobs, customers, loading, updateJob, fadingJobIds } = useOutletContext<EngineerJobsState>();
   const todayKey = new Date().toISOString().split("T")[0];
   const completedTodayCount = completedJobs.filter((job: any) =>
@@ -249,15 +247,6 @@ const EngineerToday = () => {
         </div>
       )}
 
-      {canAccessOffice && (
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="mx-4 mb-4 flex items-center justify-center gap-2 bg-[#2563EB] text-white rounded-xl py-4 text-base font-semibold hover:bg-[#1d4ed8] transition-colors"
-        >
-          <Briefcase className="h-5 w-5" />
-          Switch to Office App
-        </button>
-      )}
     </>
   );
 };
