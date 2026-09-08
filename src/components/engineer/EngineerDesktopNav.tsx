@@ -18,6 +18,7 @@ export default function EngineerDesktopNav({
   upcomingCount = 0,
   completedCount = 0,
   canSwitchToOffice,
+  onSignOut,
 }: EngineerDesktopNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
