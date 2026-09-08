@@ -16,7 +16,7 @@ import { unlockAudio } from "@/utils/audio";
 import EnableSoundBanner from "@/components/EnableSoundBanner";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
-import { WifiOff, X, LifeBuoy } from "lucide-react";
+import { Bug } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
@@ -131,11 +131,11 @@ const EngineerLayout = () => {
               onClick={() => setReportOpen(true)}
               tone="onColor"
               className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted"
-              label="Help"
-              title="Report an issue"
-              aria-label="Report an issue"
+              label="Report a Bug"
+              title="Report a Bug"
+              aria-label="Report a Bug"
             >
-              <LifeBuoy  />
+              <Bug />
             </HeaderIconButton>
             <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" className="md:text-muted-foreground md:hover:text-foreground md:hover:bg-muted" />
             <HeaderIconButton
