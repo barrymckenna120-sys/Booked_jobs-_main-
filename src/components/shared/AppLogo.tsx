@@ -1,6 +1,6 @@
-import bookedJobsMark from "@/assets/bookedjobs-logo.jpg";
+import bookedJobsWordmark from "@/assets/bookedjobs-logo.jpg";
 
-const WORDMARK_URL =
+const MARK_URL =
   "https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png";
 
 interface AppLogoProps {
@@ -19,7 +19,7 @@ const AppLogo = ({ variant = "default", className = "" }: AppLogoProps) => {
     return (
       <div className={`flex items-center gap-2 min-w-0 ${className}`}>
         <img
-          src={bookedJobsMark}
+          src={MARK_URL}
           alt="BookedJobs"
           className="w-9 h-9 rounded-lg bg-white object-contain p-0.5 shrink-0"
         />
@@ -33,14 +33,14 @@ const AppLogo = ({ variant = "default", className = "" }: AppLogoProps) => {
   return (
     <div className={`flex items-center min-w-0 shrink-0 ${className}`}>
       <img
-        src={bookedJobsMark}
+        src={MARK_URL}
         alt="BookedJobs"
         className="xs:hidden w-9 h-9 rounded-lg object-contain shrink-0"
       />
       <img
-        src={WORDMARK_URL}
+        src={bookedJobsWordmark}
         alt="BookedJobs"
-        className="hidden xs:block h-8 w-auto max-w-[150px] object-contain shrink-0"
+        className="hidden xs:block h-7 w-auto max-w-[140px] object-contain shrink-0"
       />
     </div>
   );
