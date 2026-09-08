@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, Phone, ChevronRight, Loader2 } from "lucide-react";
+import { Clock, MapPin, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const TIME_BLOCKS = [
@@ -60,22 +60,26 @@ const TodayTimeline = () => {
   const completedCount = jobs.filter((j: any) => j.status === "Completed").length;
 
   return (
-    <Card className="shadow-sm border-border/60">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-5">
+    <Card className="shadow-sm border-border/80 rounded-xl overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/70 bg-secondary/25">
           <div>
             <h3
-              className="text-3xl font-bold text-[#4A86E8] cursor-pointer"
+              className="text-lg font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
               onClick={() => navigate("/schedule")}
             >
               Full Schedule
             </h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
+             <p className="text-xs text-muted-foreground mt-0.5">
               {jobs.length} job{jobs.length !== 1 ? "s" : ""} · {completedCount} done · {activeCount} remaining
             </p>
           </div>
+          <button onClick={() => navigate("/schedule")} className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1">
+            View calendar <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
+        <div className="p-5 sm:p-6">
         {isLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -104,7 +108,7 @@ const TodayTimeline = () => {
                       <div
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors group"
+                         className="flex items-center gap-3 p-3 rounded-lg bg-secondary/45 hover:bg-secondary cursor-pointer transition-colors group"
                       >
                         <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[job.status] || "bg-muted-foreground"}`} />
                         <div className="flex-1 min-w-0">
@@ -137,6 +141,7 @@ const TodayTimeline = () => {
             })}
           </div>
         )}
+        </div>
       </CardContent>
     </Card>
   );

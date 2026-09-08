@@ -103,17 +103,17 @@ const JobsUpdateSection = () => {
   const { incompleteToday = 0, incompleteWeek = 0, cancelledWeek = 0, list = [] } = data || {};
 
   const metrics = [
-    { label: "Incomplete today", value: incompleteToday, color: "#BA7517", path: "/jobs?status=incomplete" },
-    { label: "Incomplete this week", value: incompleteWeek, color: "#185FA5", path: "/jobs?status=incomplete" },
-    { label: "Cancelled this week", value: cancelledWeek, color: "#A32D2D", path: "/jobs?status=cancelled" },
+    { label: "Incomplete today", value: incompleteToday, tone: "text-warning", path: "/jobs?status=incomplete" },
+    { label: "Incomplete this week", value: incompleteWeek, tone: "text-primary", path: "/jobs?status=incomplete" },
+    { label: "Cancelled this week", value: cancelledWeek, tone: "text-destructive", path: "/jobs?status=cancelled" },
   ];
 
   return (
-    <Card className="border-[0.5px] rounded-xl">
-      <CardContent className="p-5 space-y-4">
+    <Card className="border-border/80 rounded-xl shadow-sm">
+      <CardContent className="p-5 sm:p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span className="text-sm font-bold text-foreground">
             Jobs update
           </span>
           <button
@@ -130,9 +130,9 @@ const JobsUpdateSection = () => {
             <button
               key={m.label}
               onClick={() => navigate(m.path)}
-              className="bg-secondary rounded-lg px-3.5 py-3 text-left hover:bg-secondary/80 transition-colors"
+              className="bg-secondary/60 border border-border/60 rounded-lg px-3.5 py-3.5 text-left hover:border-primary/20 hover:bg-secondary transition-colors"
             >
-              <p className="text-2xl font-extrabold leading-none" style={{ color: m.color }}>
+              <p className={`text-2xl font-extrabold font-mono tracking-normal leading-none ${m.tone}`}>
                 {m.value}
               </p>
               <p className="text-[11px] text-muted-foreground mt-1.5 leading-tight">

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Inbox, AlertTriangle, Clock, ChevronRight } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, ChevronRight, CalendarClock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface AttentionRow {
@@ -44,7 +44,14 @@ const NeedsAttentionCard = () => {
   const { data } = useQuery({
     queryKey: ["dashboard-attention", user?.id],
     queryFn: async () => {
-      const [incomingRes, customersRes] = await Promise.all([
+      const today = new Date();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+
+      const [incomingRes, customersRes, incompleteRes] = await Promise.all([
         supabase
           .from("service_calls")
           .select("*", { count: "exact", head: true })
@@ -56,6 +63,12 @@ const NeedsAttentionCard = () => {
           .not("next_service_due", "is", null)
           .eq("is_archived", false)
           .not("renewal_stage", "in", '("booked","paid")'),
+        supabase
+          .from("service_calls")
+          .select("id", { count: "exact", head: true })
+          .gte("scheduled_date", dateKey(monday))
+          .lte("scheduled_date", dateKey(sunday))
+          .not("status", "in", '("Completed","Cancelled")'),
       ]);
 
       let overdue = 0;
@@ -68,20 +81,12 @@ const NeedsAttentionCard = () => {
         else if (daysUntil <= 30) dueSoon++;
       });
 
-      return { incoming: incomingRes.count || 0, overdue, dueSoon };
+      return { incoming: incomingRes.count || 0, overdue, dueSoon, incomplete: incompleteRes.count || 0 };
     },
     enabled: !!user,
   });
 
   const rows: AttentionRow[] = [
-    {
-      icon: Inbox,
-      label: "New Incoming Jobs",
-      count: data?.incoming || 0,
-      iconColor: "text-warning",
-      iconBg: "bg-warning/10",
-      path: "/incoming?status=New",
-    },
     {
       icon: AlertTriangle,
       label: "Overdue Boiler Services",
@@ -98,13 +103,21 @@ const NeedsAttentionCard = () => {
       iconBg: "bg-warning/10",
       path: "/renewals?status=Due Soon",
     },
+    {
+      icon: CalendarClock,
+      label: "Incomplete Jobs",
+      count: data?.incomplete || 0,
+      iconColor: "text-primary",
+      iconBg: "bg-primary/10",
+      path: "/jobs?filter=incomplete",
+    },
   ];
 
   return (
-    <div className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden h-full">
-      <div className="bg-warning/10 px-5 py-3 border-b border-warning/20">
-        <h3 className="text-sm font-bold text-warning flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
+    <div className="bg-card rounded-xl border border-border/80 shadow-sm overflow-hidden h-full">
+      <div className="px-5 py-4 border-b border-border/70">
+        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-destructive" />
           Needs Attention
         </h3>
       </div>
@@ -113,10 +126,10 @@ const NeedsAttentionCard = () => {
           <button
             key={row.label}
             onClick={() => navigate(row.path)}
-            className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-secondary/50 transition-colors text-left group"
+            className="w-full flex items-center gap-3.5 px-5 py-4 hover:bg-secondary/60 transition-colors text-left group"
           >
-            <div className={`w-9 h-9 rounded-xl ${row.iconBg} flex items-center justify-center shrink-0`}>
-              <row.icon className={`w-4 h-4 ${row.iconColor}`} />
+            <div className={`w-9 h-9 rounded-lg ${row.iconBg} flex items-center justify-center shrink-0`}>
+              <row.icon className={`w-4 h-4 ${row.iconColor}`} strokeWidth={2} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-2xl font-bold font-mono text-foreground leading-none">{row.count}</p>
@@ -125,6 +138,19 @@ const NeedsAttentionCard = () => {
             <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
           </button>
         ))}
+        <button
+          onClick={() => navigate("/incoming?status=New")}
+          className="w-full flex items-center gap-3.5 px-5 py-4 bg-primary/5 hover:bg-primary/10 transition-colors text-left group"
+        >
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Inbox className="w-4 h-4" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-primary/80">New Incoming</p>
+            <p className="text-sm font-semibold text-foreground mt-0.5">{data?.incoming || 0} job{data?.incoming === 1 ? "" : "s"} awaiting review</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-colors shrink-0" />
+        </button>
       </div>
     </div>
   );

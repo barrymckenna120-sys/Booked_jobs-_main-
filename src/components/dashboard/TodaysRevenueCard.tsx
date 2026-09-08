@@ -124,8 +124,8 @@ const TodaysRevenueCard = () => {
   const entries = data ? Object.entries(data.byType).sort((a, b) => b[1].total - a[1].total) : [];
 
   return (
-    <Card className="shadow-sm border-border/60">
-      <CardContent className="p-5">
+    <Card className="shadow-sm border-border/80 rounded-xl">
+      <CardContent className="p-5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
@@ -133,17 +133,16 @@ const TodaysRevenueCard = () => {
           </div>
 
           {/* Period toggle */}
-          <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+           <div className="inline-flex rounded-lg border border-border bg-secondary/60 p-0.5">
             {periodOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => { setPeriod(opt.value); setUnpaidExpanded(false); }}
                 className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all duration-150 ${
                   period === opt.value
-                    ? "text-primary-foreground shadow-sm"
+                    ? "bg-card text-primary shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                style={period === opt.value ? { backgroundColor: "#4A86E8" } : undefined}
               >
                 {opt.label}
               </button>
@@ -156,7 +155,10 @@ const TodaysRevenueCard = () => {
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : entries.length === 0 && !data?.unpaid ? (
-          <p className="text-xs text-muted-foreground/60 text-center py-3">No payments recorded</p>
+           <div className="rounded-lg border border-dashed border-border bg-secondary/30 px-4 py-8 text-center">
+             <TrendingUp className="w-6 h-6 mx-auto mb-2 text-muted-foreground/35" />
+             <p className="text-xs font-medium text-muted-foreground">No payments recorded</p>
+           </div>
         ) : (
           <>
             <div className="space-y-2.5 mb-3">
@@ -176,7 +178,7 @@ const TodaysRevenueCard = () => {
 
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-bold text-foreground">Total Collected</span>
-              <span className="text-lg font-extrabold" style={{ color: "#4A86E8" }}>
+              <span className="text-lg font-extrabold text-primary">
                 €{(data?.grandTotal || 0).toLocaleString()}
               </span>
             </div>
