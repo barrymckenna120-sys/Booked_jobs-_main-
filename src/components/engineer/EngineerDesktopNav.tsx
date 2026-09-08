@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import AppLogo from "@/components/shared/AppLogo";
 import { Button } from "@/components/ui/button";
+import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
 import { cn } from "@/lib/utils";
 
 interface EngineerDesktopNavProps {
@@ -72,9 +73,11 @@ export default function EngineerDesktopNav({
       </nav>
       {canSwitchToOffice && (
         <div className="border-t border-border px-3 py-3">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={() => navigate("/dashboard")}>
-            <ArrowLeftRight className="h-5 w-5" /> Back to Office
-          </Button>
+          <SidebarWorkspaceSwitch
+            icon={ArrowLeftRight}
+            label="Back to Office"
+            onClick={() => navigate("/dashboard")}
+          />
         </div>
       )}
     </aside>

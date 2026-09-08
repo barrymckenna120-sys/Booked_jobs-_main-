@@ -34,6 +34,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
+import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
@@ -276,6 +277,13 @@ const AppLayoutInner = () => {
            )}
         </nav>
         <div className="px-3 py-3 border-t border-border">
+           {canSwitchToEngineer && (
+             <SidebarWorkspaceSwitch
+               icon={Hammer}
+               label="Switch to Engineer"
+               onClick={() => navigate("/engineer/today")}
+             />
+           )}
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -350,18 +358,6 @@ const AppLayoutInner = () => {
          <header className="hidden md:flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-5 lg:px-8 sticky top-0 z-20">
            <p className="text-sm font-semibold text-muted-foreground">Office workspace</p>
            <div className="flex items-center gap-1">
-             {canSwitchToEngineer && (
-               <HeaderIconButton
-                 onClick={() => navigate("/engineer/today")}
-                 label="Engineer View"
-                 title="Switch to Engineer View"
-                 aria-label="Switch to Engineer View"
-                 className="text-primary hover:text-primary"
-               >
-                 <Hammer />
-               </HeaderIconButton>
-             )}
-             <div className="mx-2 h-6 w-px bg-border" />
              <HeaderIconButton onClick={() => setReportOpen(true)} label="Help" showLabel={false} title="Report an issue" aria-label="Report an issue">
                <LifeBuoy />
              </HeaderIconButton>
