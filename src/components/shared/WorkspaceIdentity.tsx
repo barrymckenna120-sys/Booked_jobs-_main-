@@ -11,9 +11,9 @@ interface WorkspaceIdentityProps {
  * very subtle container — just enough contrast to read as the current context.
  */
 const WorkspaceIdentity = ({ label, icon: Icon }: WorkspaceIdentityProps) => (
-  <div className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3.5 min-h-[44px] text-[14px] font-bold text-foreground">
-    <Icon className="w-5 h-5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
-    <span className="whitespace-nowrap">{label}</span>
+  <div className="flex min-w-0 shrink items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 min-h-[44px] max-w-full text-[13px] font-bold text-foreground">
+    <Icon className="w-[22px] h-[22px] shrink-0 text-muted-foreground" strokeWidth={2.25} />
+    <span className="whitespace-nowrap truncate">{label}</span>
   </div>
 );
 
