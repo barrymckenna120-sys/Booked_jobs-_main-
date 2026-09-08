@@ -296,8 +296,14 @@ const AppLayoutInner = () => {
               <Hammer />
             </HeaderIconButton>
           )}
-          <Button size="sm" className="gap-1 font-bold shrink-0 px-2.5" onClick={() => setShowNewJob(true)}>
-            <Plus className="w-3.5 h-3.5" /> New Job
+          <Button
+            size="sm"
+            className="gap-1 font-bold shrink-0 px-2.5 min-h-[44px] xs:min-h-0"
+            onClick={() => setShowNewJob(true)}
+            aria-label="New Job"
+            title="New Job"
+          >
+            <Plus className="w-4 h-4" /> <span className="hidden xs:inline">New Job</span>
           </Button>
           <HeaderIconButton
             onClick={() => setReportOpen(true)}
