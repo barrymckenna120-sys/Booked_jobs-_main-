@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import bookedJobsLogo from "@/assets/bookedjobs-logo.jpg";
+import AppLogo from "@/components/shared/AppLogo";
 import PageSeo from "@/components/seo/PageSeo";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -622,11 +622,7 @@ const Auth = () => {
 
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <img
-              src={bookedJobsLogo}
-              alt="BookedJobs"
-              className="h-10 mx-auto mb-2"
-            />
+            <AppLogo size="large" className="justify-center mb-2" />
 
             <h1 className="sr-only">
               Reset your BookedJobs password
@@ -750,11 +746,7 @@ const Auth = () => {
 
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img
-            src={bookedJobsLogo}
-            alt="BookedJobs"
-            className="h-10 mx-auto mb-2"
-          />
+          <AppLogo size="large" className="justify-center mb-2" />
 
           <h1 className="sr-only">
             Sign in to your BookedJobs account

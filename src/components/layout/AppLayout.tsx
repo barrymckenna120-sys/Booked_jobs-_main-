@@ -213,8 +213,8 @@ const AppLayoutInner = () => {
          className="hidden md:flex flex-col w-[200px] lg:w-[232px] border-r border-sidebar-border bg-sidebar min-h-screen fixed left-0 z-30"
         style={{ top: bannerHeight }}
       >
-         <div className="px-4 pt-5 pb-4 min-w-0">
-           <div className="px-1 min-w-0">
+         <div className="px-5 pt-5 pb-4 min-w-0">
+           <div className="min-w-0">
             <AppLogo />
           </div>
         </div>

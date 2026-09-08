@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import AppLogo from "@/components/shared/AppLogo";
 
 const parseTokensFromUrl = () => {
   const hash = window.location.hash.substring(1);
@@ -211,7 +212,7 @@ const ResetPassword = () => {
       <div className="min-h-screen bg-muted flex items-center justify-center px-4">
         <Card className="w-full max-w-md shadow-md border-border/60">
           <CardHeader className="text-center space-y-3 pb-2">
-            <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+            <AppLogo variant="mark" size="large" className="mx-auto" />
             <div>
               <CardTitle className="text-xl text-foreground">Link Expired</CardTitle>
               <CardDescription className="mt-1">
@@ -245,7 +246,7 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-muted flex items-center justify-center px-4">
       <Card className="w-full max-w-md shadow-md border-border/60">
         <CardHeader className="text-center space-y-3 pb-2">
-          <img src="https://res.cloudinary.com/ddx2gnklt/image/upload/v1782321168/IMG_3806_usj2yt.png" alt="BookedJobs" className="h-12 mx-auto rounded-lg" />
+          <AppLogo variant="mark" size="large" className="mx-auto" />
           <div>
             <CardTitle className="text-xl text-foreground">Set New Password</CardTitle>
             <CardDescription className="mt-1">Choose a secure password for your account</CardDescription>

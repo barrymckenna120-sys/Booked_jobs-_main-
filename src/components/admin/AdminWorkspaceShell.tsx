@@ -121,7 +121,7 @@ export default function AdminWorkspaceShell({
     <div className="min-h-screen bg-background md:pl-[232px]">
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-[232px] flex-col border-r border-sidebar-border bg-sidebar">
         <div className="px-5 pt-5 pb-1"><AppLogo /></div>
-        <div className="px-6 pb-5 text-xs font-semibold text-muted-foreground">Admin workspace</div>
+        <div className="px-5 pb-5 text-xs font-semibold text-muted-foreground">Admin workspace</div>
         <AdminNavigation activeSection={activeSection} onSelect={onSectionChange} />
         <div className="border-t border-border px-3 py-3">
           <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={() => navigate("/dashboard")}>
@@ -146,7 +146,7 @@ export default function AdminWorkspaceShell({
         <SheetContent side="left" className="w-[292px] p-0 flex flex-col">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <div className="px-5 pt-5 pb-1"><AppLogo /></div>
-          <div className="px-6 pb-5 text-xs font-semibold text-muted-foreground">Admin workspace</div>
+          <div className="px-5 pb-5 text-xs font-semibold text-muted-foreground">Admin workspace</div>
           <AdminNavigation activeSection={activeSection} onSelect={selectSection} />
           <div className="border-t border-border px-3 py-3">
             <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={() => navigate("/dashboard")}>

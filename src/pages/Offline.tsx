@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { WifiOff, RefreshCw } from "lucide-react";
+import AppLogo from "@/components/shared/AppLogo";
 
 const Offline = () => {
   const handleRetry = useCallback(() => {
@@ -9,11 +10,7 @@ const Offline = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-6">
       <div className="flex flex-col items-center gap-6 max-w-sm text-center">
-        <img
-          src="/icons/icon-192.png"
-          alt="BookedJobs"
-          className="w-16 h-16 rounded-xl shadow-md"
-        />
+        <AppLogo variant="mark" size="large" className="rounded-xl shadow-md" />
         <div className="flex flex-col items-center gap-2">
           <WifiOff className="w-10 h-10 text-muted-foreground" strokeWidth={1.5} />
           <h1 className="text-xl font-semibold tracking-tight">
