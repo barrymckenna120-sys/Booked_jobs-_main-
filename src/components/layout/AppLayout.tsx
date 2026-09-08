@@ -204,12 +204,12 @@ const AppLayoutInner = () => {
           </div>
           {/* Desktop gets visible labels (icon-only controls are routinely
               misread); the tooltip carries the fuller wording. */}
-          <div className="grid grid-cols-2 gap-1 min-w-0">
+          <div className="grid grid-cols-1 gap-0.5 min-w-0">
             {canSwitchToEngineer && (
               <HeaderIconButton
                 onClick={() => navigate("/engineer/today")}
-                className="w-full justify-start md:!px-1.5 gap-1 text-[11px]"
-                label="Engineer"
+                className="w-full justify-start md:!px-2 gap-2 text-xs"
+                label="Engineer View"
                 title="Switch to Engineer View"
                 aria-label="Switch to Engineer View"
               >
@@ -218,7 +218,7 @@ const AppLayoutInner = () => {
             )}
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
-              className="w-full justify-start md:!px-1.5 gap-1 text-[11px]"
+              className="w-full justify-start md:!px-2 gap-2 text-xs"
               label="Help"
               title="Report an issue"
               aria-label="Report an issue"
@@ -228,13 +228,13 @@ const AppLayoutInner = () => {
             <NotificationBell
               unreadCount={unreadCount}
               onClick={() => setNotifOpen(true)}
-              className="w-full justify-start md:!px-1.5 gap-1 text-[11px]"
-              label="Alerts"
+              className="w-full justify-start md:!px-2 gap-2 text-xs"
+              label="Notifications"
             />
             <HeaderIconButton
               onClick={() => guardedNavigate("/settings")}
               active={isActive("/settings")}
-              className="w-full justify-start md:!px-1.5 gap-1 text-[11px]"
+              className="w-full justify-start md:!px-2 gap-2 text-xs"
               label="Settings"
               title="Settings"
               aria-label="Settings"
