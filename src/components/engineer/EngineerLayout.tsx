@@ -85,7 +85,7 @@ const EngineerLayout = () => {
   ];
 
   return (
-    <div className="max-w-[430px] mx-auto min-h-screen bg-secondary pb-20">
+    <div className="max-w-[430px] md:max-w-[900px] mx-auto min-h-screen bg-secondary pb-20">
       {/* Header */}
       <div className="bg-gradient-to-br from-primary to-primary-dark px-5 pt-12 pb-5 relative">
         <div className="flex items-center justify-between gap-2">
@@ -97,33 +97,32 @@ const EngineerLayout = () => {
               <HeaderIconButton
                 onClick={() => navigate("/dashboard")}
                 tone="onColor"
-                className="sm:px-2.5"
-              title="Back to Office"
+                label="Back to Office"
+                title="Back to Office"
                 aria-label="Back to Office"
               >
                 <Briefcase  />
-                <span className="hidden sm:inline">Back to Office</span>
               </HeaderIconButton>
             )}
             <HeaderIconButton
               onClick={() => navigate("/engineer/parts")}
               tone="onColor"
-              className="sm:px-2.5"
+              label="Order Parts"
               title="Order Parts"
               aria-label="Order Parts"
             >
               <Package  />
-              <span className="hidden sm:inline">Order Parts</span>
             </HeaderIconButton>
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
               tone="onColor"
+              label="Help"
               title="Report an issue"
               aria-label="Report an issue"
             >
               <LifeBuoy  />
             </HeaderIconButton>
-            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" />
+            <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} tone="onColor" label="Alerts" />
             <HeaderIconButton
               onClick={async () => {
                 try {
@@ -134,12 +133,11 @@ const EngineerLayout = () => {
                 navigate("/auth", { replace: true });
               }}
               tone="onColor"
-              className="sm:px-2.5"
+              label="Log Out"
               title="Log Out"
               aria-label="Log Out"
             >
               <LogOut  />
-              <span className="hidden sm:inline">Log Out</span>
             </HeaderIconButton>
           </div>
         </div>
@@ -165,7 +163,7 @@ const EngineerLayout = () => {
 
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)]" style={{ minHeight: 64 }}>
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] md:max-w-[900px] mx-auto bg-card border-t border-border/60 flex z-50 pb-[env(safe-area-inset-bottom)]" style={{ minHeight: 64 }}>
         {navItems.map((item) => {
           const active = currentTab === item.key;
           return (
