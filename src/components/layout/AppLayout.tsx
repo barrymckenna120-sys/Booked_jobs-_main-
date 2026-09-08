@@ -7,7 +7,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import {
   LayoutDashboard, ClipboardList, Users, Settings, LogOut, Plus, CalendarDays,
   Wrench, TrendingUp, Package, GitBranch, MessageCircle, PoundSterling,
-  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2,
+  CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2, Briefcase,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { LifeBuoy } from "lucide-react";
@@ -35,6 +35,10 @@ import ConnectionBanner from "@/components/shared/ConnectionBanner";
 import AppLogo from "@/components/shared/AppLogo";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
+import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
+import WorkspaceIdentity from "@/components/shared/WorkspaceIdentity";
+import WorkspaceSwitchButton from "@/components/shared/WorkspaceSwitchButton";
+import HeaderOverflowMenu from "@/components/shared/HeaderOverflowMenu";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 /* ──────────────────────────────────────────────
