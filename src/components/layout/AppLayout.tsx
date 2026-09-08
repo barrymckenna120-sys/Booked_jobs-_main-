@@ -284,7 +284,7 @@ const AppLayoutInner = () => {
       </aside>
 
       {/* ═══════════ MOBILE TOP BAR ═══════════ */}
-      <header className="md:hidden flex items-center justify-between gap-2 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30 min-w-0 overflow-hidden">
+      <header className="md:hidden flex items-center justify-between gap-1 px-2 xs:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] border-b border-border bg-card sticky top-0 z-30 min-w-0 overflow-hidden">
         <AppLogo />
         <div className="flex items-center gap-1 shrink-0">
           {canSwitchToEngineer && (
