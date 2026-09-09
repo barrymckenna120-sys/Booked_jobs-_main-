@@ -39,7 +39,7 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
             className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2"
             onClick={() => videoInputRef.current?.click()}
           >
-            <Video className="w-3.5 h-3.5" /> Video
+            <Video className="w-3.5 h-3.5 shrink-0" /> Video
           </Button>
           <input
             ref={videoInputRef}
@@ -53,11 +53,11 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
           <Button
               variant="outline"
               size="sm"
-              className="flex-1 gap-1.5 text-xs h-11"
+              className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2"
               style={{ color: "#e8760a", backgroundColor: "#fff8f0", borderColor: "#f5c07a" }}
               onClick={onExtraWork}
             >
-              <Plus className="w-3.5 h-3.5" /> Extra Work
+              <Plus className="w-3.5 h-3.5 shrink-0" /> Extra Work
             </Button>
           )}
         </div>
