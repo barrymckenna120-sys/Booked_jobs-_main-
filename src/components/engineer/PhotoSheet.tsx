@@ -61,6 +61,12 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
       uploaded_by: "engineer",
     } as any);
 
+    if (insertError) {
+      toast({ title: "Upload failed", description: insertError.message, variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
     setMedia((prev) => [...prev, { url: signedUrl || "", name: file.name, type: file.type }]);
     toast({ title: isVideo(file.type) ? "Video uploaded" : "Photo uploaded" });
     setUploading(false);
