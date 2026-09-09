@@ -117,7 +117,7 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
 
       {/* Input row */}
       <div
-        className="flex items-center gap-2 bg-white transition-colors focus-within:border-[#1e3a5f]"
+        className="flex min-w-0 items-center gap-2 bg-white transition-colors focus-within:border-[#1e3a5f]"
         style={{
           border: "2px solid rgba(30,58,95,0.15)",
           borderRadius: "28px",
@@ -133,7 +133,7 @@ const EngineerJobMessages = ({ jobId, officeUserId }: Props) => {
             setIsPreset(false);
           }}
           placeholder="Send a message to office…"
-          className="flex-1 bg-transparent text-sm focus:outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none"
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
         />
         <button
