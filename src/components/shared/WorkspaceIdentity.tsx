@@ -7,12 +7,13 @@ interface WorkspaceIdentityProps {
 }
 
 /**
- * Compact workspace identity label for the mobile header. Plain text with a
- * very subtle container — just enough contrast to read as the current context.
+ * Current-workspace identity for the mobile header. Plain, non-interactive
+ * label — no border, background, or click affordance — so it clearly reads
+ * "this is where I am" and is never confused with the destination switch.
  */
 const WorkspaceIdentity = ({ label, icon: Icon }: WorkspaceIdentityProps) => (
-  <div className="flex min-w-0 shrink items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 min-h-[44px] max-w-full text-[11px] font-bold text-foreground">
-    <Icon className="w-[22px] h-[22px] shrink-0 text-muted-foreground" strokeWidth={2.25} />
+  <div className="flex min-w-0 shrink items-center justify-center gap-1.5 px-1 max-w-full text-[11px] font-bold text-foreground select-none">
+    <Icon className="w-5 h-5 shrink-0 text-muted-foreground" strokeWidth={2.25} />
     <span className="whitespace-nowrap truncate">{label}</span>
   </div>
 );
