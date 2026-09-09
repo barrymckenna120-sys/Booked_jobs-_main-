@@ -10,3 +10,4 @@
 - [x] Engineer workspace utility refinement — shared desktop sidebar workspace switches, removed duplicate in-content switch, and renamed the existing bug-report action without changing mobile behavior or workflows.
 
 - [x] Mobile UX redesign — Office + Engineer shared light header (identity, single permission-gated switch, bell, More menu), tidier dashboard/job-card hierarchy, always-labelled engineer bottom nav. Mobile only; desktop untouched.
+- Mobile workspace switch clarity: plain current-workspace label, outlined destination switch, ArrowLeft back-to-Office (BJ mobile UX)
