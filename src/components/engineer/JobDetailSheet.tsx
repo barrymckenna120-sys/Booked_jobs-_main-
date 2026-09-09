@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, MessageCircle, Mail } from "lucide-react";
+import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },

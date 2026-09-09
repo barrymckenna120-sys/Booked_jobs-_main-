@@ -33,6 +33,7 @@ import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 import { useUserRole } from "@/hooks/useUserRole";
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
+import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
