@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MapPin, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ContactActions from "@/components/shared/ContactActions";
+import { openExternalUrl } from "@/lib/openExternal";
 
 interface QuickActionsProps {
   jobId: string;
@@ -27,9 +28,8 @@ const QuickActions = ({ jobId, customerPhone, customerAddress, customerEircode }
   });
 
   const openNav = () =>
-    window.open(
-      `https://maps.google.com/?q=${encodeURIComponent((customerAddress || "") + " " + (customerEircode || "") + " Ireland")}`,
-      "_blank"
+    openExternalUrl(
+      `https://maps.google.com/?q=${encodeURIComponent((customerAddress || "") + " " + (customerEircode || "") + " Ireland")}`
     );
 
   return (

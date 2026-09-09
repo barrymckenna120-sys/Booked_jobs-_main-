@@ -33,6 +33,7 @@ import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 import { useUserRole } from "@/hooks/useUserRole";
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
+import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -752,10 +753,10 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
   const isDone = job.status === "Completed" || job.status === "Cancelled";
   const timeLabel = TIME_LABELS[job.time_block] || job.time_block || "—";
 
-  const openPhone = () => window.open(`tel:${customer.phone}`);
-  const openWhatsApp = () => window.open(`https://wa.me/${customer.phone?.replace(/[^0-9]/g, "")}`, "_blank");
+  const openPhone = () => openAppUrl(`tel:${customer.phone}`);
+  const openWhatsApp = () => openExternalUrl(`https://wa.me/${customer.phone?.replace(/[^0-9]/g, "")}`);
   const openNav = () =>
-    window.open(`https://maps.google.com/?daddr=${encodeURIComponent(customer.address + " " + customer.eircode + " Ireland")}`, "_blank");
+    openExternalUrl(`https://maps.google.com/?daddr=${encodeURIComponent(customer.address + " " + customer.eircode + " Ireland")}`);
 
   // Limit reschedule to 14 days
   const maxDate = new Date();

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, MessageCircle, Mail } from "lucide-react";
+import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -175,13 +176,13 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
         )}
 
         <div className="flex gap-2 mb-3">
-          <Button variant="outline" className="flex-1 gap-1.5" onClick={() => window.open(`tel:${customer.phone}`)}>
+          <Button variant="outline" className="flex-1 gap-1.5" onClick={() => openAppUrl(`tel:${customer.phone}`)}>
             <Phone className="w-4 h-4" /> Call
           </Button>
-          <Button variant="outline" className="flex-1 gap-1.5 text-success" onClick={() => window.open(`https://wa.me/${customer.phone?.replace(/[^0-9]/g, "")}`, "_blank")}>
+          <Button variant="outline" className="flex-1 gap-1.5 text-success" onClick={() => openExternalUrl(`https://wa.me/${customer.phone?.replace(/[^0-9]/g, "")}`)}>
             <MessageCircle className="w-4 h-4" /> WhatsApp
           </Button>
-          <Button variant="outline" className="flex-1 gap-1.5 text-primary" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(customer.address + " " + customer.eircode + " Ireland")}`, "_blank")}>
+          <Button variant="outline" className="flex-1 gap-1.5 text-primary" onClick={() => openExternalUrl(`https://maps.google.com/?q=${encodeURIComponent(customer.address + " " + customer.eircode + " Ireland")}`)}>
             <MapPin className="w-4 h-4" /> Navigate
           </Button>
         </div>
