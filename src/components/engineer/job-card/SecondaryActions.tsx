@@ -26,17 +26,17 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
   return (
     <>
       <div className="space-y-2 mb-3">
-        <div className="flex gap-2.5">
-          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={onNote}>
-            <StickyNote className="w-3.5 h-3.5" /> Note
+        <div className="flex flex-wrap gap-2.5">
+          <Button variant="outline" size="sm" className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2" onClick={onNote}>
+            <StickyNote className="w-3.5 h-3.5 shrink-0" /> Note
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs h-11" onClick={onPhotos}>
-            <Camera className="w-3.5 h-3.5" /> Media
+          <Button variant="outline" size="sm" className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2" onClick={onPhotos}>
+            <Camera className="w-3.5 h-3.5 shrink-0" /> Media
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 gap-1.5 text-xs h-11"
+            className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2"
             onClick={() => videoInputRef.current?.click()}
           >
             <Video className="w-3.5 h-3.5" /> Video
