@@ -33,8 +33,12 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
     if (!file || !user) return;
     setUploading(true);
 
-    const path = `${user.id}/${job.id}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("job-media").upload(path, file);
+    // Path must be customers/<customer id>/... — the job-media storage rules
+    // check the second folder segment against the customer's organisation.
+    const path = `customers/${customer.id}/${job.id}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("job-media")
+      .upload(path, file, { contentType: file.type, upsert: true });
 
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
@@ -45,7 +49,7 @@ const PhotoSheet = ({ job, customer, onClose, onSave }: Props) => {
     // Get signed URL for immediate display
     const signedUrl = await getSignedUrl(path);
 
-    await supabase.from("job_media").insert({
+    const { error: insertError } = await supabase.from("job_media").insert({
       organisation_id: job.organisation_id,
       job_id: job.id,
       customer_id: customer.id,
