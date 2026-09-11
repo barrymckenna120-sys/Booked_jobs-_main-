@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { publicReceiptDownloadPath, receiptDownloadPath } from "@/lib/receiptDownload";
+import {
+  classifyReceiptDownloadError,
+  downloadJobReceipt,
+  downloadPublicReceipt,
+  publicReceiptDownloadPath,
+  receiptDownloadCopy,
+  receiptDownloadPath,
+} from "@/lib/receiptDownload";
+import { RequestTimeoutError } from "@/lib/queryDefaults";
+import { ReceiptPdfStreamError } from "@/lib/receiptPdfStream";
 
 describe("receiptDownloadPath", () => {
   it("builds a same-origin loading route", () => {
@@ -29,5 +38,42 @@ describe("receiptDownloadPath", () => {
     expect(publicReceiptDownloadPath("DG-2026-9817")).toBe(
       "/receipt-public-download/DG-2026-9817",
     );
+  });
+});
+
+describe("downloadJobReceipt", () => {
+  it("reports an unavailable receipt when identifiers are missing", async () => {
+    expect(await downloadJobReceipt(null, "token-1")).toEqual({ ok: false, failure: "unavailable" });
+    expect(await downloadJobReceipt("job-1", null)).toEqual({ ok: false, failure: "unavailable" });
+  });
+
+  it("reports an unavailable receipt when no receipt number is given", async () => {
+    expect(await downloadPublicReceipt(null)).toEqual({ ok: false, failure: "unavailable" });
+  });
+});
+
+describe("classifyReceiptDownloadError", () => {
+  it("maps timeouts", () => {
+    expect(classifyReceiptDownloadError(new RequestTimeoutError("slow"))).toBe("timeout");
+  });
+
+  it("maps access denials", () => {
+    expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("nope", 401))).toBe("forbidden");
+    expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("nope", 403))).toBe("forbidden");
+    expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("nope", 404))).toBe("forbidden");
+  });
+
+  it("falls back to a retryable failure", () => {
+    expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("boom", 500))).toBe("resolve");
+    expect(classifyReceiptDownloadError(new Error("boom"))).toBe("resolve");
+  });
+});
+
+describe("receiptDownloadCopy", () => {
+  it("has user-facing copy for every failure", () => {
+    for (const failure of ["offline", "timeout", "generate", "resolve", "forbidden", "unavailable"] as const) {
+      expect(receiptDownloadCopy[failure].title.length).toBeGreaterThan(0);
+      expect(receiptDownloadCopy[failure].description.length).toBeGreaterThan(0);
+    }
   });
 });

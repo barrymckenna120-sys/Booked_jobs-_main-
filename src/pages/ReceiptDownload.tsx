@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
