@@ -267,6 +267,11 @@ const TakePaymentModal = ({ open, onClose, job, customer, onPaymentComplete }: T
           amount: paidAmount,
           revenue: Number((scRow as any).revenue || 0),
           collectedToDate: alreadyCollected,
+          // An unpriced job takes its total from the amount actually collected,
+          // matching the invoice path above and the engineer app. Without this a
+          // job with no price is marked paid at €0 revenue and reports nothing
+          // (DG-1015). "fill" only writes when the job has no total at all.
+          revenueMode: "fill",
         }),
 
       };
