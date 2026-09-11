@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
+import { fetchReceiptPdf, openReceiptPdfBlob } from "@/lib/receiptPdfStream";
 
 type Failure = "offline" | "timeout" | "unavailable";
 
@@ -24,17 +24,8 @@ const PublicReceiptDownload = () => {
       return;
     }
     try {
-      const { data, error } = await withRequestTimeout(
-        supabase.functions.invoke("resolve-document-link", {
-          body: { type: "receipt", receipt_number: receiptNumber },
-        }),
-      );
-      const signedUrl = (data as { signed_url?: unknown } | null)?.signed_url;
-      if (error || typeof signedUrl !== "string" || !signedUrl) {
-        setFailure("unavailable");
-        return;
-      }
-      window.location.replace(signedUrl);
+      const pdf = await withRequestTimeout(fetchReceiptPdf({ receipt_number: receiptNumber }));
+      openReceiptPdfBlob(pdf);
     } catch (error) {
       setFailure(error instanceof RequestTimeoutError ? "timeout" : navigator.onLine ? "unavailable" : "offline");
     }
