@@ -31,7 +31,7 @@ const PublicReceiptDownload = () => {
     }
     try {
       const pdf = await withRequestTimeout(fetchReceiptPdf({ receipt_number: receiptNumber }));
-      if (downloadReceiptPdf(pdf, receiptPdfFilename(receiptNumber))) {
+      if (await downloadReceiptPdf(pdf, receiptPdfFilename(receiptNumber))) {
         setDownloaded(pdf);
       }
     } catch (error) {
