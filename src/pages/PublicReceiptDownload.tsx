@@ -17,9 +17,11 @@ const PublicReceiptDownload = () => {
   const navigate = useNavigate();
   const [failure, setFailure] = useState<Failure | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [downloaded, setDownloaded] = useState<Blob | null>(null);
 
   const download = useCallback(async () => {
     setFailure(null);
+    setDownloaded(null);
     if (!navigator.onLine) {
       setFailure("offline");
       return;
