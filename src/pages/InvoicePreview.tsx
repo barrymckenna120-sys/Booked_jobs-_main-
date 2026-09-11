@@ -8,6 +8,7 @@ import {
   FileText, Download, Send, Loader2, ArrowLeft, CalendarPlus, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -92,11 +93,16 @@ const InvoicePreview = () => {
   const serviceType = job.job_type || "Boiler Service";
 
   const totalAmount = job.revenue ? Number(job.revenue) : 0;
-  const hasDeposit = !!job.deposit_paid && (job.deposit_amount ?? 0) > 0;
+  const paymentPresentation = resolvePaymentPresentation(job);
+  const hasDeposit = paymentPresentation.showDepositBreakdown;
   const depositAmount = hasDeposit ? Number(job.deposit_amount) : 0;
-  const balanceDue = hasDeposit
-    ? (job.balance_due != null ? Number(job.balance_due) : totalAmount - depositAmount)
-    : totalAmount;
+  const balanceDue = job.balance_due != null
+    ? Number(job.balance_due)
+    : hasDeposit
+      ? totalAmount - depositAmount
+      : paymentPresentation.isFullyPaid
+        ? 0
+        : totalAmount;
 
   const handleDownloadPdf = () => {
     printReceipt({
@@ -278,9 +284,16 @@ const InvoicePreview = () => {
               </>
             )}
 
+            {paymentPresentation.isFullyPaid && (
+              <div className="flex justify-between items-center mt-2 text-sm">
+                <span className="text-muted-foreground">Amount Paid</span>
+                <span className="font-bold text-success">€{paymentPresentation.amountPaid.toFixed(2)} ✅</span>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mt-2 pt-2 border-t border-[hsl(220,13%,91%)]">
               <span className="text-sm font-bold text-foreground">
-                {hasDeposit ? "Balance Due" : "Total Due"}
+                {hasDeposit || paymentPresentation.isFullyPaid ? "Balance Due" : "Total Due"}
               </span>
               <span className="text-xl font-extrabold text-[hsl(35,92%,50%)]">
                 €{balanceDue.toFixed(2)}

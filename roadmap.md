@@ -16,3 +16,4 @@
 - [x] Weak-network auth — bounded sign-out with local fallback (single path), abandoned-attempt guard + bounded timeout on sign-in/lockout check, bounded pageshow session check.
 - [x] Payment write diagnostics — structured before/patch/ledger/error logging and honest failure copy instead of blanket "No connection".
 - [ ] Payment classification root cause (deposit vs full on completion) — awaiting real diagnostics from a live completion, then fix + regression test.
+- [x] Fully paid presentation — settled jobs no longer show historical deposit wording; genuine partial deposits keep their deposit and balance labels.
