@@ -4,15 +4,16 @@ import { AlertTriangle, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
-import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
+import { fetchReceiptPdf, openReceiptPdfBlob, ReceiptPdfStreamError } from "@/lib/receiptPdfStream";
 
-type DownloadFailure = "offline" | "timeout" | "generate" | "resolve";
+type DownloadFailure = "offline" | "timeout" | "generate" | "resolve" | "forbidden";
 
 const failureCopy: Record<DownloadFailure, string> = {
   offline: "You're offline. Reconnect and try again.",
   timeout: "The receipt is taking too long to open. Check your signal and try again.",
   generate: "The receipt PDF couldn't be prepared. Please try again.",
   resolve: "The receipt PDF couldn't be opened. Please try again.",
+  forbidden: "This receipt is unavailable or you don't have access to it.",
 };
 
 const ReceiptDownload = () => {
@@ -50,14 +51,18 @@ const ReceiptDownload = () => {
         return;
       }
 
-      const signedUrl = await withRequestTimeout(resolveReceiptUrl(token));
-      if (!signedUrl) {
-        setFailure("resolve");
-        return;
-      }
-      window.location.replace(signedUrl);
+      const pdf = await withRequestTimeout(fetchReceiptPdf({ job_id: id, token }));
+      openReceiptPdfBlob(pdf);
     } catch (error) {
-      setFailure(error instanceof RequestTimeoutError ? "timeout" : navigator.onLine ? "generate" : "offline");
+      setFailure(
+        error instanceof RequestTimeoutError
+          ? "timeout"
+          : error instanceof ReceiptPdfStreamError && (error.status === 401 || error.status === 403 || error.status === 404)
+            ? "forbidden"
+            : navigator.onLine
+              ? "resolve"
+              : "offline",
+      );
     }
   }, [id, token, paymentAmount, attempt]);
 

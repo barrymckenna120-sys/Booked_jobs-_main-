@@ -162,7 +162,11 @@ Deno.serve(async (req) => {
     // Payment Successful badge
     doc.setFillColor(220, 252, 231);
     doc.roundedRect(pageW / 2 - 30, y, 60, 10, 3, 3, "F");
-    addText("✓ Payment Successful", pageW / 2, y + 7, { size: 11, bold: true, color: [22, 163, 74], align: "center" });
+    doc.setDrawColor(22, 163, 74);
+    doc.setLineWidth(0.7);
+    doc.line(pageW / 2 - 23, y + 5.2, pageW / 2 - 21.4, y + 6.8);
+    doc.line(pageW / 2 - 21.4, y + 6.8, pageW / 2 - 18.3, y + 3.4);
+    addText("Payment Successful", pageW / 2 + 3, y + 7, { size: 11, bold: true, color: [22, 163, 74], align: "center" });
     y += 18;
 
     // Title
