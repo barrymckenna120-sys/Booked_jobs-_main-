@@ -4,6 +4,10 @@ import PageSeo from "@/components/seo/PageSeo";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
+import {
+  withRequestTimeout,
+  RequestTimeoutError,
+} from "@/lib/queryDefaults";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -198,6 +202,11 @@ const Auth = () => {
       subscription.unsubscribe();
   }, [navigate]);
 
+  /** Identifies the in-flight sign-in attempt. A request abandoned after a
+   *  network handover (Wi-Fi -> cellular) may still settle later; its result
+   *  must never drive the UI once the user has retried. */
+  const attemptRef = useRef(0);
+
   const prevBlockedKey = (
     addr: string
   ) =>
@@ -221,7 +230,7 @@ const Auth = () => {
       // the real lock state comes from the backend.
       try {
         const lockCheck =
-          (await Promise.race([
+          (await withRequestTimeout(
             supabase.functions.invoke(
               "check-lockout-status",
               {
@@ -231,17 +240,8 @@ const Auth = () => {
                 },
               }
             ),
-            new Promise(
-              (resolve) =>
-                setTimeout(
-                  () =>
-                    resolve({
-                      data: null,
-                    }),
-                  6000
-                )
-            ),
-          ])) as {
+            6000
+          )) as {
             data?: {
               locked?: boolean;
               locked_until?:
@@ -292,36 +292,28 @@ const Auth = () => {
         // Fail open — never block a legitimate sign-in.
       }
 
-      const authPromise =
+      const myAttempt =
+        ++attemptRef.current;
+
+      const {
+        data: signInData,
+        error,
+      } = (await withRequestTimeout(
         supabase.auth.signInWithPassword(
           {
             email: email.trim(),
             password,
           }
-        );
+        )
+      )) as any;
 
-      const timeoutPromise =
-        new Promise(
-          (_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    "REQUEST_TIMEOUT"
-                  )
-                ),
-              15000
-            )
-        );
-
-      const {
-        data: signInData,
-        error,
-      } =
-        (await Promise.race([
-          authPromise,
-          timeoutPromise,
-        ])) as any;
+      // A stale request that settles after the user retried must be ignored.
+      if (
+        myAttempt !==
+        attemptRef.current
+      ) {
+        return;
+      }
 
       if (error) {
         throw error;
@@ -374,6 +366,8 @@ const Auth = () => {
       );
     } catch (error: any) {
       const isNetworkError =
+        error instanceof
+          RequestTimeoutError ||
         error?.message ===
           "REQUEST_TIMEOUT" ||
         (error?.message || "")

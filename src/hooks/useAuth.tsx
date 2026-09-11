@@ -167,11 +167,18 @@ export const useAuth = (redirectTo = "/auth") => {
 
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (!session) {
-            supabase.auth.signOut();
-          }
-        });
+        // Bounded: on iOS a network handover (Wi-Fi -> cellular) can leave this
+        // request hanging, and a transient failure must never be read as
+        // "signed out". Only an error-free empty session clears local state.
+        withRequestTimeout(supabase.auth.getSession())
+          .then(({ data: { session } }) => {
+            if (!session) {
+              supabase.auth.signOut({ scope: "local" });
+            }
+          })
+          .catch((error) => {
+            console.warn("[Auth] pageshow session check failed:", error);
+          });
       }
     };
     window.addEventListener("pageshow", handlePageShow);
@@ -182,8 +189,23 @@ export const useAuth = (redirectTo = "/auth") => {
     };
   }, [navigate, redirectTo]);
 
+  /**
+   * Signing out must always succeed locally. The global sign-out is a network
+   * call, and on a stalled/weak connection awaiting it unbounded made the
+   * button look dead. Bound it, then always clear the local session and leave.
+   */
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await withRequestTimeout(supabase.auth.signOut(), 5000);
+    } catch (error) {
+      console.warn("[Auth] sign-out network call did not complete:", error);
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // Local sign-out is best-effort; navigation below still applies.
+      }
+    }
+    setUser(null);
     navigate("/auth", { replace: true });
   };
 
