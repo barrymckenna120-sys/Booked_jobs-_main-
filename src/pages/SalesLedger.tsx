@@ -271,7 +271,7 @@ const SalesLedger = () => {
     const endStr = format(customEnd, "yyyy-MM-dd");
     const { data: rows } = await supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, job_reference, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
       .or(
         `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
@@ -284,7 +284,7 @@ const SalesLedger = () => {
     );
     if (paid.length === 0) return;
     const mapped = paid.map((r: any) => ({
-      id: r.id, receipt_number: r.receipt_number, paid_at: r.paid_at,
+      id: r.id, job_reference: r.job_reference, receipt_number: r.receipt_number, paid_at: r.paid_at,
       completed_at: r.completed_at,
       job_type: r.job_type, assigned_engineer: r.assigned_engineer,
       payment_method: r.payment_method, payment_status: r.payment_status,
