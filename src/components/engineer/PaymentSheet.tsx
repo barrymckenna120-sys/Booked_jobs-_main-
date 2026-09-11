@@ -43,6 +43,7 @@ const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMessage, forceFullyPaid }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const state = resolvePaymentSheetState(job);
   const isFullyPaid = forceFullyPaid === true || state.case === "B";
@@ -88,11 +89,20 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.revenue, job?.job_type, state.case, state.amount, isFullyPaid]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     // Server-side guard: never submit a payment on an already settled job.
     if (isFullyPaid) return;
     if (!selected) return;
-    onDone(selected, parseFloat(amount) || 0);
+    // Double-tap guard: onDone is async, so without this a second tap fires a
+    // second payment write before the first has landed (DG-1022 recorded the
+    // same €100 twice, 0.23s apart).
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onDone(selected, parseFloat(amount) || 0);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (isFullyPaid) {
