@@ -10,10 +10,10 @@
 
 ## Proposed implementation
 
-1. Replace delayed new-tab opening with a user-gesture-safe receipt flow that works in iPhone Safari and installed PWA mode. Keep generation when the PDF is missing, then navigate through the existing same-origin `/receipt/:token` resolver rather than opening a signed URL after asynchronous work.
+1. Open a same-origin loading tab synchronously from the original tap, then direct that already-open tab to the signed PDF after generation/resolution. This preserves the iPhone Safari/PWA user gesture while keeping the receipt screen open; failed requests close or replace the loading tab with a clear retry state.
 2. Add an immediate loading/disabled state to prevent duplicate taps, bound both generation and signed-link resolution, and distinguish generation, signing, timeout, and offline failures with a retryable message.
 3. Reuse the same safe receipt-opening helper from the shared receipt screen and Office Customer Payment History.
-4. Correct the public receipt download to use the existing token-based signed resolver instead of the raw private path.
+4. Correct the separate public receipt button so it never treats a raw private storage path as a URL. Resolve it through a narrowly scoped server-side signed-link path without weakening the existing receipt access model.
 5. Add regression tests for existing-PDF, generate-then-open, timeout/offline, missing token, and repeated-tap behavior.
 
 ## Verification
