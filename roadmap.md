@@ -18,3 +18,4 @@
 - [ ] Payment classification root cause (deposit vs full on completion) — awaiting real diagnostics from a live completion, then fix + regression test.
 - [x] Fully paid presentation — settled jobs no longer show historical deposit wording; genuine partial deposits keep their deposit and balance labels.
 - [x] Finance Sales search — customer, job reference, receipt and invoice matching; contextual no-results state; direct receipt action on Office job details.
+- [x] Receipt PDF download — iOS-safe immediate loading route, bounded weak-network handling, secure public receipt resolution, and tenant-isolation verification for K&N and Dublin Gas.

@@ -20,6 +20,8 @@ const ReceiptDownload = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get("token");
+  const amountParam = searchParams.get("amount");
+  const paymentAmount = amountParam === null ? null : Number(amountParam);
   const [failure, setFailure] = useState<DownloadFailure | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -37,7 +39,9 @@ const ReceiptDownload = () => {
     try {
       const { data, error } = await withRequestTimeout(
         invokeFunction<{ pdf_url?: string }>("generate-receipt-pdf", {
-          body: { job_id: id },
+          body: Number.isFinite(paymentAmount) && Number(paymentAmount) > 0
+            ? { job_id: id, payment_amount: paymentAmount }
+            : { job_id: id },
           signOutOnRefreshFailure: false,
         }),
       );
@@ -55,7 +59,7 @@ const ReceiptDownload = () => {
     } catch (error) {
       setFailure(error instanceof RequestTimeoutError ? "timeout" : navigator.onLine ? "generate" : "offline");
     }
-  }, [id, token, attempt]);
+  }, [id, token, paymentAmount, attempt]);
 
   useEffect(() => {
     void download();

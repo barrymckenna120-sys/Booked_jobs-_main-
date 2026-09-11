@@ -171,7 +171,7 @@ const ServiceReceipt = () => {
   const handleDownloadPdf = () => {
     if (downloadOpening) return;
     setDownloadOpening(true);
-    if (!openReceiptDownload(job?.id, job?.access_token)) {
+    if (!openReceiptDownload(job?.id, job?.access_token, latestPaymentAmount)) {
       toast({ title: "Could not open receipt PDF", description: "This receipt link is unavailable.", variant: "destructive" });
     }
     window.setTimeout(() => setDownloadOpening(false), 1500);

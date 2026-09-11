@@ -71,7 +71,7 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
   const handleDownload = (job: ReceiptJob) => {
     if (downloading) return;
     setDownloading(job.id);
-    if (!openReceiptDownload(job.id, job.access_token)) {
+    if (!openReceiptDownload(job.id, job.access_token, job.amount_paid)) {
       toast({
         title: "Couldn't open receipt",
         description: "This receipt link is unavailable.",
