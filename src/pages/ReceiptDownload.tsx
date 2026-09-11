@@ -60,7 +60,9 @@ const ReceiptDownload = () => {
       }
 
       const pdf = await withRequestTimeout(fetchReceiptPdf({ job_id: id, token }));
-      openReceiptPdfBlob(pdf);
+      if (downloadReceiptPdf(pdf, receiptPdfFilename(data.pdf_url))) {
+        setDownloaded(pdf);
+      }
     } catch (error) {
       setFailure(
         error instanceof RequestTimeoutError
