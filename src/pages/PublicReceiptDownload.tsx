@@ -6,7 +6,6 @@ import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
 import {
   downloadReceiptPdf,
   fetchReceiptPdf,
-  openReceiptPdfBlob,
   receiptPdfFilename,
 } from "@/lib/receiptPdfStream";
 
