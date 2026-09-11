@@ -72,10 +72,24 @@ const PublicReceiptDownload = () => {
               </Button>
             </div>
           </>
+        ) : downloaded ? (
+          <>
+            <CheckCircle2 className="mx-auto h-9 w-9 text-primary" aria-hidden="true" />
+            <h1 className="mt-4 text-lg font-bold text-foreground">Receipt downloaded</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Check your downloads for the PDF receipt.</p>
+            <div className="mt-6 space-y-2">
+              <Button className="min-h-[44px] w-full gap-2" onClick={() => openReceiptPdfBlob(downloaded)}>
+                <ExternalLink className="h-4 w-4" /> Open Receipt
+              </Button>
+              <Button variant="outline" className="min-h-[44px] w-full gap-2" onClick={close}>
+                <X className="h-4 w-4" /> Close
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             <Loader2 className="mx-auto h-9 w-9 animate-spin text-primary" aria-hidden="true" />
-            <h1 className="mt-4 text-lg font-bold text-foreground">Opening receipt…</h1>
+            <h1 className="mt-4 text-lg font-bold text-foreground">Downloading receipt…</h1>
             <p className="mt-2 text-sm text-muted-foreground">This may take a moment on a weak connection.</p>
           </>
         )}
