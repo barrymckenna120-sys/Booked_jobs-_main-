@@ -11,3 +11,8 @@
 
 - [x] Mobile UX redesign — Office + Engineer shared light header (identity, single permission-gated switch, bell, More menu), tidier dashboard/job-card hierarchy, always-labelled engineer bottom nav. Mobile only; desktop untouched.
 - Mobile workspace switch clarity: plain current-workspace label, outlined destination switch, ArrowLeft back-to-Office (BJ mobile UX)
+- [x] DG-1019 reconciliation — €1,537.50 card payment re-labelled full (was deposit), job marked paid with zero balance; status/completion left untouched.
+- [x] Engineer job-card Media sheet photo upload — customer-scoped storage path + surfaced upload/insert errors (matches PhotoSheet/MediaGallery).
+- [x] Weak-network auth — bounded sign-out with local fallback (single path), abandoned-attempt guard + bounded timeout on sign-in/lockout check, bounded pageshow session check.
+- [x] Payment write diagnostics — structured before/patch/ledger/error logging and honest failure copy instead of blanket "No connection".
+- [ ] Payment classification root cause (deposit vs full on completion) — awaiting real diagnostics from a live completion, then fix + regression test.
