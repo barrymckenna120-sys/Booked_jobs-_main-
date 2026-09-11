@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Receipt, Loader2, Copy } from "lucide-react";
 import { buildReceiptText, copyTextToClipboard } from "@/lib/receiptText";
 import { useToast } from "@/hooks/use-toast";
-import { openReceiptDownload } from "@/lib/receiptDownload";
+import { downloadJobReceipt, receiptDownloadCopy } from "@/lib/receiptDownload";
 
 type ReceiptJob = {
   id: string;
@@ -68,17 +68,16 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     fetchReceipts();
   }, [customerId]);
 
-  const handleDownload = (job: ReceiptJob) => {
+  const handleDownload = async (job: ReceiptJob) => {
     if (downloading) return;
     setDownloading(job.id);
-    if (!openReceiptDownload(job.id, job.access_token, job.amount_paid)) {
-      toast({
-        title: "Couldn't open receipt",
-        description: "This receipt link is unavailable.",
-        variant: "destructive",
-      });
+    const result = await downloadJobReceipt(job.id, job.access_token, job.amount_paid);
+    setDownloading(null);
+    if (result.ok) {
+      toast({ title: "Receipt downloaded", description: `${job.receipt_number} saved to your downloads.` });
+    } else {
+      toast({ ...receiptDownloadCopy[result.failure], variant: "destructive" });
     }
-    window.setTimeout(() => setDownloading(null), 1500);
   };
 
 
