@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_receipt_public(text) TO service_role;
