@@ -13,7 +13,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { openReceiptDownload } from "@/lib/receiptDownload";
+import { openPublicReceiptDownload } from "@/lib/receiptDownload";
 
 const ROW_ICONS: Record<string, typeof Wrench> = {
   "Make & Model": Wrench,
@@ -242,7 +242,7 @@ const PublicReceipt = () => {
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               size="lg"
-              onClick={() => openReceiptDownload(data.id, data.access_token)}
+              onClick={() => openPublicReceiptDownload(data.receipt_number)}
             >
               <Download className="w-4 h-4 mr-2" />
               Download PDF Receipt

@@ -88,20 +88,23 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     let type = (url.searchParams.get("type") || "").toLowerCase() as DocType;
     let token = url.searchParams.get("token") || "";
+    let receiptNumber = url.searchParams.get("receipt_number") || "";
 
     if ((!type || !token) && req.method === "POST") {
       try {
         const body = await req.json();
         type = ((body?.type || type || "") as string).toLowerCase() as DocType;
         token = String(body?.token || token || "");
+        receiptNumber = String(body?.receipt_number || receiptNumber || "").trim();
       } catch { /* ignore */ }
     }
 
     if (!type || !DOC_CONFIG[type]) return notFound(corsHeaders);
+    const isPublicReceiptNumber = type === "receipt" && !token && receiptNumber.length > 0 && receiptNumber.length <= 64;
     const isUuid = UUID_RE.test(token);
     const isLegacyCertNumber =
       type === "certificate" && LEGACY_CERT_NUMBER_RE.test(token);
-    if (!isUuid && !isLegacyCertNumber) return notFound(corsHeaders);
+    if (!isUuid && !isLegacyCertNumber && !isPublicReceiptNumber) return notFound(corsHeaders);
 
     const cfg = DOC_CONFIG[type];
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -109,18 +112,24 @@ Deno.serve(async (req) => {
     const sb = createClient(supabaseUrl, serviceKey);
 
     const originOrgId = await orgIdForOrigin(sb, req.headers.get("origin"));
+    if (isPublicReceiptNumber && !originOrgId) {
+      console.warn("[resolve-document-link] public receipt number without org origin");
+      return notFound(corsHeaders);
+    }
     if (!isUuid && !originOrgId) {
       // Enumerable legacy identifier with no organisation context — refuse.
       console.warn("[resolve-document-link] legacy cert number without org origin");
       return notFound(corsHeaders);
     }
 
-    const lookupColumn = isUuid ? "access_token" : "cert_number";
-    const { data: row, error } = await sb
+    const lookupColumn = isUuid ? "access_token" : isPublicReceiptNumber ? "receipt_number" : "cert_number";
+    const lookupValue = isPublicReceiptNumber ? receiptNumber : token;
+    let lookup = sb
       .from(cfg.table)
       .select(`${cfg.urlColumn}, organisation_id`)
-      .eq(lookupColumn, token)
-      .maybeSingle();
+      .eq(lookupColumn, lookupValue);
+    if (isPublicReceiptNumber && originOrgId) lookup = lookup.eq("organisation_id", originOrgId);
+    const { data: row, error } = await lookup.maybeSingle();
 
     if (error) {
       console.error("[resolve-document-link] lookup error:", error);

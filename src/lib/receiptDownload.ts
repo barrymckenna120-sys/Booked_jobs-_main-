@@ -18,3 +18,15 @@ export const openReceiptDownload = (
   openExternalUrl(path);
   return true;
 };
+
+export const publicReceiptDownloadPath = (receiptNumber: string | null | undefined): string | null => {
+  if (!receiptNumber) return null;
+  return `/receipt-public-download/${encodeURIComponent(receiptNumber)}`;
+};
+
+export const openPublicReceiptDownload = (receiptNumber: string | null | undefined): boolean => {
+  const path = publicReceiptDownloadPath(receiptNumber);
+  if (!path) return false;
+  openExternalUrl(path);
+  return true;
+};

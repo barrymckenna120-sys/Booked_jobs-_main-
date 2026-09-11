@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { receiptDownloadPath } from "@/lib/receiptDownload";
+import { publicReceiptDownloadPath, receiptDownloadPath } from "@/lib/receiptDownload";
 
 describe("receiptDownloadPath", () => {
   it("builds a same-origin loading route", () => {
@@ -17,5 +17,11 @@ describe("receiptDownloadPath", () => {
   it("requires both identifiers", () => {
     expect(receiptDownloadPath("job-1", null)).toBeNull();
     expect(receiptDownloadPath(null, "token-1")).toBeNull();
+  });
+
+  it("builds a public download route without exposing a private access token", () => {
+    expect(publicReceiptDownloadPath("DG-2026-9817")).toBe(
+      "/receipt-public-download/DG-2026-9817",
+    );
   });
 });
