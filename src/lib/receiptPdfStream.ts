@@ -14,11 +14,15 @@ export class ReceiptPdfStreamError extends Error {
   }
 }
 
+export function isReceiptPdfBlob(value: unknown): value is Blob {
+  return value instanceof Blob && value.type.startsWith("application/pdf");
+}
+
 export async function fetchReceiptPdf(request: ReceiptPdfRequest): Promise<Blob> {
   const { data, error } = await supabase.functions.invoke<Blob>("stream-receipt-pdf", {
     body: request,
   });
-  if (error || !(data instanceof Blob) || !data.type.startsWith("application/pdf")) {
+  if (error || !isReceiptPdfBlob(data)) {
     const context = (error as { context?: Response | { response?: Response } } | null)?.context;
     const response = context instanceof Response ? context : context?.response;
     throw new ReceiptPdfStreamError("receipt_stream_failed", response?.status ?? null);

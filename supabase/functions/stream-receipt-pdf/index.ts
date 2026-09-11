@@ -2,19 +2,13 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { extractStoragePath } from "../_shared/signDocumentUrl.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { parseReceiptStreamRequest, receiptPdfFilename } from "../_shared/receiptStream.ts";
 
 const jsonError = (cors: Record<string, string>, status: number, error: string) =>
   new Response(JSON.stringify({ error }), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
   });
-
-const filenameForReceipt = (receiptNumber: unknown): string => {
-  const safe = String(receiptNumber ?? "receipt").replace(/[^A-Za-z0-9._-]/g, "");
-  return `receipt-${safe || "receipt"}.pdf`;
-};
 
 async function orgIdForOrigin(
   supabase: ReturnType<typeof createClient>,
@@ -51,15 +45,8 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return jsonError(corsHeaders, 405, "method_not_allowed");
 
   try {
-    const body = await req.json().catch(() => null) as Record<string, unknown> | null;
-    const jobId = typeof body?.job_id === "string" ? body.job_id : "";
-    const token = typeof body?.token === "string" ? body.token : "";
-    const receiptNumber = typeof body?.receipt_number === "string" ? body.receipt_number.trim() : "";
-    const isAuthenticatedReceipt = UUID_RE.test(jobId) && UUID_RE.test(token) && !receiptNumber;
-    const isPublicReceipt = !jobId && !token && receiptNumber.length > 0 && receiptNumber.length <= 64;
-    if (!isAuthenticatedReceipt && !isPublicReceipt) {
-      return jsonError(corsHeaders, 400, "invalid_request");
-    }
+    const request = parseReceiptStreamRequest(await req.json().catch(() => null));
+    if (!request) return jsonError(corsHeaders, 400, "invalid_request");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -72,19 +59,19 @@ Deno.serve(async (req) => {
       .from("service_calls")
       .select("id, organisation_id, receipt_number, receipt_pdf_url");
 
-    if (isAuthenticatedReceipt) {
+    if (request.kind === "authenticated") {
       const access = await requireResourceOrgAccess(req, {
         fnName: "stream-receipt-pdf",
         cors: corsHeaders,
-        resource: { table: "service_calls", id: jobId },
+        resource: { table: "service_calls", id: request.jobId },
         allowMachine: false,
       });
       if (isDenied(access)) return access.error;
-      query = query.eq("id", jobId).eq("access_token", token).eq("organisation_id", access.orgId);
+      query = query.eq("id", request.jobId).eq("access_token", request.token).eq("organisation_id", access.orgId);
     } else {
       const originOrgId = await orgIdForOrigin(supabase, req.headers.get("origin"));
       if (!originOrgId) return jsonError(corsHeaders, 404, "not_found");
-      query = query.eq("receipt_number", receiptNumber).eq("organisation_id", originOrgId);
+      query = query.eq("receipt_number", request.receiptNumber).eq("organisation_id", originOrgId);
     }
 
     const { data: receipt, error: lookupError } = await query.maybeSingle();
@@ -112,7 +99,7 @@ Deno.serve(async (req) => {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${filenameForReceipt(receipt.receipt_number)}"`,
+        "Content-Disposition": `inline; filename="${receiptPdfFilename(receipt.receipt_number)}"`,
         "Cache-Control": "private, no-store, max-age=0",
         "X-Content-Type-Options": "nosniff",
       },
