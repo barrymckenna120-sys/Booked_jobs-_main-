@@ -10,7 +10,7 @@ import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow
 import { invokeFunction } from "@/lib/invokeFunction";
 import { withRequestTimeout } from "@/lib/queryDefaults";
 import DataLoadError from "@/components/shared/DataLoadError";
-import { openReceiptDownload } from "@/lib/receiptDownload";
+import { downloadJobReceipt, receiptDownloadCopy } from "@/lib/receiptDownload";
 
 
 const formatDate = (d: string) =>
@@ -168,13 +168,16 @@ const ServiceReceipt = () => {
     };
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (downloadOpening) return;
     setDownloadOpening(true);
-    if (!openReceiptDownload(job?.id, job?.access_token, latestPaymentAmount)) {
-      toast({ title: "Could not open receipt PDF", description: "This receipt link is unavailable.", variant: "destructive" });
+    const result = await downloadJobReceipt(job?.id, job?.access_token, latestPaymentAmount);
+    setDownloadOpening(false);
+    if (result.ok) {
+      toast({ title: "Receipt downloaded", description: "Check your downloads for the PDF receipt." });
+    } else {
+      toast({ ...receiptDownloadCopy[result.failure ?? "resolve"], variant: "destructive" });
     }
-    window.setTimeout(() => setDownloadOpening(false), 1500);
   };
 
   const handleSendWhatsApp = async () => {

@@ -253,11 +253,19 @@ const PublicReceipt = () => {
             <Button
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               size="lg"
-              onClick={() => openPublicReceiptDownload(data.receipt_number)}
+              disabled={downloading}
+              onClick={handleDownload}
             >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF Receipt
+              {downloading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {downloading ? "Preparing receipt…" : "Download PDF Receipt"}
             </Button>
+            {downloadError && (
+              <p className="mt-2 text-center text-xs text-destructive">{downloadError}</p>
+            )}
           </div>
         )}
 
