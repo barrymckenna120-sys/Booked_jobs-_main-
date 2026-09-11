@@ -15,7 +15,7 @@ export type ReceiptDownloadFailure =
   | "forbidden"
   | "unavailable";
 
-export type ReceiptDownloadResult = { ok: true } | { ok: false; failure: ReceiptDownloadFailure };
+export type ReceiptDownloadResult = { ok: boolean; failure?: ReceiptDownloadFailure };
 
 export const receiptDownloadCopy: Record<ReceiptDownloadFailure, { title: string; description: string }> = {
   offline: { title: "You're offline", description: "Reconnect and try again." },

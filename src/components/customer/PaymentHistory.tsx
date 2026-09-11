@@ -76,7 +76,7 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     if (result.ok) {
       toast({ title: "Receipt downloaded", description: `${job.receipt_number} saved to your downloads.` });
     } else {
-      toast({ ...receiptDownloadCopy[result.failure], variant: "destructive" });
+      toast({ ...receiptDownloadCopy[result.failure ?? "resolve"], variant: "destructive" });
     }
   };
 

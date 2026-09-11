@@ -43,7 +43,7 @@ const PublicReceipt = () => {
     setDownloadError(null);
     const result = await downloadPublicReceipt(data?.receipt_number);
     setDownloading(false);
-    if (!result.ok) setDownloadError(receiptDownloadCopy[result.failure].description);
+    if (!result.ok) setDownloadError(receiptDownloadCopy[result.failure ?? "resolve"].description);
   };
 
   useEffect(() => {
