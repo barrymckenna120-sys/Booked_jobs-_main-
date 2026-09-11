@@ -3,7 +3,7 @@ import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
+import { Banknote, CreditCard, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePaymentSheetState, LABEL_JOB_TOTAL } from "@/lib/paymentSheetAmount";
 import JobFullyPaidPanel from "@/components/payments/JobFullyPaidPanel";
@@ -190,10 +190,18 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMes
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
-          disabled={!selected}
+          disabled={!selected || submitting}
           onClick={handleConfirm}
         >
-          <CheckCircle2 className="w-5 h-5" /> Confirm & Complete
+          {submitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" /> Saving…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-5 h-5" /> Confirm &amp; Complete
+            </>
+          )}
         </Button>
         <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
           Cancel
