@@ -21,8 +21,8 @@ describe("receiptPdfFilename", () => {
 });
 
 describe("supportsAnchorDownload", () => {
-  it("is true in a DOM environment", () => {
-    expect(supportsAnchorDownload()).toBe(true);
+  it("is false without a DOM (so callers fall back)", () => {
+    expect(supportsAnchorDownload()).toBe(typeof document !== "undefined");
   });
 });
 
