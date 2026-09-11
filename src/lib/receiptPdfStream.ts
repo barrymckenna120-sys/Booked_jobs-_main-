@@ -49,11 +49,33 @@ export function supportsAnchorDownload(): boolean {
 }
 
 /**
- * Hand the PDF to the browser as a file download. Chrome blocks blob-URL tab
- * opens far more readily than downloads; browsers without the download
- * attribute fall back to blob navigation so the tap is never a dead end.
+ * iOS Safari ignores the anchor `download` attribute for PDFs and displays the
+ * document instead, so the only way to hand over a real file is the system
+ * share sheet ("Save to Files").
  */
-export function downloadReceiptPdf(pdf: Blob, filename: string): boolean {
+export function isIOSBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPadOS reports itself as Macintosh; touch points give it away.
+  return /Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1;
+}
+
+type FileShareNavigator = Navigator & {
+  canShare?: (data: { files?: File[] }) => boolean;
+  share?: (data: { files?: File[]; title?: string }) => Promise<void>;
+};
+
+function fileShareNavigator(pdf: Blob, filename: string): { nav: FileShareNavigator; file: File } | null {
+  if (typeof navigator === "undefined" || typeof File === "undefined") return null;
+  const nav = navigator as FileShareNavigator;
+  if (typeof nav.share !== "function" || typeof nav.canShare !== "function") return null;
+  const file = new File([pdf], filename, { type: "application/pdf" });
+  if (!nav.canShare({ files: [file] })) return null;
+  return { nav, file };
+}
+
+function anchorDownload(pdf: Blob, filename: string): boolean {
   if (!supportsAnchorDownload()) {
     openReceiptPdfBlob(pdf);
     return false;
@@ -69,4 +91,27 @@ export function downloadReceiptPdf(pdf: Blob, filename: string): boolean {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return true;
+}
+
+/**
+ * Hand the PDF to the browser as a file. Chrome blocks blob-URL tab opens far
+ * more readily than downloads, so non-iOS browsers download in place; iOS gets
+ * the share sheet so the file can be saved rather than merely displayed.
+ * Resolves true when the receipt was saved/handed over, false when the user
+ * cancelled or the browser could only display it.
+ */
+export async function downloadReceiptPdf(pdf: Blob, filename: string): Promise<boolean> {
+  if (isIOSBrowser()) {
+    const shareable = fileShareNavigator(pdf, filename);
+    if (shareable) {
+      try {
+        await shareable.nav.share!({ files: [shareable.file], title: filename });
+        return true;
+      } catch (error) {
+        // User dismissed the sheet — not a failure, and not a success toast.
+        if ((error as { name?: string } | null)?.name === "AbortError") return false;
+      }
+    }
+  }
+  return anchorDownload(pdf, filename);
 }
