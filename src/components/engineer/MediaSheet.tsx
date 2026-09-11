@@ -116,8 +116,8 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
       const signedUrl = await getSignedUrl(path);
 
       const { error: insertError } = await runUploadWithRetry(
-        () =>
-          supabase.from("job_media").insert({
+        async () =>
+          await supabase.from("job_media").insert({
             organisation_id: job.organisation_id,
             job_id: job.id,
             customer_id: customer.id,
