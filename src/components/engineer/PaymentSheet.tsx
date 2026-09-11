@@ -3,7 +3,7 @@ import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Banknote, CreditCard, FileText, CheckCircle2 } from "lucide-react";
+import { Banknote, CreditCard, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePaymentSheetState, LABEL_JOB_TOTAL } from "@/lib/paymentSheetAmount";
 import JobFullyPaidPanel from "@/components/payments/JobFullyPaidPanel";
@@ -43,6 +43,7 @@ const euro = (n: number) => `€${Number(n || 0).toFixed(2)}`;
 const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMessage, forceFullyPaid }: Props) => {
   const [amount, setAmount] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const state = resolvePaymentSheetState(job);
   const isFullyPaid = forceFullyPaid === true || state.case === "B";
@@ -88,11 +89,20 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.revenue, job?.job_type, state.case, state.amount, isFullyPaid]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     // Server-side guard: never submit a payment on an already settled job.
     if (isFullyPaid) return;
     if (!selected) return;
-    onDone(selected, parseFloat(amount) || 0);
+    // Double-tap guard: onDone is async, so without this a second tap fires a
+    // second payment write before the first has landed (DG-1022 recorded the
+    // same €100 twice, 0.23s apart).
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onDone(selected, parseFloat(amount) || 0);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (isFullyPaid) {
@@ -180,10 +190,18 @@ const PaymentSheet = ({ job, customer, onClose, onDone, onCompleteOnly, errorMes
 
         <Button
           className="w-full h-12 text-base font-extrabold bg-success hover:bg-success/90 text-success-foreground gap-2"
-          disabled={!selected}
+          disabled={!selected || submitting}
           onClick={handleConfirm}
         >
-          <CheckCircle2 className="w-5 h-5" /> Confirm & Complete
+          {submitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" /> Saving…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-5 h-5" /> Confirm &amp; Complete
+            </>
+          )}
         </Button>
         <button onClick={onClose} className="w-full text-center text-muted-foreground text-sm font-semibold py-1">
           Cancel

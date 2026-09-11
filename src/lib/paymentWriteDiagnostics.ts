@@ -38,29 +38,59 @@ const money = (row: Record<string, unknown> | null | undefined) =>
       }
     : null;
 
-/** Structured, greppable log of a payment-bearing write and its outcome. */
+/** The exact JSON persisted with the log — money fields only, no PII. */
+export const buildPaymentWritePayload = (log: PaymentWriteLog) => ({
+  surface: log.surface,
+  jobId: log.jobId,
+  outcome: log.outcome,
+  before: money(log.before),
+  patch: money(log.patch),
+  ledger: log.ledgerRow
+    ? {
+        amount: (log.ledgerRow as any).amount,
+        payment_type: (log.ledgerRow as any).payment_type,
+        method: (log.ledgerRow as any).method,
+        source: (log.ledgerRow as any).source,
+      }
+    : null,
+  errorCode: (log.error as any)?.code ?? null,
+  errorMessage: (log.error as any)?.message ?? null,
+});
+
+/**
+ * Structured, greppable log of a payment-bearing write and its outcome.
+ *
+ * The console line is kept for local debugging, but the same payload is also
+ * persisted to `debug_logs` so a payment attempt on an engineer's phone leaves a
+ * reviewable trail afterwards. The insert is fire-and-forget and its failure can
+ * never affect the payment it describes.
+ */
 export const logPaymentWrite = (log: PaymentWriteLog): void => {
-  const payload = {
-    surface: log.surface,
-    jobId: log.jobId,
-    outcome: log.outcome,
-    before: money(log.before),
-    patch: money(log.patch),
-    ledger: log.ledgerRow
-      ? {
-          amount: (log.ledgerRow as any).amount,
-          payment_type: (log.ledgerRow as any).payment_type,
-          method: (log.ledgerRow as any).method,
-          source: (log.ledgerRow as any).source,
-        }
-      : null,
-    errorCode: (log.error as any)?.code ?? null,
-    errorMessage: (log.error as any)?.message ?? null,
-  };
+  const payload = buildPaymentWritePayload(log);
   if (log.outcome === "success") {
     console.log("[paymentWrite]", payload);
   } else {
     console.error("[paymentWrite]", payload);
+  }
+  void persistPaymentWrite(log, payload);
+};
+
+/** Best-effort persistence. Never throws, never blocks the caller. */
+const persistPaymentWrite = async (
+  log: PaymentWriteLog,
+  payload: Record<string, unknown>
+): Promise<void> => {
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase.from("debug_logs").insert({
+      event: `payment_write_${log.outcome}`,
+      job_id: log.jobId,
+      payload: payload as any,
+      stack: (log.error as any)?.stack ?? null,
+    } as any);
+    if (error) console.warn("[paymentWrite] diagnostics not persisted:", error.message);
+  } catch (e) {
+    console.warn("[paymentWrite] diagnostics not persisted:", e);
   }
 };
 
