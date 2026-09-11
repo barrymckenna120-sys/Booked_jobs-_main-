@@ -32,6 +32,21 @@ describe("resolvePaymentPresentation", () => {
     });
   });
 
+  it("lets an explicit paid status override stale deposit flags", () => {
+    expect(resolvePaymentPresentation({
+      revenue: 500,
+      deposit_required: true,
+      deposit_paid: false,
+      deposit_amount: 250,
+      balance_due: 500,
+      payment_status: "paid",
+    })).toEqual({
+      isFullyPaid: true,
+      showDepositBreakdown: false,
+      amountPaid: 500,
+    });
+  });
+
   it("does not show a paid deposit before any payment is collected", () => {
     expect(resolvePaymentPresentation({
       revenue: 1000,

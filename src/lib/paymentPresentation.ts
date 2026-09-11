@@ -14,7 +14,10 @@ export function resolvePaymentPresentation(
   job: PaymentSheetJob | null | undefined,
 ): PaymentPresentation {
   const state = resolvePaymentSheetState(job);
-  const isFullyPaid = state.case === "B";
+  // An explicit settled status is authoritative even when legacy deposit fields
+  // are incomplete or stale. The shared Case B also covers a paid deposit with
+  // no remaining balance.
+  const isFullyPaid = job?.payment_status === "paid" || state.case === "B";
 
   return {
     isFullyPaid,
