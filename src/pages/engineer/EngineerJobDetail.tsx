@@ -30,6 +30,7 @@ import type { LucideIcon } from "lucide-react";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
+import { logPaymentWrite, writeFailureToastCopy } from "@/lib/paymentWriteDiagnostics";
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 import { useUserRole } from "@/hooks/useUserRole";
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
@@ -302,11 +303,15 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     // cumulative math and completion gating.
     const paidAt = new Date().toISOString();
     let ledgerRow: EngineerLedgerRow | null = null;
+    // Fresh money-state read immediately before the write, kept for diagnostics
+    // so a misclassified payment can be traced to its input state.
+    let paymentBefore: Record<string, any> | null = null;
     if (paymentMethod) {
       dbPatch.payment_collected_by = user?.id || null;
       // Authoritative pre-write gate (BJ-next-D): refuse a payment on a job that
       // another surface already settled, and use the fresh row for the math.
       const gate = await gateJobPayment(supabase, job.id);
+      paymentBefore = { ...(job as any), ...(gate.row as any) };
       const plan = buildEngineerPaymentPlan({
         patch,
         paymentMethod,
@@ -378,10 +383,24 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
     console.log("[updateJob:detail] safeDbPatch keys:", Object.keys(safeDbPatch), "status:", safeDbPatch.status, "payment_method:", safeDbPatch.payment_method);
     const { error, blocked } = await updateServiceCallRow(job.id, safeDbPatch);
+    const diagnostics = (
+      outcome: "success" | "blocked" | "error",
+      err?: unknown
+    ) =>
+      logPaymentWrite({
+        surface: "EngineerJobDetail",
+        jobId: job.id,
+        before: paymentBefore,
+        patch: safeDbPatch,
+        ledgerRow: ledgerRow as any,
+        outcome,
+        error: err,
+      });
     if (blocked) {
       // Zero rows changed: refused write. No retry queue (retrying cannot help),
       // no audit entry, no success toast, no local state change.
       console.error("[updateJob:detail] job update affected 0 rows — not applied:", job.id);
+      diagnostics("blocked");
       toast({
         title: "Couldn't update this job",
         description: JOB_WRITE_BLOCKED_MESSAGE,
@@ -391,6 +410,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
     }
     if (error) {
       console.error("[updateJob:detail] DB update FAILED, queuing for retry:", error.message, error);
+      diagnostics("error", error);
       const jobItemId = addToQueue({
         table: "service_calls",
         operation: "update",
@@ -415,13 +435,13 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
         });
       }
       toast({
-        title: "No connection",
-        description: "Update saved and will sync automatically when back online",
+        ...writeFailureToastCopy(error),
         variant: "destructive",
       });
       return false;
     } else {
       console.log("[updateJob:detail] DB update SUCCESS for job:", job.id);
+      diagnostics("success");
       // Append-only payment ledger. Never blocks the job: the job write is the
       // source of truth and has already committed.
       if (ledgerRow) {

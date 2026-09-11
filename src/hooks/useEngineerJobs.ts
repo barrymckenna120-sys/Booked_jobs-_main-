@@ -15,6 +15,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { gateJobPayment } from "@/lib/paymentPreWriteGate";
+import { logPaymentWrite, writeFailureToastCopy } from "@/lib/paymentWriteDiagnostics";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -420,11 +421,25 @@ export const useEngineerJobs = () => {
 
     const safeDbPatch = sanitizeServiceCallUpdatePayload(dbPatch);
     const { error, blocked } = await updateServiceCallRow(jobId, safeDbPatch);
+    const diagnostics = (
+      outcome: "success" | "blocked" | "error",
+      err?: unknown
+    ) =>
+      logPaymentWrite({
+        surface: "useEngineerJobs",
+        jobId,
+        before: (jobForPayment as any) ?? null,
+        patch: safeDbPatch,
+        ledgerRow: paymentPlan.ledgerRow as any,
+        outcome,
+        error: err,
+      });
 
     if (blocked) {
       // Zero rows changed: the write was refused, so nothing downstream may run
       // (no queue, no local state, no activity) or the UI would lie.
       console.error("[useEngineerJobs] job update affected 0 rows — not applied:", jobId);
+      diagnostics("blocked");
       toast({
         title: "Couldn't update this job",
         description: JOB_WRITE_BLOCKED_MESSAGE,
@@ -434,6 +449,7 @@ export const useEngineerJobs = () => {
     }
 
     if (error) {
+      diagnostics("error", error);
       const jobUpdateQueueId = addToQueue({
         table: "service_calls",
         operation: "update",
@@ -461,11 +477,11 @@ export const useEngineerJobs = () => {
       }
 
       toast({
-        title: "No connection",
-        description: "Update saved and will retry automatically",
+        ...writeFailureToastCopy(error),
         variant: "destructive",
       });
     } else {
+      diagnostics("success");
       // Persist boiler make / model / warranty expiry from the completion sheet to the customer
       if (Object.keys(customerBoilerUpdate).length > 0 && jobForCustomer?.customer_id) {
         try {

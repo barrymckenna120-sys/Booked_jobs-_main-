@@ -317,14 +317,8 @@ const AppLayoutInner = () => {
                 label: "Sign Out",
                 icon: LogOut,
                 separatorBefore: true,
-                onSelect: async () => {
-                  try {
-                    await supabase.auth.signOut();
-                  } catch (err) {
-                    console.error("Sign out error:", err);
-                  }
-                  navigate("/auth", { replace: true });
-                },
+                // Single sign-out path — bounded + always clears local session.
+                onSelect: () => signOut(),
               },
             ]}
           />
