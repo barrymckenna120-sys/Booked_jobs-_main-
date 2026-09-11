@@ -31,9 +31,11 @@ const ReceiptDownload = () => {
   const paymentAmount = amountParam === null ? null : Number(amountParam);
   const [failure, setFailure] = useState<DownloadFailure | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [downloaded, setDownloaded] = useState<Blob | null>(null);
 
   const download = useCallback(async () => {
     setFailure(null);
+    setDownloaded(null);
     if (!navigator.onLine) {
       setFailure("offline");
       return;
