@@ -86,7 +86,7 @@ export async function downloadJobReceipt(
     if (error || !data?.pdf_url) return { ok: false, failure: "generate" };
 
     const pdf = await withRequestTimeout(fetchReceiptPdf({ job_id: jobId, token: accessToken }));
-    downloadReceiptPdf(pdf, receiptPdfFilename(data.pdf_url));
+    await downloadReceiptPdf(pdf, receiptPdfFilename(data.pdf_url));
     return { ok: true };
   } catch (error) {
     return { ok: false, failure: classifyReceiptDownloadError(error) };
