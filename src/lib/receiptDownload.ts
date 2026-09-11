@@ -101,7 +101,7 @@ export async function downloadPublicReceipt(
 
   try {
     const pdf = await withRequestTimeout(fetchReceiptPdf({ receipt_number: receiptNumber }));
-    downloadReceiptPdf(pdf, receiptPdfFilename(receiptNumber));
+    await downloadReceiptPdf(pdf, receiptPdfFilename(receiptNumber));
     return { ok: true };
   } catch (error) {
     return { ok: false, failure: classifyReceiptDownloadError(error) };
