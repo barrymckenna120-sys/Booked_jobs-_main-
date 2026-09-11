@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  downloadReceiptPdf,
+  isIOSBrowser,
   isReceiptPdfBlob,
   receiptPdfFilename,
   supportsAnchorDownload,
 } from "@/lib/receiptPdfStream";
+
 
 describe("receiptPdfFilename", () => {
   it("uses the stored PDF filename", () => {
