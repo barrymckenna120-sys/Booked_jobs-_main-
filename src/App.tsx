@@ -79,6 +79,8 @@ const WarrantyDetail = lazy(() => import("./pages/WarrantyDetail"));
 const PublicReceipt = lazy(() => import("./pages/PublicReceipt"));
 const InvoiceRedirect = lazy(() => import("./pages/InvoiceRedirect"));
 const ReceiptRedirect = lazy(() => import("./pages/ReceiptRedirect"));
+const ReceiptDownload = lazy(() => import("./pages/ReceiptDownload"));
+const PublicReceiptDownload = lazy(() => import("./pages/PublicReceiptDownload"));
 const AudioDebug = lazy(() => import("./pages/AudioDebug"));
 const Reports = lazy(
   () => import("./pages/Reports")
@@ -465,6 +467,14 @@ function AppContent() {
         <Route
           path="/receipt-view/:id"
           element={<ServiceReceipt />}
+        />
+        <Route
+          path="/receipt-download/:id"
+          element={<ReceiptDownload />}
+        />
+        <Route
+          path="/receipt-public-download/:receiptNumber"
+          element={<PublicReceiptDownload />}
         />
 
         <Route
