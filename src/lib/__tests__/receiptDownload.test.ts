@@ -63,9 +63,19 @@ describe("classifyReceiptDownloadError", () => {
     expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("nope", 404))).toBe("forbidden");
   });
 
-  it("falls back to a retryable failure", () => {
+  it("falls back to a retryable failure when online", () => {
+    const original = navigator.onLine;
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
     expect(classifyReceiptDownloadError(new ReceiptPdfStreamError("boom", 500))).toBe("resolve");
     expect(classifyReceiptDownloadError(new Error("boom"))).toBe("resolve");
+    Object.defineProperty(navigator, "onLine", { value: original, configurable: true });
+  });
+
+  it("reports offline when the browser is offline", () => {
+    const original = navigator.onLine;
+    Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+    expect(classifyReceiptDownloadError(new Error("boom"))).toBe("offline");
+    Object.defineProperty(navigator, "onLine", { value: original, configurable: true });
   });
 });
 
