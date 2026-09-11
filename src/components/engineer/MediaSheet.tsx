@@ -12,6 +12,10 @@ import { getSignedUrl } from "@/lib/mediaUrl";
 import { isVideoMedia } from "@/lib/mediaPlayback";
 import VideoThumb from "@/components/media/VideoThumb";
 import VideoPlayer from "@/components/media/VideoPlayer";
+import {
+  ensureSessionReady,
+  runUploadWithRetry,
+} from "@/lib/mediaUploadDiagnostics";
 
 interface Props {
   job: any;
@@ -80,14 +84,30 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
     setUploadProgress(0);
 
     try {
+      // Right after app launch the session may still be restoring; uploading
+      // before it is ready is the likeliest cause of a failed first attempt.
+      const hadSession = await ensureSessionReady();
+
       // Path must be customers/<customer id>/... — the job-media storage rules
       // check the second folder segment against the customer's organisation.
       const path = `customers/${customer.id}/${job.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("job-media")
-        .upload(path, file, { contentType: file.type, upsert: true });
+      const diagCtx = {
+        surface: "MediaSheet",
+        jobId: job.id,
+        customerId: customer.id,
+        storagePath: path,
+        hadSession,
+      };
+
+      const { error: uploadError } = await runUploadWithRetry(
+        () =>
+          supabase.storage
+            .from("job-media")
+            .upload(path, file, { contentType: file.type, upsert: true }),
+        { ...diagCtx, stage: "storage_upload" }
+      );
       if (uploadError) {
-        toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+        toast({ title: "Upload failed", description: (uploadError as any).message, variant: "destructive" });
         setUploading(false);
         return;
       }
@@ -95,20 +115,24 @@ const MediaSheet = ({ job, customer, onClose, onSave }: Props) => {
       // Get signed URL for immediate display
       const signedUrl = await getSignedUrl(path);
 
-      const { error: insertError } = await supabase.from("job_media").insert({
-        organisation_id: job.organisation_id,
-        job_id: job.id,
-        customer_id: customer.id,
-        user_id: user.id,
-        file_name: file.name,
-        storage_path: path,
-        file_type: "image",
-        public_url: null,
-        uploaded_by: "engineer",
-      } as any);
+      const { error: insertError } = await runUploadWithRetry(
+        () =>
+          supabase.from("job_media").insert({
+            organisation_id: job.organisation_id,
+            job_id: job.id,
+            customer_id: customer.id,
+            user_id: user.id,
+            file_name: file.name,
+            storage_path: path,
+            file_type: "image",
+            public_url: null,
+            uploaded_by: "engineer",
+          } as any),
+        { ...diagCtx, stage: "job_media_insert" }
+      );
 
       if (insertError) {
-        toast({ title: "Upload failed", description: insertError.message, variant: "destructive" });
+        toast({ title: "Upload failed", description: (insertError as any).message, variant: "destructive" });
         setUploading(false);
         return;
       }
