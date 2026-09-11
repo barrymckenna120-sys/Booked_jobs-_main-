@@ -15,6 +15,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { gateJobPayment } from "@/lib/paymentPreWriteGate";
+import { logPaymentWrite, writeFailureToastCopy } from "@/lib/paymentWriteDiagnostics";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 

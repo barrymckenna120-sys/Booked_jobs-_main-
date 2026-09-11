@@ -30,6 +30,7 @@ import type { LucideIcon } from "lucide-react";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
 import { addToQueue } from "@/hooks/useRetryQueue";
 import { gateJobPayment, isJobAlreadyPaidError } from "@/lib/paymentPreWriteGate";
+import { logPaymentWrite, writeFailureToastCopy } from "@/lib/paymentWriteDiagnostics";
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 import { useUserRole } from "@/hooks/useUserRole";
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
