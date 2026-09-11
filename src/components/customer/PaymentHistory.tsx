@@ -3,9 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Receipt, Loader2, Copy } from "lucide-react";
-import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 import { buildReceiptText, copyTextToClipboard } from "@/lib/receiptText";
 import { useToast } from "@/hooks/use-toast";
+import { openReceiptDownload } from "@/lib/receiptDownload";
 
 type ReceiptJob = {
   id: string;
@@ -68,50 +68,17 @@ const PaymentHistory = ({ customerId, customerName, onCountReady }: Props) => {
     fetchReceipts();
   }, [customerId]);
 
-  // iOS/PWA-safe external open: window.open is blocked in standalone mode.
-  const openExternalUrl = (url: string) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  const handleDownload = async (job: ReceiptJob) => {
+  const handleDownload = (job: ReceiptJob) => {
+    if (downloading) return;
     setDownloading(job.id);
-    const openFallback = () => openExternalUrl(`/receipt-view/${job.id}`);
-    try {
-      if (job.receipt_pdf_url) {
-        const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) openExternalUrl(signed);
-        else openFallback();
-        setDownloading(null);
-        return;
-      }
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
-        body: { job_id: job.id },
-      });
-      if (!error && data?.pdf_url) {
-        const signed = await resolveReceiptUrl(job.access_token);
-        if (signed) openExternalUrl(signed);
-        else openFallback();
-      } else {
-        toast({
-          title: "Couldn't open receipt",
-          description: "The receipt PDF isn't available yet. Showing the on-screen receipt instead.",
-        });
-        openFallback();
-      }
-    } catch {
+    if (!openReceiptDownload(job.id, job.access_token)) {
       toast({
         title: "Couldn't open receipt",
-        description: "Showing the on-screen receipt instead.",
+        description: "This receipt link is unavailable.",
+        variant: "destructive",
       });
-      openFallback();
     }
-    setDownloading(null);
+    window.setTimeout(() => setDownloading(null), 1500);
   };
 
 

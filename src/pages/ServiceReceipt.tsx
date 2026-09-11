@@ -7,10 +7,10 @@ import { CheckCircle2, Download, CalendarPlus, Loader2, Send, FileText, Eye, Ale
 import { Button } from "@/components/ui/button";
 import CertificateFlow from "@/components/engineer/CertificateFlow";
 import HazardNotificationFlow from "@/components/engineer/HazardNotificationFlow";
-import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { withRequestTimeout } from "@/lib/queryDefaults";
 import DataLoadError from "@/components/shared/DataLoadError";
+import { openReceiptDownload } from "@/lib/receiptDownload";
 
 
 const formatDate = (d: string) =>
@@ -20,16 +20,6 @@ const addMonths = (d: string, months: number) => {
   const date = new Date(d + "T00:00:00");
   date.setMonth(date.getMonth() + months);
   return date.toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const openExternalUrl = (url: string) => {
-  const link = document.createElement("a");
-  link.href = url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
 };
 
 const ServiceReceipt = () => {
@@ -50,6 +40,7 @@ const ServiceReceipt = () => {
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [latestPaymentAmount, setLatestPaymentAmount] = useState<number | null>(null);
+  const [downloadOpening, setDownloadOpening] = useState(false);
 
   useEffect(() => {
     if (user && id) loadData();
@@ -177,32 +168,13 @@ const ServiceReceipt = () => {
     };
   };
 
-  const generateReceiptPdf = async (): Promise<string | null> => {
-    // If we already have a URL, return it
-    if (job.receipt_pdf_url) return job.receipt_pdf_url;
-
-    try {
-      const { data, error } = await invokeFunction<any>("generate-receipt-pdf", {
-        body: latestPaymentAmount ? { job_id: job.id, payment_amount: latestPaymentAmount } : { job_id: job.id },
-        signOutOnRefreshFailure: false,
-      });
-      if (error || !data?.pdf_url) return null;
-      // Update local state so we don't re-generate
-      setJob((prev: any) => prev ? { ...prev, receipt_pdf_url: data.pdf_url } : prev);
-      return data.pdf_url;
-    } catch {
-      return null;
+  const handleDownloadPdf = () => {
+    if (downloadOpening) return;
+    setDownloadOpening(true);
+    if (!openReceiptDownload(job?.id, job?.access_token)) {
+      toast({ title: "Could not open receipt PDF", description: "This receipt link is unavailable.", variant: "destructive" });
     }
-  };
-
-  const handleDownloadPdf = async () => {
-    const path = await generateReceiptPdf();
-    const signed = path ? await resolveReceiptUrl(job?.access_token) : null;
-    if (signed) {
-      openExternalUrl(signed);
-    } else {
-      toast({ title: "Could not generate receipt PDF", variant: "destructive" });
-    }
+    window.setTimeout(() => setDownloadOpening(false), 1500);
   };
 
   const handleSendWhatsApp = async () => {
@@ -368,9 +340,10 @@ const ServiceReceipt = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2"
             onClick={handleDownloadPdf}
+            disabled={downloadOpening}
           >
-            <Download className="w-4 h-4" />
-            Download PDF Receipt
+            {downloadOpening ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {downloadOpening ? "Opening PDF…" : "Download PDF Receipt"}
           </Button>
           <Button
             className={`w-full h-12 text-sm font-extrabold gap-2 ${whatsappSent ? "bg-success hover:bg-success/90 text-white" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}

@@ -1,0 +1,21 @@
+import { describe, expect, it } from "vitest";
+import { receiptDownloadPath } from "@/lib/receiptDownload";
+
+describe("receiptDownloadPath", () => {
+  it("builds a same-origin loading route", () => {
+    expect(receiptDownloadPath("job-1", "token-1")).toBe(
+      "/receipt-download/job-1?token=token-1",
+    );
+  });
+
+  it("encodes route values", () => {
+    expect(receiptDownloadPath("job/1", "token?1")).toBe(
+      "/receipt-download/job%2F1?token=token%3F1",
+    );
+  });
+
+  it("requires both identifiers", () => {
+    expect(receiptDownloadPath("job-1", null)).toBeNull();
+    expect(receiptDownloadPath(null, "token-1")).toBeNull();
+  });
+});
