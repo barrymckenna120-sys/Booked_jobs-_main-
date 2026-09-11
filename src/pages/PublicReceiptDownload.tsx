@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
-import { fetchReceiptPdf, openReceiptPdfBlob } from "@/lib/receiptPdfStream";
+import {
+  downloadReceiptPdf,
+  fetchReceiptPdf,
+  openReceiptPdfBlob,
+  receiptPdfFilename,
+} from "@/lib/receiptPdfStream";
 
 type Failure = "offline" | "timeout" | "unavailable";
 
