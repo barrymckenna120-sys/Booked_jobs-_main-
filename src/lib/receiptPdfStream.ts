@@ -18,7 +18,7 @@ export async function fetchReceiptPdf(request: ReceiptPdfRequest): Promise<Blob>
   const { data, error } = await supabase.functions.invoke<Blob>("stream-receipt-pdf", {
     body: request,
   });
-  if (error || !(data instanceof Blob) || data.type !== "application/pdf") {
+  if (error || !(data instanceof Blob) || !data.type.startsWith("application/pdf")) {
     const context = (error as { context?: Response | { response?: Response } } | null)?.context;
     const response = context instanceof Response ? context : context?.response;
     throw new ReceiptPdfStreamError("receipt_stream_failed", response?.status ?? null);

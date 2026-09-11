@@ -4,7 +4,6 @@ import { AlertTriangle, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { RequestTimeoutError, withRequestTimeout } from "@/lib/queryDefaults";
-import { resolveReceiptUrl } from "@/lib/resolveReceiptUrl";
 import { fetchReceiptPdf, openReceiptPdfBlob, ReceiptPdfStreamError } from "@/lib/receiptPdfStream";
 
 type DownloadFailure = "offline" | "timeout" | "generate" | "resolve" | "forbidden";
