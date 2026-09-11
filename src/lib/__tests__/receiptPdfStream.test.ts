@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { isReceiptPdfBlob } from "@/lib/receiptPdfStream";
+import {
+  isReceiptPdfBlob,
+  receiptPdfFilename,
+  supportsAnchorDownload,
+} from "@/lib/receiptPdfStream";
+
+describe("receiptPdfFilename", () => {
+  it("uses the stored PDF filename", () => {
+    expect(receiptPdfFilename("8c37827f/receipt-KN-2026-1028.pdf")).toBe("receipt-KN-2026-1028.pdf");
+  });
+
+  it("builds a filename from a receipt number", () => {
+    expect(receiptPdfFilename("DG-2026-9817")).toBe("receipt-DG-2026-9817.pdf");
+  });
+
+  it("strips unsafe characters and falls back", () => {
+    expect(receiptPdfFilename('DG "2026"/../x')).toBe("receipt-x.pdf");
+    expect(receiptPdfFilename(null)).toBe("receipt.pdf");
+  });
+});
+
+describe("supportsAnchorDownload", () => {
+  it("is false without a DOM (so callers fall back)", () => {
+    expect(supportsAnchorDownload()).toBe(typeof document !== "undefined");
+  });
+});
 
 describe("isReceiptPdfBlob", () => {
   it("accepts a streamed PDF blob", () => {
