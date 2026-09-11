@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
 import { paidJobsInPeriod, collectedAmount, revenueDate } from "@/lib/financeMetrics";
 import { outstandingBalanceAmount } from "@/lib/outstandingBalances";
+import { matchesSalesLedgerSearch } from "@/lib/salesLedgerSearch";
 
 
 import DateRangeToggle, { type ViewMode, getDateRange } from "@/components/shared/DateRangeToggle";
@@ -47,6 +48,7 @@ import { toast } from "sonner";
 
 type LedgerJob = {
   id: string;
+  job_reference: string | null;
   receipt_number: string | null;
   paid_at: string | null;
   completed_at: string | null;
@@ -134,7 +136,7 @@ const SalesLedger = () => {
 
     supabase
       .from("service_calls")
-      .select("id, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
+      .select("id, job_reference, receipt_number, paid_at, completed_at, scheduled_date, status, job_type, assigned_engineer, payment_method, payment_status, revenue, balance_due, deposit_paid, deposit_amount, invoice_number, customer_id, customers(name)")
       .eq("organisation_id", orgId)
       .or(
         `and(paid_at.gte.${startStr}T00:00:00,paid_at.lte.${endStr}T23:59:59),` +
@@ -155,6 +157,7 @@ const SalesLedger = () => {
           setData(
             paid.map((r: any) => ({
               id: r.id,
+              job_reference: r.job_reference,
               receipt_number: r.receipt_number,
               paid_at: r.paid_at,
               completed_at: r.completed_at,
@@ -180,7 +183,7 @@ const SalesLedger = () => {
 
   const filtered = useMemo(() => {
     return data.filter((row) => {
-      if (search && !row.customer_name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (!matchesSalesLedgerSearch(row, search)) return false;
       if (jobTypeFilter !== "all" && row.job_type !== jobTypeFilter) return false;
       if (paymentFilter !== "all" && row.payment_method !== paymentFilter) return false;
       if (engineerFilter !== "all" && row.assigned_engineer !== engineerFilter) return false;
@@ -315,7 +318,7 @@ const SalesLedger = () => {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search customer..."
+            placeholder="Search customer, job or receipt..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -445,7 +448,9 @@ const SalesLedger = () => {
             </div>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-16 text-sm">
-              No completed jobs for this period.
+              {search.trim() || jobTypeFilter !== "all" || paymentFilter !== "all" || engineerFilter !== "all" || statusFilter !== "all"
+                ? "No sales match your search or filters."
+                : "No completed jobs for this period."}
             </p>
           ) : (
             <div className="overflow-x-auto">

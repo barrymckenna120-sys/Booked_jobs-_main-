@@ -884,7 +884,7 @@ const JobDetail = () => {
       )}
 
       {/* Payment Details */}
-      {job.status === "Completed" && (job as any).payment_method && (
+      {(job.status === "Completed" || job.receipt_number) && (job as any).payment_method && (
         <Card className="border-success/30 bg-success/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-success">
@@ -907,6 +907,15 @@ const JobDetail = () => {
             )}
             <DeliveryStatusBadge commType="receipt" relatedId={job.id} />
             <DeliveryStatusBadge commType="invoice" relatedId={job.id} />
+            {job.receipt_number && (
+              <Button
+                variant="outline"
+                className="mt-2 w-full gap-2 sm:w-auto"
+                onClick={() => navigate(`/receipt-view/${job.id}`)}
+              >
+                <FileText className="h-4 w-4" /> View Receipt {job.receipt_number}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
