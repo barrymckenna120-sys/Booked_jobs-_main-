@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
+import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
 
 type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
 type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
@@ -85,7 +86,7 @@ const QuoteDetail = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from("service_calls")
-        .select("id, deposit_amount, deposit_paid, payment_status, paid_at")
+        .select("id, revenue, balance_due, deposit_required, deposit_amount, deposit_paid, payment_status, paid_at")
         .eq("id", convertedJobId!)
         .maybeSingle();
       return data;
@@ -95,6 +96,7 @@ const QuoteDetail = () => {
 
   const depositPaidAt = convertedJob?.deposit_paid ? convertedJob.paid_at : null;
   const depositAmount = Number(convertedJob?.deposit_amount ?? 0);
+  const convertedPayment = resolvePaymentPresentation(convertedJob);
 
   const respondToQuote = async (accepted: boolean) => {
     if (!id) return;
@@ -364,7 +366,11 @@ const QuoteDetail = () => {
               { label: "Viewed", date: q.viewed_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.viewed_at },
               { label: "Accepted", date: q.accepted_at, fmt: "dd MMMM yyyy HH:mm", active: !!q.accepted_at },
               {
-                label: depositAmount > 0 ? `Deposit Paid · €${depositAmount.toFixed(2)}` : "Deposit Paid",
+                label: convertedPayment.isFullyPaid
+                  ? `Payment Received · €${convertedPayment.amountPaid.toFixed(2)}`
+                  : depositAmount > 0
+                    ? `Deposit Paid · €${depositAmount.toFixed(2)}`
+                    : "Deposit Paid",
                 date: depositPaidAt,
                 fmt: "dd MMMM yyyy HH:mm",
                 active: !!depositPaidAt,

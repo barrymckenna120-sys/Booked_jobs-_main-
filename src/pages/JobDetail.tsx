@@ -29,6 +29,7 @@ import MessageEngineerModal from "@/components/messages/MessageEngineerModal";
 import JobMessageThread from "@/components/messages/JobMessageThread";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
+import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
 
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
@@ -85,6 +86,15 @@ type Customer = {
   access_notes: string | null;
   boiler_make_model: string | null;
   boiler_location: string | null;
+};
+
+const financialSummary = (job: ServiceCall) => {
+  const presentation = resolvePaymentPresentation(job);
+  return {
+    ...presentation,
+    middleLabel: presentation.isFullyPaid ? "Amount Paid" : job.deposit_paid ? "Deposit Paid" : "Deposit Required",
+    middleAmount: presentation.isFullyPaid ? presentation.amountPaid : Number(job.deposit_amount ?? 0),
+  };
 };
 
 const jobTypeBadge = (type: string) => {
@@ -774,9 +784,9 @@ const JobDetail = () => {
                 <p className="text-lg font-extrabold text-foreground mt-0.5">€{(job.revenue ?? 0).toFixed(2)}</p>
               </div>
               <div>
-                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Deposit {job.deposit_paid ? "Paid" : "Required"}</span>
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">{financialSummary(job).middleLabel}</span>
                 <p className={`text-lg font-extrabold mt-0.5 ${job.deposit_paid ? "text-success" : "text-warning"}`}>
-                  €{(job.deposit_amount ?? 0).toFixed(2)}
+                  €{financialSummary(job).middleAmount.toFixed(2)}
                   {job.deposit_paid && <span className="ml-1 text-sm">✅</span>}
                 </p>
               </div>
@@ -788,9 +798,11 @@ const JobDetail = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${job.deposit_required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                Deposit Required
-              </span>
+              {!financialSummary(job).isFullyPaid && (
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${job.deposit_required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                  Deposit Required
+                </span>
+              )}
               <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                 job.payment_status === "paid" ? "bg-success/10 text-success" :
                 job.deposit_paid ? "bg-warning/10 text-warning" :
