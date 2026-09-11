@@ -4,6 +4,7 @@ import EngineerSheet from "./EngineerSheet";
 import { Button } from "@/components/ui/button";
 import { Phone, MapPin, MessageCircle, Mail } from "lucide-react";
 import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
+import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -39,6 +40,7 @@ interface Props {
 
 const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
   const s = STATUS_CONFIG[job.status] || STATUS_CONFIG.Scheduled;
+  const payment = resolvePaymentPresentation(job);
 
   const { data: jobTags = [] } = useQuery({
     queryKey: ["job-detail-tags", job.id],
@@ -111,7 +113,11 @@ const JobDetailSheet = ({ job, customer, onClose, onStart }: Props) => {
           {/* Other */}
           <InfoTile
             label="Payment"
-            value={job.deposit_paid ? `💳 Paid — €${job.deposit_amount || 0}` : `⏳ €${job.deposit_amount || 0} pending`}
+            value={payment.isFullyPaid
+              ? `💳 Fully Paid — €${payment.amountPaid.toFixed(2)}`
+              : payment.showDepositBreakdown
+                ? `💳 Deposit Paid — €${payment.amountPaid.toFixed(2)} · €${Number(job.balance_due || 0).toFixed(2)} due`
+                : `⏳ €${Number(job.deposit_amount || 0).toFixed(2)} pending`}
             full
           />
           <InfoTile label="Last Service" value={customer.last_service_date} icon="📅" />
