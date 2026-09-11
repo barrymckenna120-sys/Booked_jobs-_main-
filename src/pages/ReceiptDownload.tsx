@@ -59,7 +59,7 @@ const ReceiptDownload = () => {
       }
 
       const pdf = await withRequestTimeout(fetchReceiptPdf({ job_id: id, token }));
-      if (downloadReceiptPdf(pdf, receiptPdfFilename(data.pdf_url))) {
+      if (await downloadReceiptPdf(pdf, receiptPdfFilename(data.pdf_url))) {
         setDownloaded(pdf);
       }
     } catch (error) {
