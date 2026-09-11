@@ -90,21 +90,33 @@ describe("downloadReceiptPdf", () => {
     await expect(downloadReceiptPdf(pdf(), "receipt-KN-1.pdf")).resolves.toBe(false);
   });
 
+  const stubDom = () => {
+    const click = vi.fn();
+    const link: Record<string, unknown> = { click, remove: vi.fn(), rel: "", download: "", href: "" };
+    vi.stubGlobal("document", {
+      createElement: () => link,
+      body: { appendChild: vi.fn() },
+    });
+    vi.stubGlobal("window", { addEventListener: vi.fn(), setTimeout: vi.fn() });
+    vi.stubGlobal("URL", { createObjectURL: () => "blob:x", revokeObjectURL: vi.fn() });
+    return { click, link };
+  };
+
   it("falls back to the anchor download when iOS cannot share files", async () => {
     setNavigator(iosUa, { canShare: () => false, share: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const { click, link } = stubDom();
     await expect(downloadReceiptPdf(pdf(), "receipt-KN-1.pdf")).resolves.toBe(true);
     expect(click).toHaveBeenCalledTimes(1);
-    click.mockRestore();
+    expect(link.download).toBe("receipt-KN-1.pdf");
   });
 
   it("keeps the direct download path on non-iOS browsers", async () => {
     const share = vi.fn();
     setNavigator(chromeUa, { canShare: () => true, share });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const { click } = stubDom();
     await expect(downloadReceiptPdf(pdf(), "receipt-KN-1.pdf")).resolves.toBe(true);
     expect(share).not.toHaveBeenCalled();
     expect(click).toHaveBeenCalledTimes(1);
-    click.mockRestore();
   });
 });
+
