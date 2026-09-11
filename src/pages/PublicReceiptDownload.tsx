@@ -32,7 +32,9 @@ const PublicReceiptDownload = () => {
     }
     try {
       const pdf = await withRequestTimeout(fetchReceiptPdf({ receipt_number: receiptNumber }));
-      openReceiptPdfBlob(pdf);
+      if (downloadReceiptPdf(pdf, receiptPdfFilename(receiptNumber))) {
+        setDownloaded(pdf);
+      }
     } catch (error) {
       setFailure(error instanceof RequestTimeoutError ? "timeout" : navigator.onLine ? "unavailable" : "offline");
     }
