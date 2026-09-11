@@ -13,7 +13,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { openPublicReceiptDownload } from "@/lib/receiptDownload";
+import { downloadPublicReceipt, receiptDownloadCopy } from "@/lib/receiptDownload";
 
 const ROW_ICONS: Record<string, typeof Wrench> = {
   "Make & Model": Wrench,
@@ -34,6 +34,17 @@ const PublicReceipt = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    const result = await downloadPublicReceipt(data?.receipt_number);
+    setDownloading(false);
+    if (!result.ok) setDownloadError(receiptDownloadCopy[result.failure].description);
+  };
 
   useEffect(() => {
     if (!receiptNumber) return;
