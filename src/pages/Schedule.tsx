@@ -7,7 +7,7 @@ import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import WeeklyGrid from "@/components/schedule/WeeklyGrid";
