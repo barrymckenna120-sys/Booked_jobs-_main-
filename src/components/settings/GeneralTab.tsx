@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Copy, Loader2, Plus, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { buildLogoStoragePath } from "@/lib/logoStoragePath";
 
 interface Props {
   settings: any;
@@ -98,7 +99,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      const path = `${settings?.user_id || "logo"}/logo.${ext}`;
+      const path = buildLogoStoragePath(settings?.organisation_id, ext);
 
       const { error: uploadError } = await supabase.storage
         .from("business-logos")
