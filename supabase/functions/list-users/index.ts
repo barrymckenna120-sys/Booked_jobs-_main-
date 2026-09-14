@@ -412,7 +412,9 @@ Deno.serve(async (req) => {
         .map((r) => r.auth_user_id as string)
     );
 
-    const users = authUsers.map((u) => ({
+    const users = authUsers
+      .filter((u) => !allowedUserIds || allowedUserIds.has(u.id))
+      .map((u) => ({
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
