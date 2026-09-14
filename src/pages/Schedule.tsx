@@ -642,16 +642,42 @@ const Schedule = () => {
       </Collapsible>
 
       {/* Weekly Grid */}
-      <WeeklyGrid
-        weekDays={weekDays}
-        timeBlocks={TIME_BLOCKS}
-        blockMap={BLOCK_MAP}
-        jobs={jobs}
-        selectedEngineer={selectedEngineer}
-        engineers={engineers}
-        onCellClick={openAssignFromCell}
-        onJobClick={(job) => setDetailDrawer({ open: true, job })}
-      />
+      {jobsError ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Couldn't load the schedule</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Check your connection — this week's jobs aren't showing, so don't book from this view yet.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => refetchJobs()} disabled={jobsFetching}>
+              {jobsFetching ? "Trying…" : "Try again"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : jobsLoading ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-6 space-y-3">
+            {TIME_BLOCKS.map((block) => (
+              <div key={block} className="h-16 rounded-md bg-muted animate-pulse" />
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <WeeklyGrid
+          weekDays={weekDays}
+          timeBlocks={TIME_BLOCKS}
+          blockMap={BLOCK_MAP}
+          jobs={jobs}
+          selectedEngineer={selectedEngineer}
+          engineers={engineers}
+          onCellClick={openAssignFromCell}
+          onJobClick={(job) => setDetailDrawer({ open: true, job })}
+        />
+      )}
+
 
       {/* Assign Modal */}
       <AssignJobModal
