@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { buildTenantConfigRows, detectClearedCredentials } from "@/lib/tenantIntegrationConfig";
+import { findSharedIntegrationValues, sharedIntegrationMessage } from "@/lib/integrationOwnership";
 
 type Org = { id: string; name: string; slug: string };
 
