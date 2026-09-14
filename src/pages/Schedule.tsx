@@ -171,18 +171,21 @@ const Schedule = () => {
   const BLOCK_MAP = buildBlockMap(settingsBlocks, TIME_BLOCKS);
 
   // Fetch all jobs for the week + unallocated
-  const { data: jobs = [] } = useQuery({
+  const { data: jobs = [], isError: jobsError, isLoading: jobsLoading, refetch: refetchJobs, isFetching: jobsFetching } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
       const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd");
       const startStr = format(weekStart, "yyyy-MM-dd");
 
       // Get scheduled jobs for the week + unallocated jobs
-      const { data: scheduledJobs } = await supabase
+      const { data: scheduledJobs, error: jobsFetchError } = await supabase
         .from("service_calls")
         .select("*, customers(name, address, phone, email, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
+
+      // A failed load must never render as an empty (bookable) week.
+      if (jobsFetchError) throw jobsFetchError;
 
       const rows = scheduledJobs || [];
 
