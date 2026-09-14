@@ -689,6 +689,40 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Step 6d: record the owner ON the organisation.
+  // Machine/webhook paths (e.g. tally-incoming-job) resolve the job's owning
+  // user from organisations.owner_user_id; without it, incoming bookings fail
+  // and never reach the Schedule.
+  const {
+    error: ownerLinkErr,
+  } = await supabase
+    .from("organisations")
+    .update({
+      owner_user_id:
+        newUserId,
+    })
+    .eq("id", newOrgId);
+
+  if (ownerLinkErr) {
+    await logFailure(
+      "step 6d",
+      ownerLinkErr.message
+    );
+
+    return json(
+      {
+        error:
+          "provision_failed",
+        step: "6d",
+        detail:
+          ownerLinkErr.message,
+      },
+      500
+    );
+  }
+
+
+
   // Step 4: settings upsert
   // (user may already have a settings row from a prior org)
   const {
