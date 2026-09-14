@@ -98,13 +98,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      // Storage policies scope business-logos by organisation: the first folder
-      // MUST equal the caller's org id, otherwise the upload is rejected.
-      const orgFolder = settings?.organisation_id;
-      if (!orgFolder) {
-        throw new Error("Could not resolve your organisation. Please refresh and try again.");
-      }
-      const path = `${orgFolder}/logo.${ext}`;
+      const path = buildLogoStoragePath(settings?.organisation_id, ext);
 
       const { error: uploadError } = await supabase.storage
         .from("business-logos")
