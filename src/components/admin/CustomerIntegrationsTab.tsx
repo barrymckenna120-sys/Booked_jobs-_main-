@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { buildTenantConfigRows, detectClearedCredentials } from "@/lib/tenantIntegrationConfig";
+import { findSharedIntegrationValues, sharedIntegrationMessage } from "@/lib/integrationOwnership";
 
 type Org = { id: string; name: string; slug: string };
 
@@ -167,6 +168,27 @@ export default function CustomerIntegrationsTab({
           if (!byType[f.type]) byType[f.type] = {};
           byType[f.type][f.key] = v;
         }
+      }
+
+      // A booking form / webhook secret identifies the tenant an inbound
+      // submission belongs to. Sharing one with another tenant sends that
+      // tenant's bookings to the wrong company, so refuse the save.
+      const { data: allRows, error: ownershipError } = await supabase
+        .from("tenant_integrations" as any)
+        .select("organisation_id, integration_type, config");
+      if (ownershipError) throw ownershipError;
+      const conflicts = findSharedIntegrationValues(
+        (allRows as any[]) || [],
+        orgId,
+        byType
+      );
+      if (conflicts.length > 0) {
+        throw new Error(
+          sharedIntegrationMessage(
+            conflicts,
+            (id) => orgs.find((o) => o.id === id)?.name || "another company"
+          )
+        );
       }
 
       // Fetch existing configs to merge (preserve unrelated keys)
