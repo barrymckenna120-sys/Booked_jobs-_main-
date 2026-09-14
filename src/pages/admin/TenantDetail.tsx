@@ -703,6 +703,63 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      {/* Public web address — customer links in quotes/receipts/certificates
+          are omitted when this is blank. */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Public Web Address</CardTitle>
+            {!editingDomain ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDomainDraft(org.public_domain || "");
+                  setEditingDomain(true);
+                }}
+              >
+                <Pencil className="mr-1 h-3 w-3" /> Edit
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingDomain(false)}
+                  disabled={savingDomain}
+                >
+                  <X className="mr-1 h-3 w-3" /> Cancel
+                </Button>
+                <Button size="sm" onClick={saveDomain} disabled={savingDomain}>
+                  {savingDomain ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3 w-3" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {editingDomain ? (
+            <Input
+              value={domainDraft}
+              onChange={(e) => setDomainDraft(e.target.value)}
+              placeholder="kngasservices.bookedjobs.ie"
+            />
+          ) : (
+            <div className="font-medium">{org.public_domain || "Not set"}</div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Used to build the links customers tap in quotes, receipts and certificates. While this
+            is empty, those messages are sent without a link.
+          </p>
+        </CardContent>
+      </Card>
+
+
       {/* Settings summary */}
       <Card>
         <CardHeader>
