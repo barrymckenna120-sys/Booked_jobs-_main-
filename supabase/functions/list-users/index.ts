@@ -360,8 +360,48 @@ Deno.serve(async (req) => {
 
 
 
-    // Default behaviour — list all auth users. Merge in engineers.status='blocked'
-    // so blocked engineers show as blocked even when auth ban is unset.
+    // Default behaviour — list auth users. Superadmins/platform owners see all;
+    // tenant callers (admin/office/owner) are scoped to their own organisation
+    // so one company can never enumerate another company's accounts.
+    let allowedUserIds: Set<string> | null = null;
+    if (!isSuperadmin && !platformOwner) {
+      const callerOrgId =
+        ((callerProfile as any)?.organisation_id as string | undefined) ??
+        (
+          await supabaseAdmin
+            .from("engineers")
+            .select("organisation_id")
+            .eq("auth_user_id", callerId)
+            .maybeSingle()
+        ).data?.organisation_id ??
+        null;
+
+      if (!callerOrgId) {
+        return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [orgProfiles, orgEngineers] = await Promise.all([
+        supabaseAdmin.from("profiles").select("user_id").eq("organisation_id", callerOrgId),
+        supabaseAdmin.from("engineers").select("auth_user_id").eq("organisation_id", callerOrgId),
+      ]);
+      if (orgProfiles.error || orgEngineers.error) {
+        console.error("list-users: org scoping lookup failed", orgProfiles.error, orgEngineers.error);
+        return new Response(JSON.stringify({ error: "Failed to list users" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      allowedUserIds = new Set<string>([
+        ...(((orgProfiles.data as any[]) || []).map((r) => r?.user_id).filter(Boolean) as string[]),
+        ...(((orgEngineers.data as any[]) || []).map((r) => r?.auth_user_id).filter(Boolean) as string[]),
+      ]);
+    }
+
+    // Merge in engineers.status='blocked' so blocked engineers show as blocked
+    // even when auth ban is unset.
     const { data: blockedEngRows } = await supabaseAdmin
       .from("engineers")
       .select("auth_user_id")
@@ -372,7 +412,9 @@ Deno.serve(async (req) => {
         .map((r) => r.auth_user_id as string)
     );
 
-    const users = authUsers.map((u) => ({
+    const users = authUsers
+      .filter((u) => !allowedUserIds || allowedUserIds.has(u.id))
+      .map((u) => ({
       id: u.id,
       email: u.email,
       banned_until: u.banned_until ?? null,
