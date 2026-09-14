@@ -26,7 +26,7 @@ import {
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
-import { normalisePublicDomain } from "@/lib/publicDomain";
+import { normalisePublicDomain, publicDomainSaveError } from "@/lib/publicDomain";
 import {
   ArrowLeft,
   Loader2,
@@ -204,16 +204,23 @@ export default function TenantDetail() {
     }
     setSavingDomain(true);
     try {
-      const { error } = await supabase
+      // Read the row back: an update blocked by row-level security matches
+      // zero rows and returns no error, which used to be reported as success
+      // while nothing was saved.
+      const { data, error } = await supabase
         .from("organisations")
         .update({ public_domain: parsed.value } as any)
-        .eq("id", org.id);
+        .eq("id", org.id)
+        .select("id, public_domain");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Not saved — you don't have permission to change this company.");
+      }
       toast.success(parsed.value ? "Public web address saved" : "Public web address cleared");
       setEditingDomain(false);
       loadAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save web address");
+      toast.error(publicDomainSaveError(err));
     } finally {
       setSavingDomain(false);
     }
