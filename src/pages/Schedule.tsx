@@ -642,6 +642,7 @@ const Schedule = () => {
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
       {/* Weekly Grid */}
       {jobsError ? (
