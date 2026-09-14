@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
+import { normalisePublicDomain } from "@/lib/publicDomain";
 import {
   ArrowLeft,
   Loader2,
@@ -43,6 +44,7 @@ type Org = {
   id: string;
   name: string;
   slug: string;
+  public_domain: string | null;
   subscription_status: string | null;
   bookedjobs_plan: string | null;
   created_at: string;
@@ -193,7 +195,7 @@ export default function TenantDetail() {
       const { data: orgRow, error: orgErr } = await supabase
         .from("organisations")
         .select(
-          "id, name, slug, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone" as any,
+          "id, name, slug, public_domain, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone" as any,
         )
         .eq("id", orgId)
         .maybeSingle();
