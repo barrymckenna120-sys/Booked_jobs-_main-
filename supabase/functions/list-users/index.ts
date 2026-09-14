@@ -145,7 +145,11 @@ Deno.serve(async (req) => {
     // Check caller has admin/office role OR is the organisation owner
     if (!isAuthorized) {
       const { data: legacyRole } = await supabaseAdmin.rpc("get_user_role", { _user_id: callerId });
-      isAuthorized = legacyRole === "admin" || legacyRole === "office";
+      // "owner" is the role a tenant's own owner/engineer record carries, and
+      // get_user_role() prefers the engineers row over profiles — so a company
+      // owner previously resolved to "owner" and was refused. Access stays
+      // scoped to the caller's own organisation below.
+      isAuthorized = legacyRole === "admin" || legacyRole === "office" || legacyRole === "owner";
     }
 
     if (!isAuthorized) {
