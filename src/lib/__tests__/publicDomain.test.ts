@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalisePublicDomain } from "../publicDomain";
+import { normalisePublicDomain, publicDomainSaveError } from "../publicDomain";
 
 describe("normalisePublicDomain", () => {
   it("keeps a bare host as-is", () => {
@@ -26,5 +26,23 @@ describe("normalisePublicDomain", () => {
     expect(normalisePublicDomain("not a domain").ok).toBe(false);
     expect(normalisePublicDomain("localhost").ok).toBe(false);
     expect(normalisePublicDomain("-bad.example.com").ok).toBe(false);
+  });
+});
+
+describe("publicDomainSaveError", () => {
+  // Regression: two organisations sharing one host makes host-based tenant
+  // resolution (receipt PDFs) ambiguous, so the clash must be explained.
+  it("explains a clash with another company", () => {
+    expect(publicDomainSaveError({ code: "23505", message: "duplicate key" })).toMatch(
+      /already used by another company/,
+    );
+    expect(
+      publicDomainSaveError(new Error('unique constraint "organisations_public_domain_unique"')),
+    ).toMatch(/already used by another company/);
+  });
+
+  it("passes other failures through", () => {
+    expect(publicDomainSaveError(new Error("network down"))).toBe("network down");
+    expect(publicDomainSaveError(null)).toBe("Failed to save web address");
   });
 });

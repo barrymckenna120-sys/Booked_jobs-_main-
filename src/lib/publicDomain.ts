@@ -33,3 +33,19 @@ export function normalisePublicDomain(raw: string): PublicDomainResult {
 
   return { ok: true, value: host };
 }
+
+/**
+ * Two organisations must never share a public_domain: stream-receipt-pdf
+ * resolves the tenant from the request host by matching public_domain, so a
+ * duplicate host makes that resolution ambiguous. The database enforces this
+ * (organisations_public_domain_unique); this turns the raw violation into
+ * something an admin can act on.
+ */
+export function publicDomainSaveError(error: unknown): string {
+  const code = (error as { code?: string } | null)?.code ?? "";
+  const message = error instanceof Error ? error.message : "";
+  if (code === "23505" || /organisations_public_domain_unique/.test(message)) {
+    return "That web address is already used by another company. Each company needs its own address.";
+  }
+  return message || "Failed to save web address";
+}
