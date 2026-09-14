@@ -188,6 +188,37 @@ export default function TenantDetail() {
     };
   }, [navigate]);
 
+  // Customer-facing links (quote accept/PDF, receipts, certificates) are built
+  // from organisations.public_domain and are omitted entirely when it is blank,
+  // so a newly provisioned tenant needs somewhere to set it.
+  const [editingDomain, setEditingDomain] = useState(false);
+  const [domainDraft, setDomainDraft] = useState("");
+  const [savingDomain, setSavingDomain] = useState(false);
+
+  const saveDomain = async () => {
+    if (!org) return;
+    const parsed = normalisePublicDomain(domainDraft);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
+      return;
+    }
+    setSavingDomain(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ public_domain: parsed.value } as any)
+        .eq("id", org.id);
+      if (error) throw error;
+      toast.success(parsed.value ? "Public web address saved" : "Public web address cleared");
+      setEditingDomain(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save web address");
+    } finally {
+      setSavingDomain(false);
+    }
+  };
+
   const loadAll = async () => {
     if (!orgId) return;
     setLoading(true);
