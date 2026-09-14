@@ -7,7 +7,7 @@ import { useOrgId } from "@/hooks/useOrgId";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import WeeklyGrid from "@/components/schedule/WeeklyGrid";
@@ -171,18 +171,21 @@ const Schedule = () => {
   const BLOCK_MAP = buildBlockMap(settingsBlocks, TIME_BLOCKS);
 
   // Fetch all jobs for the week + unallocated
-  const { data: jobs = [] } = useQuery({
+  const { data: jobs = [], isError: jobsError, isLoading: jobsLoading, refetch: refetchJobs, isFetching: jobsFetching } = useQuery({
     queryKey: ["schedule-jobs", user?.id, format(weekStart, "yyyy-MM-dd")],
     queryFn: async () => {
       const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd");
       const startStr = format(weekStart, "yyyy-MM-dd");
 
       // Get scheduled jobs for the week + unallocated jobs
-      const { data: scheduledJobs } = await supabase
+      const { data: scheduledJobs, error: jobsFetchError } = await supabase
         .from("service_calls")
         .select("*, customers(name, address, phone, email, eircode, area_code, gprn, access_notes, boiler_make_model, boiler_location)")
         .or(`and(scheduled_date.gte.${startStr},scheduled_date.lte.${weekEnd}),scheduled_date.is.null,needs_scheduling.eq.true,time_block.is.null,assigned_engineer.is.null,assigned_engineer_id.is.null`)
         .not("status", "in", "(Completed,Cancelled,archived)");
+
+      // A failed load must never render as an empty (bookable) week.
+      if (jobsFetchError) throw jobsFetchError;
 
       const rows = scheduledJobs || [];
 
@@ -608,7 +611,9 @@ const Schedule = () => {
         ))}
       </div>
 
-      {/* Unallocated Jobs */}
+      {/* Unallocated Jobs — hidden while the week failed to load, so it can't
+          claim "all scheduled" from data we never received. */}
+      {!jobsError && !jobsLoading && (
       <Collapsible open={unallocatedOpen} onOpenChange={setUnallocatedOpen}>
         <Card className="shadow-sm">
           <CollapsibleTrigger asChild>
@@ -637,18 +642,45 @@ const Schedule = () => {
           </CollapsibleContent>
         </Card>
       </Collapsible>
+      )}
 
       {/* Weekly Grid */}
-      <WeeklyGrid
-        weekDays={weekDays}
-        timeBlocks={TIME_BLOCKS}
-        blockMap={BLOCK_MAP}
-        jobs={jobs}
-        selectedEngineer={selectedEngineer}
-        engineers={engineers}
-        onCellClick={openAssignFromCell}
-        onJobClick={(job) => setDetailDrawer({ open: true, job })}
-      />
+      {jobsError ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Couldn't load the schedule</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Check your connection — this week's jobs aren't showing, so don't book from this view yet.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => refetchJobs()} disabled={jobsFetching}>
+              {jobsFetching ? "Trying…" : "Try again"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : jobsLoading ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-6 space-y-3">
+            {TIME_BLOCKS.map((block) => (
+              <div key={block} className="h-16 rounded-md bg-muted animate-pulse" />
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <WeeklyGrid
+          weekDays={weekDays}
+          timeBlocks={TIME_BLOCKS}
+          blockMap={BLOCK_MAP}
+          jobs={jobs}
+          selectedEngineer={selectedEngineer}
+          engineers={engineers}
+          onCellClick={openAssignFromCell}
+          onJobClick={(job) => setDetailDrawer({ open: true, job })}
+        />
+      )}
+
 
       {/* Assign Modal */}
       <AssignJobModal
