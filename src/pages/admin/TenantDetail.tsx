@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
+import { normalisePublicDomain } from "@/lib/publicDomain";
 import {
   ArrowLeft,
   Loader2,
@@ -43,6 +44,7 @@ type Org = {
   id: string;
   name: string;
   slug: string;
+  public_domain: string | null;
   subscription_status: string | null;
   bookedjobs_plan: string | null;
   created_at: string;
@@ -186,6 +188,37 @@ export default function TenantDetail() {
     };
   }, [navigate]);
 
+  // Customer-facing links (quote accept/PDF, receipts, certificates) are built
+  // from organisations.public_domain and are omitted entirely when it is blank,
+  // so a newly provisioned tenant needs somewhere to set it.
+  const [editingDomain, setEditingDomain] = useState(false);
+  const [domainDraft, setDomainDraft] = useState("");
+  const [savingDomain, setSavingDomain] = useState(false);
+
+  const saveDomain = async () => {
+    if (!org) return;
+    const parsed = normalisePublicDomain(domainDraft);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
+      return;
+    }
+    setSavingDomain(true);
+    try {
+      const { error } = await supabase
+        .from("organisations")
+        .update({ public_domain: parsed.value } as any)
+        .eq("id", org.id);
+      if (error) throw error;
+      toast.success(parsed.value ? "Public web address saved" : "Public web address cleared");
+      setEditingDomain(false);
+      loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save web address");
+    } finally {
+      setSavingDomain(false);
+    }
+  };
+
   const loadAll = async () => {
     if (!orgId) return;
     setLoading(true);
@@ -193,7 +226,7 @@ export default function TenantDetail() {
       const { data: orgRow, error: orgErr } = await supabase
         .from("organisations")
         .select(
-          "id, name, slug, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone" as any,
+          "id, name, slug, public_domain, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone" as any,
         )
         .eq("id", orgId)
         .maybeSingle();
@@ -669,6 +702,63 @@ export default function TenantDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Public web address — customer links in quotes/receipts/certificates
+          are omitted when this is blank. */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Public Web Address</CardTitle>
+            {!editingDomain ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDomainDraft(org.public_domain || "");
+                  setEditingDomain(true);
+                }}
+              >
+                <Pencil className="mr-1 h-3 w-3" /> Edit
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingDomain(false)}
+                  disabled={savingDomain}
+                >
+                  <X className="mr-1 h-3 w-3" /> Cancel
+                </Button>
+                <Button size="sm" onClick={saveDomain} disabled={savingDomain}>
+                  {savingDomain ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3 w-3" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {editingDomain ? (
+            <Input
+              value={domainDraft}
+              onChange={(e) => setDomainDraft(e.target.value)}
+              placeholder="kngasservices.bookedjobs.ie"
+            />
+          ) : (
+            <div className="font-medium">{org.public_domain || "Not set"}</div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Used to build the links customers tap in quotes, receipts and certificates. While this
+            is empty, those messages are sent without a link.
+          </p>
+        </CardContent>
+      </Card>
+
 
       {/* Settings summary */}
       <Card>
