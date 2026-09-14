@@ -6,9 +6,11 @@
  * blank, so it must be stored as a bare host — no scheme, no path, no
  * trailing slash — because Edge Functions build `https://<host><path>`.
  */
-export type PublicDomainResult =
-  | { ok: true; value: string | null }
-  | { ok: false; error: string };
+export type PublicDomainResult = {
+  ok: boolean;
+  value?: string | null;
+  error?: string;
+};
 
 export function normalisePublicDomain(raw: string): PublicDomainResult {
   const trimmed = String(raw ?? "").trim();
