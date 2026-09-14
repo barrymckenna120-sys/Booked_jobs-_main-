@@ -611,7 +611,9 @@ const Schedule = () => {
         ))}
       </div>
 
-      {/* Unallocated Jobs */}
+      {/* Unallocated Jobs — hidden while the week failed to load, so it can't
+          claim "all scheduled" from data we never received. */}
+      {!jobsError && !jobsLoading && (
       <Collapsible open={unallocatedOpen} onOpenChange={setUnallocatedOpen}>
         <Card className="shadow-sm">
           <CollapsibleTrigger asChild>
