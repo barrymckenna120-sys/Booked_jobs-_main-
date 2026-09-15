@@ -1,106 +1,88 @@
-# Multi-Tenant Provisioning & Parity Audit — findings only, no changes made
+# Correct New Tenant Initialisation — Phase 1 proposal (no changes made yet)
 
-## 1. Executive summary
+Everything below comes from reading the live configuration of K&N Gas Services and the code that consumes it. Several items the earlier audit listed as "missing" turn out **not** to be needed, because the app already treats their absence as the normal case. Those are called out so we don't build work that adds no value.
 
-A new company does not get a working copy of the product. It gets a **shell**: company row, one admin user, one settings row, an empty branding row, one engineer record, and two integration rows. Everything else that makes K&N Gas Services feel complete — 34 WhatsApp templates, message templates, product/price catalogue, boiler brands, working days, payment credentials, booking form links — was built up by hand in K&N over months and is never created for anyone else.
+## Phase 1 — Classification table
 
-On top of that, several features quietly fall back to a default instead of failing loudly when a new company's configuration is missing, so the new company appears to work while sending reduced messages. Two known failures (quote links missing, "Insufficient permissions" on Team Management) are both symptoms of this: neither was a code bug in the feature itself.
+Classes: **A** standard product behaviour · **B** tenant default to create automatically · **C** company must supply · **D** customer data, never copied · **E** credential, never copied.
 
-Verified today against the live database and the code.
-
-## 2. How multi-tenancy actually works
-
-- Every core table carries `organisation_id`; access is enforced by database rules.
-- The app decides which company you are in from your **profile** record. If that lookup is slow or fails, the app continues with "no company" rather than stopping (`src/hooks/useOrgId.ts:29-56`).
-- A superadmin can view another company through a signed impersonation token; an older unsigned header path still exists alongside it (`src/integrations/supabase/orgHeaderInterceptor.ts:98-99`).
-- Server functions derive the company from the caller, from the record being acted on, or from a per-company webhook secret (`supabase/functions/_shared/orgAuth.ts`).
-- **There are no feature flags.** `bookedjobs_plan` is display-only; `bot_enabled`/`bot_name`/`bot_phone` have no readers anywhere; only `is_test` gates anything (the data-reset tool).
-- Roles live in **two** places — `engineers.role` and `profiles.role` — and the database helper `get_user_role()` reads only the engineer record, defaulting to "engineer". This is the origin of the Team Management failure.
-
-## 3. What tenant creation actually does today
-
-`supabase/functions/provision-tenant/index.ts`, called from the superadmin "New Tenant" form (`src/pages/AdminPanel.tsx:1592`):
-
-```text
-create organisation (name, slug, trial, prefix, industry hardcoded "gas_heating")
-  -> invite owner by email (sets company + role in auth metadata)
-  -> upsert profiles row (role "admin")
-  -> update organisations.owner_user_id
-  -> upsert settings row (company name/phone/address/footer/cert prefix)
-  -> insert brand_settings row  [organisation_id ONLY — no colours, no font]
-  -> upsert engineers row (role "admin", office access)
-  -> insert tenant_integrations: "360messenger" + empty "tally"
-  -> done
-```
-
-Nothing else. No transaction, no idempotency key, no version stamp; a partial failure leaves a half-built company (there is a rollback delete for one guard only).
-
-## 4. K&N vs new tenant — verified differences
-
-| Component | K&N (8c37827f) | New tenant (c0aa41ac) | Class | Root cause |
+| Configuration | K&N current value | Class | New tenant default | Provision automatically? |
 |---|---|---|---|---|
-| WhatsApp templates | 34 | **0** | B | Never provisioned; only `provision-whatsapp-templates` copies them, and it hardcodes K&N as master |
-| Message templates (quote/booking/renewal/review/payment) | all set | **all NULL** | B | Provisioning writes none |
-| `default_terms`, `accountant_email` | set | NULL | B/C | Not provisioned |
-| Branding (colours/font) | **no row** | row exists, defaults | B | Provisioning inserts an empty row; K&N has none at all — reversed |
-| Products / categories | 8 / 8 | 2 / 2 (manual) | B | Not provisioned |
-| Boiler brands | 25 | **0** | A | Shared catalogue, but rows are org-scoped and only K&N has them |
-| Price list (`org_price_list`) | 0 | 0 | B | Feature unused by every tenant |
-| Engineer working days | 1 | **0** | B | Not provisioned |
-| Payment credentials (SumUp) | webhook secret only | webhook secret only | E | No admin UI; manual DB write required |
-| Booking form links (Tally) | configured | **empty config** | C | Provisioned as `{}` |
-| Quote numbering | per-company | per-company (Q-2026-0001) | — | Already fixed |
-| Public web address | set | set (added today) | C | Not assigned at creation |
+| Organisation record | name, slug, prefix KN, trial | C | from the New Tenant form | Yes (already) |
+| Owner login + profile + engineer record | admin role, office access | A/B | same three records | Yes (already) |
+| `organisations.owner_user_id` | set | A | set | Yes (already fixed) |
+| Public web address | kngasservices.bookedjobs.ie | C | `<slug>.bookedjobs.ie`, blank if taken | Yes — derive, don't copy |
+| Company name / phone / address / email / RGI | K&N values | C | from the form | Yes (already) |
+| Message footer | "K&N Gas Services" | B | `name \| address \| phone` | Yes (already) |
+| Certificate prefix | KN | B | first 2 letters of slug | Yes (already) |
+| Invoice prefix / next number | K, 1 | B | first letter of slug, 1 | Yes — add |
+| Default prices (callout 85, service 130, emergency 160, repair 0) | set | B | same numbers as product defaults | Yes — add |
+| Quote settings (expiry 30 days, VAT on, deposit 50%, default deposit 100) | set | B | same | Yes — add |
+| Default terms | 14-day payment, 12-month warranty wording | B | generic product wording, no company name | Yes — add |
+| Opening hours | Mon–Fri 08:00–17:00, Sat 09:00–13:00, Sun off | B | same | Yes — add |
+| Job time blocks | Morning/Midday/Afternoon with caps | B | same | Yes — add |
+| Renewal reminders (30 + 7 days, enabled) | set | B | same | Yes — add |
+| Review requests (2 hours, enabled) | set | B | same | Yes — add |
+| Payment reminders (7 + 14 days, enabled) | set | B | same | Yes — add |
+| Delivery-failure alerts (immediate; quotes + invoices on) | set | B | same | Yes — add |
+| Receipt shows boiler details | on | B | on | Yes — add |
+| Job/product categories | 8 (Boilers, Parts, Labour, Materials, Heat Controls, Heat Pumps, WiFi & App Units, pipe work) | B | 6 clean categories (Boilers, Parts, Labour, Materials, Heat Controls, Pipework) | Yes — add |
+| Products / prices | 8 rows, real K&N part prices | C/D | none — empty catalogue | No |
+| Boiler brands | 25 rows | A | **already shared** — the app reads this catalogue without company filtering, so new tenants already see all 25 | No change needed |
+| Engineer working days | 1 row | A | **not needed** — a missing row already means "working" | No |
+| WhatsApp templates table | 34 rows | A | **not needed** — every live message is built in code (`_shared/whatsappCatalogue.ts`); those 34 rows feed only the admin viewing screen | No — retire the K&N-master copier instead |
+| `settings.template_*` message templates | 5 set | — | **not needed** — no send path reads them; they are edit-only leftovers | No — flag as separate cleanup |
+| Service areas (D15, D6, K67) | set | C | empty | No |
+| Google review URL | K&N link | C | empty | No |
+| Branding colours / font | no row at all | B | one row with real product defaults | Yes (row exists today; fill values) |
+| Logo | K&N logo | C | none | No |
+| Accountant email | set | C | empty | No |
+| WhatsApp integration row | configured | C+E | placeholder, no key, country 353 | Yes (already) |
+| Booking form links (Tally) | configured | C | empty placeholder | Yes (already) |
+| Payment integration (SumUp) | live credential | E | placeholder row, no key, environment explicitly "sandbox" | Placeholder only |
+| Webhook secret | per company | E | generated fresh per tenant | Yes — generate, never copy |
+| Config version | none | B | `tenant_config_version = 1` | Yes — add |
+| Customers, jobs, quotes, invoices, certificates, messages | live data | D | none | Never |
 
-Dublin Gas and Cavan Gas show the **same** gaps (0 WhatsApp templates, 0 boiler brands, 0 working days) — this is systemic, not specific to the newest company.
+## What I recommend NOT making a BookedJobs default
 
-## 5. Missing provisioning (should be automatic, currently isn't)
+- **The 34 WhatsApp template rows.** They are a record of Meta registration, not the message source. Copying them from K&N is the single worst piece of tenant coupling in the system and it buys nothing at send time.
+- **The 5 `settings.template_*` fields.** Nothing reads them; provisioning them would create the false impression that editing them changes customer messages.
+- **K&N's product/price list, service areas, review link, logo.** Commercially specific.
+- **Engineer working-day rows and per-tenant boiler brands.** The app already behaves correctly without them.
 
-WhatsApp templates · message templates · default terms · job/product catalogue · boiler brands · engineer working days · booking + renewal form links · public web address · payment/integration placeholders · branding defaults (real values, not an empty row) · a provisioning version stamp.
+## What changes
 
-## 6. Hard-coded tenant dependencies (evidence)
+**Files**
+- `supabase/functions/provision-tenant/index.ts` — extend with the defaults above, made re-runnable.
+- `supabase/functions/_shared/tenantDefaults.ts` — **new**: the product-owned defaults (settings values, categories, terms, branding, config version) as plain data, no company names, no UUIDs.
+- `supabase/functions/validate-tenant/index.ts` — **new**: PASS/FAIL check per area for one company, superadmin only.
+- `src/pages/admin/TenantDetail.tsx` — remove the hardcoded K&N UUID; show the config version and the validation result.
+- `supabase/functions/provision-whatsapp-templates/index.ts` — stop using K&N as master (either point it at the code catalogue or retire it).
+- Unit tests for the defaults module and the validation logic.
 
-- `provision-whatsapp-templates/index.ts:4` — `MASTER_ORG_ID = "8c37827f…"` (K&N); line 137 strips `kn_gas_`; line 140 replaces `kngasservices.bookedjobs.ie`. **New tenants' templates are literally derived from K&N.**
-- `src/pages/admin/TenantDetail.tsx:160` — same K&N UUID duplicated.
-- `src/pages/IncomingJobsDebug.tsx:8,96,182` — `KN_ORG_ID` compared directly.
-- `src/pages/AdminPanel.tsx:461` — Cavan Gas UUID literal.
-- `src/pages/ResetAdmin.tsx:13` — reset link hardcoded to `kngasservices.bookedjobs.ie`.
-- `src/components/customer/ServiceHistory.tsx:241` — slug falls back to `"kngasservices"`.
-- `src/components/settings/WhatsAppTab.tsx:109,118`, `src/components/jobs/PartsArrivedModal.tsx:48` — footer defaults to `"K&N Gas Services"` for any tenant.
-- `src/pages/WarrantyDetail.tsx:148` — K&N name + phone `087 3685252` inside a message body.
-- `send-email/index.ts:1,105` and `auth-email-hook/index.ts:49` — `plumb-on-call.lovable.app`, `@karlsgas.ie` addresses for all tenants.
-- `_shared/platformPublicUrl.ts:10` — platform fallback host is `karlsgas.lovable.app`.
+**Database**
+- One migration: add `organisations.tenant_config_version` (integer, default 0 for existing rows, new tenants get 1). No policy changes, no new tables, no changes to existing tenant data.
 
-## 7. Fallback paths that silently reduce functionality
+**Not touched**: RLS policies, role resolution, quote workflow code, existing tenants' data.
 
-- `send-booking-confirmation/index.ts:97` — missing template mapping falls back to generic `"booking_confirmation"`.
-- `_shared/sumupCredentials.ts:89-98` — unknown environment label defaults to **live** payments.
-- `renewal-reminder-14/30` — missing country code defaults to `"353"`.
-- `trigger-outstanding-reminder/index.ts:106` — missing company name/phone become empty strings in customer messages.
-- `trigger-review-request/index.ts:115` — missing per-tenant secret falls back to a global secret name.
-- `notify-import-errors/index.ts:111` — links default to `karlsgas.lovable.app`.
-- `review-request`, `send-whatsapp-receipt`, `notify-delivery-failure` — missing settings become `""` and the feature silently no-ops.
+## What happens when a new tenant is created afterwards
 
-## 8. Quote workflow root cause
+The New Tenant form works exactly as now, then provisioning additionally writes: full default settings (prices, quote rules, opening hours, time blocks, reminder schedules, alert preferences, terms, invoice numbering), a derived `<slug>.bookedjobs.ie` web address, real branding values, six empty job categories, a placeholder payment integration marked sandbox, a freshly generated webhook secret, and `tenant_config_version = 1`. It then runs the validation check and returns a PASS/FAIL line per area with the response. Running it twice for the same company changes nothing and creates no duplicates.
 
-The quote message body is **hard-coded** in `send-quote-whatsapp/index.ts:332-362`. `settings.template_quote_sent` is editable in Settings but **read by no server function** — editing it does nothing. The approval and PDF links are built from the company's own web address; when it is blank they are omitted with a warning (`index.ts:176-195`), which is exactly what produced the short message. The PDF function is stricter than the WhatsApp function (it omits the link with no fallback), so the two can disagree. `message_footer` blank causes a silent "skipped" 200 response.
+Result: a brand-new company can log in, add customers and jobs, assign engineers, raise a quote with a number, PDF and approval link, send it on WhatsApp with correct branding, take a deposit once its own payment credential is added, complete jobs, issue certificates and run renewals — with no developer touching the database. The two things a human must still supply are the company's own WhatsApp/payment credentials and its booking form links; both are credentials or external accounts and cannot be generated.
 
-## 9. Team Management root cause
+## Risks to existing tenants
 
-`get_user_role()` reads only the engineer record and defaults to "engineer", never consulting the profile. Office/admin staff without an engineer record therefore fail role checks. Role allow-lists diverge across at least **9** places (frontend type omits `owner`/`superadmin`; `resetRoles.ts:8` invents `owner_manager`; six different role sets across database policies). Two functions already patch this individually rather than centrally.
+- Low. The only shared write is the new column, added with a default that leaves existing rows unchanged.
+- K&N, Dublin Gas and Cavan Gas are not modified and stay at version 0; a backfill is a separate, later decision.
+- Changing the template copier affects only the superadmin screen that lists templates, not any customer message.
+- Removing the hardcoded K&N UUID from the admin page is the one frontend change; it needs a click-through of the tenant detail screen.
 
-## 10-12. Recommended architecture (design only)
+## Phase 11 verification (after approval)
 
-- **One `provisionTenant`** covering everything in §5, idempotent per company, writing a `tenant_config_version` stamp and only marking the company ready at the end. Templates seeded from a **product-owned catalogue**, not from K&N.
-- **One role source of truth**: profile-first resolution, one shared allow-list used by frontend, functions and database policies.
-- **`validateTenant(organisationId)`** health check returning PASS/FAIL per area (organisation, admin, roles, settings, branding, templates, quote workflow, approval URL, PDF, WhatsApp, notifications, certificates, payments, booking) plus config version.
-- **Clean-tenant integration test**: create company → admin → customer → job → engineer → quote → PDF → approval URL → approve → deposit → payment → complete → certificate → renewal, with zero K&N data.
+Create a fresh test company through the normal superadmin form, then walk: login → team → customer → job → assign engineer → quote → number → PDF → approval link → send message → approve → deposit → complete → certificate → renewal, with no manual database work. Then re-run provisioning on that same company to prove no duplicates, and click through K&N to confirm nothing changed.
 
-## 13. Remediation priorities
+## Stop point
 
-- **P0** — unsigned `x-org-id` fallback still live; SumUp environment defaulting to live; divergent role sets in database policies.
-- **P1** — provisioning gaps (§5); K&N-as-master template provisioning; role resolution ignoring profiles; missing web address at creation; silent-degrade fallbacks in customer-facing messages.
-- **P2** — tenant health check; clean-tenant test; provisioning transaction + version stamp.
-- **P3** — dead columns (`bot_*`), `plumb-on-call`/`karlsgas.ie` literals, debug pages with hardcoded UUIDs, unused `org_price_list`.
-
-Nothing was changed. Next step, on your word: turn §4 and §5 into a single scoped P1 provisioning change, one concern at a time.
+No code or database changes have been made. Approve and I will implement in this order, one reviewable step each: (1) defaults module + migration, (2) provisioning extension, (3) validation check, (4) template-copier decoupling, (5) clean-tenant test.
