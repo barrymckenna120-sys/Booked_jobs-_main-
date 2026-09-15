@@ -344,7 +344,33 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Step 3: insert organisation
+  // Step 3: insert organisation.
+  // The public web address is DERIVED from this tenant's own slug — never copied
+  // from another tenant. If that address is already taken we leave it blank so
+  // the tenant-specific value can be entered later.
+  const candidateDomain =
+    derivePublicDomain(finalSlug);
+
+  let resolvedDomain:
+    | string
+    | null = null;
+
+  if (candidateDomain) {
+    const { data: domainTaken } =
+      await supabase
+        .from("organisations")
+        .select("id")
+        .eq(
+          "public_domain",
+          candidateDomain
+        )
+        .maybeSingle();
+
+    if (!domainTaken)
+      resolvedDomain =
+        candidateDomain;
+  }
+
   const {
     data: org,
     error: orgErr,
@@ -359,6 +385,15 @@ Deno.serve(async (req) => {
       industry: "gas_heating",
       job_reference_prefix:
         job_reference_prefix.trim(),
+      public_domain:
+        resolvedDomain,
+      company_phone,
+      company_email:
+        (business_email ?? "")
+          .toString()
+          .trim() || null,
+      address:
+        addressPart || null,
     })
     .select("id")
     .single();
