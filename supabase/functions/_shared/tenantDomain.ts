@@ -37,23 +37,8 @@ export async function getTenantPublicUrl(
   }
 }
 
-// Platform-wide public app host, used ONLY by callers that opt in (see
-// getPublicUrlWithPlatformFallback). organisations.public_domain stays the
-// branded, per-tenant address and remains unique per tenant, because
-// host-based tenant resolution (resolve-document-link, stream-receipt-pdf)
-// depends on that uniqueness. The platform host is tenant-neutral: links
-// built on it are capability-token links, resolved from the token alone, so
-// no tenant's data becomes reachable through another tenant's address.
-export const PLATFORM_PUBLIC_HOST_FALLBACK = "https://karlsgas.lovable.app";
+// Platform host fallback lives in platformPublicUrl.ts (pure, unit tested).
 
-/** Pure: join a platform base URL and a path. Returns null when base is blank. */
-export function platformPublicUrl(path: string, base: string | null | undefined): string | null {
-  const raw = String(base ?? "").trim().replace(/\/+$/, "");
-  if (!raw) return null;
-  const origin = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  const suffix = path.startsWith("/") ? path : `/${path}`;
-  return `${origin}${suffix}`;
-}
 
 /**
  * Tenant domain first; when the tenant has no branded public_domain yet, fall
