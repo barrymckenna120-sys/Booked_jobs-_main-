@@ -1,6 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
+import {
+  DEFAULT_BRAND_SETTINGS,
+  DEFAULT_CATEGORIES,
+  DEFAULT_SETTINGS,
+  defaultPaymentPlaceholder,
+  derivePrefix,
+  derivePublicDomain,
+  generateWebhookSecret,
+  TENANT_CONFIG_VERSION,
+} from "../_shared/tenantDefaults.ts";
 
 Deno.serve(async (req) => {
   // CORS: project-standard shared helper (origin-scoped), per request.
