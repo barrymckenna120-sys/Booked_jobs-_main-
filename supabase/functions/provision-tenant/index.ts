@@ -8,7 +8,7 @@ import {
   defaultPaymentPlaceholder,
   derivePrefix,
   generateWebhookSecret,
-  generateWebhookSecret,
+
   TENANT_CONFIG_VERSION,
 } from "../_shared/tenantDefaults.ts";
 
