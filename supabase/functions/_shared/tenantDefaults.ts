@@ -125,6 +125,11 @@ export const DEFAULT_SETTINGS = {
   // Scheduling
   opening_hours: DEFAULT_OPENING_HOURS,
   job_time_blocks: DEFAULT_JOB_TIME_BLOCKS,
+  // Coverage: a new tenant starts with NO service areas. The settings table has
+  // a column default carrying K&N's own routing keys, so this must be written
+  // explicitly to stop a new tenant inheriting them.
+  service_areas: [] as string[],
+
 } as const;
 
 /** Uppercase alphanumeric prefix derived from a slug, e.g. "acme-gas" -> "AC". */
