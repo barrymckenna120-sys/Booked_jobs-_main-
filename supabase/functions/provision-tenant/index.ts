@@ -1,6 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isPlatformAdminDenied, requirePlatformAdmin } from "../_shared/platformAdmin.ts";
+import {
+  DEFAULT_BRAND_SETTINGS,
+  DEFAULT_CATEGORIES,
+  DEFAULT_SETTINGS,
+  defaultPaymentPlaceholder,
+  derivePrefix,
+  derivePublicDomain,
+  generateWebhookSecret,
+  TENANT_CONFIG_VERSION,
+} from "../_shared/tenantDefaults.ts";
 
 Deno.serve(async (req) => {
   // CORS: project-standard shared helper (origin-scoped), per request.
@@ -334,7 +344,33 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Step 3: insert organisation
+  // Step 3: insert organisation.
+  // The public web address is DERIVED from this tenant's own slug — never copied
+  // from another tenant. If that address is already taken we leave it blank so
+  // the tenant-specific value can be entered later.
+  const candidateDomain =
+    derivePublicDomain(finalSlug);
+
+  let resolvedDomain:
+    | string
+    | null = null;
+
+  if (candidateDomain) {
+    const { data: domainTaken } =
+      await supabase
+        .from("organisations")
+        .select("id")
+        .eq(
+          "public_domain",
+          candidateDomain
+        )
+        .maybeSingle();
+
+    if (!domainTaken)
+      resolvedDomain =
+        candidateDomain;
+  }
+
   const {
     data: org,
     error: orgErr,
@@ -349,6 +385,15 @@ Deno.serve(async (req) => {
       industry: "gas_heating",
       job_reference_prefix:
         job_reference_prefix.trim(),
+      public_domain:
+        resolvedDomain,
+      company_phone,
+      company_email:
+        (business_email ?? "")
+          .toString()
+          .trim() || null,
+      address:
+        addressPart || null,
     })
     .select("id")
     .single();
@@ -723,44 +768,62 @@ Deno.serve(async (req) => {
 
 
 
-  // Step 4: settings upsert
-  // (user may already have a settings row from a prior org)
+  // Step 4: settings upsert — company identity always, product defaults only on
+  // first creation so a re-run never overwrites values the tenant has edited.
+  const {
+    data: existingSettings,
+  } = await supabase
+    .from("settings")
+    .select("id")
+    .eq("user_id", newUserId)
+    .maybeSingle();
+
+  const identityFields = {
+    organisation_id: newOrgId,
+    user_id: newUserId,
+    company_name,
+    company_phone,
+    business_name:
+      company_name,
+    business_phone:
+      company_phone,
+    business_address:
+      addressPart || null,
+    business_email:
+      (business_email ?? "")
+        .toString()
+        .trim() || null,
+    rgi_number:
+      (rgi_number ?? "")
+        .toString()
+        .trim() || null,
+    message_footer,
+    owner_name,
+    cert_prefix: derivePrefix(
+      finalSlug,
+      2
+    ),
+  };
+
+  const settingsPayload =
+    existingSettings
+      ? identityFields
+      : {
+        ...identityFields,
+        ...DEFAULT_SETTINGS,
+        invoice_prefix:
+          derivePrefix(
+            finalSlug,
+            1
+          ),
+      };
+
   const {
     error: settingsErr,
   } = await supabase
     .from("settings")
     .upsert(
-      {
-        organisation_id:
-          newOrgId,
-        user_id: newUserId,
-        company_name,
-        company_phone,
-        business_name:
-          company_name,
-        business_phone:
-          company_phone,
-        business_address:
-          addressPart || null,
-        business_email:
-          (
-            business_email ?? ""
-          )
-            .toString()
-            .trim() || null,
-        rgi_number:
-          (
-            rgi_number ?? ""
-          )
-            .toString()
-            .trim() || null,
-        message_footer,
-        owner_name,
-        cert_prefix:
-          finalSlug
-            .slice(0, 2)
-            .toUpperCase(),
-      },
+      settingsPayload,
       {
         onConflict:
           "user_id",
@@ -785,15 +848,29 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Step 5: brand_settings insert
+  // Step 5: brand_settings — real product defaults, created once.
   const {
-    error: brandErr,
+    data: existingBrand,
   } = await supabase
     .from("brand_settings")
-    .insert({
-      organisation_id:
-        newOrgId,
-    });
+    .select("id")
+    .eq(
+      "organisation_id",
+      newOrgId
+    )
+    .maybeSingle();
+
+  const {
+    error: brandErr,
+  } = existingBrand
+    ? { error: null }
+    : await supabase
+      .from("brand_settings")
+      .insert({
+        organisation_id:
+          newOrgId,
+        ...DEFAULT_BRAND_SETTINGS,
+      });
 
   if (brandErr) {
     await logFailure(
@@ -859,51 +936,193 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Step 5c: seed tenant_integrations rows
-  // so WhatsApp + Tally work out of the box
+  // Step 5c: seed tenant_integrations placeholders — one row per type, created
+  // only when absent so a re-run never duplicates them. No credential value is
+  // ever copied from another tenant: WhatsApp/payment keys stay empty until the
+  // tenant's own secret is configured, and the webhook secret is freshly
+  // generated for this tenant alone.
   const {
-    error: tiErr,
+    data: existingIntegrations,
   } = await supabase
     .from("tenant_integrations")
-    .insert([
-      {
-        organisation_id:
-          newOrgId,
-        integration_type:
-          "360messenger",
-        config: {
-          api_key_secret:
-            resolvedApiKeySecret,
-          company_name,
-          company_phone,
-          country_code:
-            resolvedCountryCode,
-          waba_id:
-            waba_id ?? null,
-        },
-      },
-      {
-        organisation_id:
-          newOrgId,
-        integration_type:
-          "tally",
-        config: {},
-      },
-    ]);
+    .select(
+      "integration_type"
+    )
+    .eq(
+      "organisation_id",
+      newOrgId
+    );
 
-  if (tiErr) {
+  const haveTypes = new Set(
+    (
+      existingIntegrations ??
+      []
+    ).map(
+      (r: any) =>
+        r.integration_type
+    )
+  );
+
+  const integrationRows = [
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "360messenger",
+      config: {
+        api_key_secret:
+          resolvedApiKeySecret,
+        company_name,
+        company_phone,
+        country_code:
+          resolvedCountryCode,
+        waba_id:
+          waba_id ?? null,
+      },
+    },
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "tally",
+      config: {
+        webhook_secret:
+          generateWebhookSecret(),
+      },
+    },
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "sumup",
+      config:
+        defaultPaymentPlaceholder(),
+    },
+  ].filter(
+    (r) =>
+      !haveTypes.has(
+        r.integration_type
+      )
+  );
+
+  if (
+    integrationRows.length > 0
+  ) {
+    const {
+      error: tiErr,
+    } = await supabase
+      .from(
+        "tenant_integrations"
+      )
+      .insert(
+        integrationRows
+      );
+
+    if (tiErr) {
+      await logFailure(
+        "step 5c",
+        tiErr.message
+      );
+
+      return json(
+        {
+          error:
+            "provision_failed",
+          step: "5c",
+          detail:
+            tiErr.message,
+        },
+        500
+      );
+    }
+  }
+
+  // Step 5d: default job/product categories (names only, no prices).
+  const {
+    data: existingCategories,
+  } = await supabase
+    .from("categories")
+    .select("name")
+    .eq(
+      "organisation_id",
+      newOrgId
+    );
+
+  const haveCategories =
+    new Set(
+      (
+        existingCategories ??
+        []
+      ).map((r: any) =>
+        String(r.name)
+          .trim()
+          .toLowerCase()
+      )
+    );
+
+  const categoryRows =
+    DEFAULT_CATEGORIES.filter(
+      (name) =>
+        !haveCategories.has(
+          name.toLowerCase()
+        )
+    ).map((name) => ({
+      organisation_id:
+        newOrgId,
+      name,
+    }));
+
+  if (categoryRows.length > 0) {
+    const {
+      error: catErr,
+    } = await supabase
+      .from("categories")
+      .insert(categoryRows);
+
+    if (catErr) {
+      await logFailure(
+        "step 5d",
+        catErr.message
+      );
+
+      return json(
+        {
+          error:
+            "provision_failed",
+          step: "5d",
+          detail:
+            catErr.message,
+        },
+        500
+      );
+    }
+  }
+
+  // Step 6e: stamp the configuration version. Only newly provisioned tenants
+  // reach this line; existing tenants are never backfilled.
+  const {
+    error: versionErr,
+  } = await supabase
+    .from("organisations")
+    .update({
+      tenant_config_version:
+        TENANT_CONFIG_VERSION,
+    })
+    .eq("id", newOrgId);
+
+  if (versionErr) {
     await logFailure(
-      "step 5c",
-      tiErr.message
+      "step 6e",
+      versionErr.message
     );
 
     return json(
       {
         error:
           "provision_failed",
-        step: "5c",
+        step: "6e",
         detail:
-          tiErr.message,
+          versionErr.message,
       },
       500
     );
@@ -917,5 +1136,20 @@ Deno.serve(async (req) => {
     org_slug: finalSlug,
     invited_email:
       owner_email,
+    public_domain:
+      resolvedDomain,
+    tenant_config_version:
+      TENANT_CONFIG_VERSION,
+    defaults_applied: {
+      settings: !existingSettings,
+      branding: !existingBrand,
+      categories:
+        categoryRows.length,
+      integrations:
+        integrationRows.map(
+          (r) =>
+            r.integration_type
+        ),
+    },
   });
 });

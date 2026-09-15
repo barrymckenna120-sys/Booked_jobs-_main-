@@ -2184,6 +2184,7 @@ export type Database = {
           slug: string
           stripe_customer_id: string | null
           subscription_status: string
+          tenant_config_version: number
         }
         Insert: {
           address?: string | null
@@ -2213,6 +2214,7 @@ export type Database = {
           slug: string
           stripe_customer_id?: string | null
           subscription_status?: string
+          tenant_config_version?: number
         }
         Update: {
           address?: string | null
@@ -2242,6 +2244,7 @@ export type Database = {
           slug?: string
           stripe_customer_id?: string | null
           subscription_status?: string
+          tenant_config_version?: number
         }
         Relationships: []
       }
