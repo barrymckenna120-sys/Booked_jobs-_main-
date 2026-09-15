@@ -90,10 +90,26 @@ type Customer = {
 
 const financialSummary = (job: ServiceCall) => {
   const presentation = resolvePaymentPresentation(job);
+  const hasDeposit = job.deposit_required && Number(job.deposit_amount ?? 0) > 0;
+  // Non-deposit jobs show amount paid so far (job total minus recorded balance).
+  const paidSoFar = Math.max(
+    0,
+    Number(job.revenue ?? 0) - Number(job.balance_due ?? job.revenue ?? 0),
+  );
   return {
     ...presentation,
-    middleLabel: presentation.isFullyPaid ? "Amount Paid" : job.deposit_paid ? "Deposit Paid" : "Deposit Required",
-    middleAmount: presentation.isFullyPaid ? presentation.amountPaid : Number(job.deposit_amount ?? 0),
+    middleLabel: presentation.isFullyPaid
+      ? "Amount Paid"
+      : job.deposit_paid
+        ? "Deposit Paid"
+        : hasDeposit
+          ? "Deposit Required"
+          : "Paid",
+    middleAmount: presentation.isFullyPaid
+      ? presentation.amountPaid
+      : job.deposit_paid || hasDeposit
+        ? Number(job.deposit_amount ?? 0)
+        : paidSoFar,
   };
 };
 
@@ -769,8 +785,8 @@ const JobDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Financial Summary */}
-      {job.deposit_required && (job.deposit_amount ?? 0) > 0 && (
+      {/* Financial Summary — deposit jobs, plus any job with a value or outstanding balance */}
+      {((job.deposit_required && (job.deposit_amount ?? 0) > 0) || (job.revenue ?? 0) > 0 || (job.balance_due ?? 0) > 0) && (
         <Card className="border-l-4 border-primary/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -798,8 +814,8 @@ const JobDetail = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
-              {!financialSummary(job).isFullyPaid && (
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${job.deposit_required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+              {job.deposit_required && !financialSummary(job).isFullyPaid && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
                   Deposit Required
                 </span>
               )}

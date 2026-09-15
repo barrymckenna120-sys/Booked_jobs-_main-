@@ -48,7 +48,8 @@ export type DepositPill = {
  * payment classifier — no parallel rules of its own.
  *   Case D -> "Deposit €X due"   (warning)
  *   Case A -> "Deposit €X paid"  (success) + "Balance due €Y"
- *   Case B / C -> nothing
+ *   Case C -> "Payment due €X"   (warning) when money is outstanding
+ *   Case B -> nothing
  */
 export function resolveDepositPill(job?: PaymentSheetJob | null): DepositPill {
   const payment = resolvePaymentSheetState(job);
@@ -61,6 +62,18 @@ export function resolveDepositPill(job?: PaymentSheetJob | null): DepositPill {
       pill: { tone: "success", label: `Deposit ${euro(payment.depositAmount)} paid` },
       balanceLine: payment.balanceDue > 0 ? `Balance due ${euro(payment.balanceDue)}` : null,
     };
+  }
+  if (payment.case === "C") {
+    // Ordinary non-deposit job: surface the outstanding amount. Prefer the
+    // recorded balance (part-payments), falling back to the job total only
+    // when no balance is recorded and the job isn't marked paid.
+    const status = (job?.payment_status ?? "").toLowerCase();
+    const due = payment.balanceDue > 0
+      ? payment.balanceDue
+      : (payment.jobTotal > 0 && status !== "paid" ? payment.jobTotal : 0);
+    return due > 0
+      ? { pill: { tone: "warning", label: `Payment due ${euro(due)}` }, balanceLine: null }
+      : { pill: null, balanceLine: null };
   }
   return { pill: null, balanceLine: null };
 }
