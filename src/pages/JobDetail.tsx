@@ -814,8 +814,8 @@ const JobDetail = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
-              {!financialSummary(job).isFullyPaid && (
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${job.deposit_required ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+              {job.deposit_required && !financialSummary(job).isFullyPaid && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
                   Deposit Required
                 </span>
               )}
