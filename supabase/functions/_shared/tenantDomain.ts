@@ -1,4 +1,10 @@
+import {
+  PLATFORM_PUBLIC_HOST_FALLBACK,
+  platformPublicUrl,
+} from "./platformPublicUrl.ts";
+
 // Shared helper: resolve a tenant's public-facing URL from
+
 // organisations.public_domain. Returns null when the org has no
 // public_domain configured (or the lookup fails) — callers must handle
 // the null case (typically by omitting the public link from the message
@@ -36,3 +42,24 @@ export async function getTenantPublicUrl(
     return null;
   }
 }
+
+// Platform host fallback lives in platformPublicUrl.ts (pure, unit tested).
+
+
+/**
+ * Tenant domain first; when the tenant has no branded public_domain yet, fall
+ * back to the platform's own public app host so token-based customer links are
+ * never silently omitted. Never falls back to ANOTHER tenant's hostname.
+ */
+export async function getPublicUrlWithPlatformFallback(
+  supabaseUrl: string,
+  orgId: string,
+  path: string,
+): Promise<{ url: string | null; usedPlatformFallback: boolean }> {
+  const tenantUrl = await getTenantPublicUrl(supabaseUrl, orgId, path);
+  if (tenantUrl) return { url: tenantUrl, usedPlatformFallback: false };
+
+  const base = Deno.env.get("APP_PUBLIC_URL") || PLATFORM_PUBLIC_HOST_FALLBACK;
+  return { url: platformPublicUrl(path, base), usedPlatformFallback: true };
+}
+
