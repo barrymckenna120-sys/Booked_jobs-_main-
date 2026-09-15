@@ -133,16 +133,13 @@ export function derivePrefix(slug: string, length: number): string {
   return cleaned.slice(0, Math.max(1, length)) || "BJ";
 }
 
-/** Platform-hosted public web address derived from the tenant's own slug. */
-export function derivePublicDomain(slug: string, host = "bookedjobs.ie"): string {
-  const cleaned = String(slug ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  return cleaned ? `${cleaned}.${host}` : "";
-}
+/**
+ * NOTE: no public-domain derivation lives here any more. BookedJobs has no
+ * wildcard DNS for <slug>.bookedjobs.ie, so a derived address produced dead
+ * customer links. New tenants get a blank organisations.public_domain and rely
+ * on the platform host fallback until a real domain is connected.
+ */
+
 
 /**
  * Payment integration placeholder. Explicitly sandbox so a half-configured
