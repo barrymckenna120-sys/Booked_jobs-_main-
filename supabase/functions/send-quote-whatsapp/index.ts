@@ -4,7 +4,7 @@ import {
   consentSkipResponse,
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
-import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
+import { getPublicUrlWithPlatformFallback } from "../_shared/tenantDomain.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
