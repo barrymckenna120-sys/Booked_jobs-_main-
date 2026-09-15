@@ -126,12 +126,16 @@ Deno.serve(async (req) => {
 
 
 
-    // Determine caller role once
+    // Determine caller role once. `organisation_id` is selected here because the
+    // default (tenant-scoped) branch below reads it off this same row — selecting
+    // only `role` made it permanently undefined, which forced the engineers-table
+    // fallback and 403'd office/admin staff who have no engineer record.
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("role, organisation_id")
       .eq("user_id", callerId)
       .maybeSingle();
+
     const callerRole = (callerProfile as any)?.role ?? null;
     const isSuperadmin = callerRole === "superadmin";
 
