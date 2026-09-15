@@ -149,30 +149,39 @@ serve(async (req) => {
     const recipientNumber = consent.phone;
     const recipientName = consent.name || customer_name || "there";
 
-    // Tenant public URLs are resolved through
-    // getTenantPublicUrl().
-    // No slug fallback: if the tenant has no configured
-    // public domain, the relevant link is omitted.
-    const acceptUrl = quoteToken
-      ? await getTenantPublicUrl(
+    // Tenant public URLs: the tenant's own branded public_domain when it has
+    // one, otherwise the platform's public app host. Both are capability-token
+    // links (/quote/<token>, /pdf/<token>) resolved from the token alone, so a
+    // tenant without a branded domain still gets working links and no tenant's
+    // documents become reachable through another tenant's hostname.
+    const acceptResolved = quoteToken
+      ? await getPublicUrlWithPlatformFallback(
           supabaseUrl,
           orgId,
           `/quote/${quoteToken}`
         )
-      : null;
+      : { url: null, usedPlatformFallback: false };
+    const acceptUrl = acceptResolved.url;
 
-    const quotePdfUrl =
+    const pdfResolved =
       pdf_url && quoteToken
-        ? await getTenantPublicUrl(
+        ? await getPublicUrlWithPlatformFallback(
             supabaseUrl,
             orgId,
             `/pdf/${quoteToken}`
           )
-        : null;
+        : { url: null, usedPlatformFallback: false };
+    const quotePdfUrl = pdfResolved.url;
+
+    if (acceptResolved.usedPlatformFallback || pdfResolved.usedPlatformFallback) {
+      console.warn(
+        `[send-quote-whatsapp] organisation ${orgId} has no public_domain; customer links use the platform public host`
+      );
+    }
 
     if (!acceptUrl) {
       console.warn(
-        `[send-quote-whatsapp] organisation ${orgId} has no public_domain or quote has no access_token; omitting quote accept link`
+        `[send-quote-whatsapp] quote ${quote_id} has no access_token; omitting quote accept link`
       );
     }
 
@@ -181,9 +190,10 @@ serve(async (req) => {
       !quotePdfUrl
     ) {
       console.warn(
-        `[send-quote-whatsapp] organisation ${orgId} has no public_domain or quote has no access_token; omitting quote PDF link`
+        `[send-quote-whatsapp] quote ${quote_id} has no access_token; omitting quote PDF link`
       );
     }
+
 
     // Fetch tenant WhatsApp integration config.
     const tiRes = await fetch(
