@@ -8,8 +8,8 @@ import {
   DEFAULT_TERMS,
   defaultPaymentPlaceholder,
   derivePrefix,
-  derivePublicDomain,
   generateWebhookSecret,
+
   TENANT_CONFIG_VERSION,
 } from "../../../supabase/functions/_shared/tenantDefaults.ts";
 
@@ -63,11 +63,12 @@ describe("tenant defaults", () => {
     expect(derivePrefix("", 2)).toBe("BJ");
   });
 
-  it("derives the public web address from the slug only", () => {
-    expect(derivePublicDomain("acme-gas")).toBe("acme-gas.bookedjobs.ie");
-    expect(derivePublicDomain("Acme  Gas!")).toBe("acme-gas.bookedjobs.ie");
-    expect(derivePublicDomain("")).toBe("");
+  // Regression: <slug>.bookedjobs.ie has no wildcard DNS, so provisioning must
+  // never derive a tenant domain — links fall back to the platform host.
+  it("starts a new tenant with no service areas", () => {
+    expect(DEFAULT_SETTINGS.service_areas).toEqual([]);
   });
+
 
   it("marks the payment placeholder as sandbox with no credentials", () => {
     const p = defaultPaymentPlaceholder();

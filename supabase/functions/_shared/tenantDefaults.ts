@@ -125,6 +125,11 @@ export const DEFAULT_SETTINGS = {
   // Scheduling
   opening_hours: DEFAULT_OPENING_HOURS,
   job_time_blocks: DEFAULT_JOB_TIME_BLOCKS,
+  // Coverage: a new tenant starts with NO service areas. The settings table has
+  // a column default carrying K&N's own routing keys, so this must be written
+  // explicitly to stop a new tenant inheriting them.
+  service_areas: [] as string[],
+
 } as const;
 
 /** Uppercase alphanumeric prefix derived from a slug, e.g. "acme-gas" -> "AC". */
@@ -133,16 +138,13 @@ export function derivePrefix(slug: string, length: number): string {
   return cleaned.slice(0, Math.max(1, length)) || "BJ";
 }
 
-/** Platform-hosted public web address derived from the tenant's own slug. */
-export function derivePublicDomain(slug: string, host = "bookedjobs.ie"): string {
-  const cleaned = String(slug ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  return cleaned ? `${cleaned}.${host}` : "";
-}
+/**
+ * NOTE: no public-domain derivation lives here any more. BookedJobs has no
+ * wildcard DNS for <slug>.bookedjobs.ie, so a derived address produced dead
+ * customer links. New tenants get a blank organisations.public_domain and rely
+ * on the platform host fallback until a real domain is connected.
+ */
+
 
 /**
  * Payment integration placeholder. Explicitly sandbox so a half-configured
