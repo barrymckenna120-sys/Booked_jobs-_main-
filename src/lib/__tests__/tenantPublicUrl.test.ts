@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   PLATFORM_PUBLIC_HOST_FALLBACK,
   platformPublicUrl,
-} from "../../../supabase/functions/_shared/tenantDomain";
+} from "../../../supabase/functions/_shared/platformPublicUrl";
+
 
 describe("platformPublicUrl", () => {
   it("builds a token link on the platform host when a tenant has no branded domain", () => {

@@ -1,4 +1,10 @@
+import {
+  PLATFORM_PUBLIC_HOST_FALLBACK,
+  platformPublicUrl,
+} from "./platformPublicUrl.ts";
+
 // Shared helper: resolve a tenant's public-facing URL from
+
 // organisations.public_domain. Returns null when the org has no
 // public_domain configured (or the lookup fails) — callers must handle
 // the null case (typically by omitting the public link from the message
