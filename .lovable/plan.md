@@ -1,189 +1,106 @@
-# AUDIT ONLY — branch / Edge Function / migration state
+# Multi-Tenant Provisioning & Parity Audit — findings only, no changes made
 
-Nothing was modified, merged, deployed or fixed. Raw command output below.
-Note: local branch names `main`/`dev` do not exist in this sandbox checkout; the remote refs `origin/main` and `origin/dev` were used (`git branch -a` shows `dev`, `origin/main`, `origin/dev`, plus `lovable-backup-dev-*`). Current HEAD: `edit/edt-9ce21198-75e2-4914-a323-37b66d1908d2`.
+## 1. Executive summary
 
-## 1. Branch state
+A new company does not get a working copy of the product. It gets a **shell**: company row, one admin user, one settings row, an empty branding row, one engineer record, and two integration rows. Everything else that makes K&N Gas Services feel complete — 34 WhatsApp templates, message templates, product/price catalogue, boiler brands, working days, payment credentials, booking form links — was built up by hand in K&N over months and is never created for anyone else.
 
-```text
-$ git rev-list --count origin/main..origin/dev
-4050
-$ git rev-list --count origin/dev..origin/main
-0            # git log dev..main --oneline → empty output
+On top of that, several features quietly fall back to a default instead of failing loudly when a new company's configuration is missing, so the new company appears to work while sending reduced messages. Two known failures (quote links missing, "Insufficient permissions" on Team Management) are both symptoms of this: neither was a code bug in the feature itself.
 
-$ git diff origin/main..origin/dev --stat | tail -4
- tailwind.config.ts                                 |     1 +
- vite.config.ts                                     |   153 +-
- vitest.config.ts                                   |    13 +
- 947 files changed, 104815 insertions(+), 16945 deletions(-)
+Verified today against the live database and the code.
 
-Last commit on main:
-7cc408dcbf69dc9384c21b663779e656b513061c | 2026-07-02 09:43:03 +0000 | Added org_id to notify trigger
+## 2. How multi-tenancy actually works
 
-Last commit on dev:
-9952cc4cc5d8a709585e5864a3515a8b1467865a | 2026-09-14 17:25:06 +0000 | Documented mobile block update
-```
+- Every core table carries `organisation_id`; access is enforced by database rules.
+- The app decides which company you are in from your **profile** record. If that lookup is slow or fails, the app continues with "no company" rather than stopping (`src/hooks/useOrgId.ts:29-56`).
+- A superadmin can view another company through a signed impersonation token; an older unsigned header path still exists alongside it (`src/integrations/supabase/orgHeaderInterceptor.ts:98-99`).
+- Server functions derive the company from the caller, from the record being acted on, or from a per-company webhook secret (`supabase/functions/_shared/orgAuth.ts`).
+- **There are no feature flags.** `bookedjobs_plan` is display-only; `bot_enabled`/`bot_name`/`bot_phone` have no readers anywhere; only `is_test` gates anything (the data-reset tool).
+- Roles live in **two** places — `engineers.role` and `profiles.role` — and the database helper `get_user_role()` reads only the engineer record, defaulting to "engineer". This is the origin of the Team Management failure.
 
-`main..dev` `--oneline` output is 4050 lines; the first ~450 lines are in the raw command log (`/tmp/exec-logs/ed8d0092-...log`) and were truncated in transport.
+## 3. What tenant creation actually does today
 
-## 2. Commit classification (files touched)
-
-Classifier used: LIST B = commit touches `supabase/functions/**` or `supabase/migrations/**`; LIST A = everything else.
+`supabase/functions/provision-tenant/index.ts`, called from the superadmin "New Tenant" form (`src/pages/AdminPanel.tsx:1592`):
 
 ```text
-LIST B: 911 commits
-LIST A: 3139 commits
-Total:  4050
+create organisation (name, slug, trial, prefix, industry hardcoded "gas_heating")
+  -> invite owner by email (sets company + role in auth metadata)
+  -> upsert profiles row (role "admin")
+  -> update organisations.owner_user_id
+  -> upsert settings row (company name/phone/address/footer/cert prefix)
+  -> insert brand_settings row  [organisation_id ONLY — no colours, no font]
+  -> upsert engineers row (role "admin", office access)
+  -> insert tenant_integrations: "360messenger" + empty "tally"
+  -> done
 ```
 
-The requested "full file list for every LIST B commit" is 911 commits × file lists — it does not fit in this document. Aggregate backend diff instead:
+Nothing else. No transaction, no idempotency key, no version stamp; a partial failure leaves a half-built company (there is a rollback delete for one guard only).
 
-```text
-$ git diff origin/main..origin/dev --stat -- supabase/functions/ | tail -1
- 193 files changed, 29803 insertions(+), 4241 deletions(-)
-```
+## 4. K&N vs new tenant — verified differences
 
-Function directories present on `dev` but not `main` (added):
-`backfill-storage-paths, check-lockout-status, commit-customer-import, deactivate-user, get-engineer-performance, impersonate-org, missed-call-lookup, notify-delivery-failure, notify-import-errors, notify-support-report, preview-customer-import, resend-communication, reset-org-data, resolve-document-link, send-deposit-link, stream-receipt-pdf, sumup-integration, sumup-payment-webhook, sweep-stale-accepted-deliveries, whatsapp-delivery-webhook`
+| Component | K&N (8c37827f) | New tenant (c0aa41ac) | Class | Root cause |
+|---|---|---|---|---|
+| WhatsApp templates | 34 | **0** | B | Never provisioned; only `provision-whatsapp-templates` copies them, and it hardcodes K&N as master |
+| Message templates (quote/booking/renewal/review/payment) | all set | **all NULL** | B | Provisioning writes none |
+| `default_terms`, `accountant_email` | set | NULL | B/C | Not provisioned |
+| Branding (colours/font) | **no row** | row exists, defaults | B | Provisioning inserts an empty row; K&N has none at all — reversed |
+| Products / categories | 8 / 8 | 2 / 2 (manual) | B | Not provisioned |
+| Boiler brands | 25 | **0** | A | Shared catalogue, but rows are org-scoped and only K&N has them |
+| Price list (`org_price_list`) | 0 | 0 | B | Feature unused by every tenant |
+| Engineer working days | 1 | **0** | B | Not provisioned |
+| Payment credentials (SumUp) | webhook secret only | webhook secret only | E | No admin UI; manual DB write required |
+| Booking form links (Tally) | configured | **empty config** | C | Provisioned as `{}` |
+| Quote numbering | per-company | per-company (Q-2026-0001) | — | Already fixed |
+| Public web address | set | set (added today) | C | Not assigned at creation |
 
-Present on `main` but not `dev` (removed):
-`get-hazard-pdf, handle-inbound-whatsapp, send-whatsapp-booking-confirmation, stripe-boiler-payment-confirm, whatsapp-webhook-test`
+Dublin Gas and Cavan Gas show the **same** gaps (0 WhatsApp templates, 0 boiler brands, 0 working days) — this is systemic, not specific to the newest company.
 
-`ls supabase/functions | wc -l` → 98
+## 5. Missing provisioning (should be automatic, currently isn't)
 
-## 3. Deployed Edge Function state vs branches — NOT OBTAINED
+WhatsApp templates · message templates · default terms · job/product catalogue · boiler brands · engineer working days · booking + renewal form links · public web address · payment/integration placeholders · branding defaults (real values, not an empty row) · a provisioning version stamp.
 
-No deployment-timestamp source is reachable from this environment: there is no Supabase CLI login/dashboard access and no tool that returns per-function `updated_at`/version for deployed Edge Functions. Therefore the a) / b) comparison and the "deployed from neither branch" flag cannot be produced here. Nothing was inferred or guessed for this item.
+## 6. Hard-coded tenant dependencies (evidence)
 
-## 4. provision-tenant
+- `provision-whatsapp-templates/index.ts:4` — `MASTER_ORG_ID = "8c37827f…"` (K&N); line 137 strips `kn_gas_`; line 140 replaces `kngasservices.bookedjobs.ie`. **New tenants' templates are literally derived from K&N.**
+- `src/pages/admin/TenantDetail.tsx:160` — same K&N UUID duplicated.
+- `src/pages/IncomingJobsDebug.tsx:8,96,182` — `KN_ORG_ID` compared directly.
+- `src/pages/AdminPanel.tsx:461` — Cavan Gas UUID literal.
+- `src/pages/ResetAdmin.tsx:13` — reset link hardcoded to `kngasservices.bookedjobs.ie`.
+- `src/components/customer/ServiceHistory.tsx:241` — slug falls back to `"kngasservices"`.
+- `src/components/settings/WhatsAppTab.tsx:109,118`, `src/components/jobs/PartsArrivedModal.tsx:48` — footer defaults to `"K&N Gas Services"` for any tenant.
+- `src/pages/WarrantyDetail.tsx:148` — K&N name + phone `087 3685252` inside a message body.
+- `send-email/index.ts:1,105` and `auth-email-hook/index.ts:49` — `plumb-on-call.lovable.app`, `@karlsgas.ie` addresses for all tenants.
+- `_shared/platformPublicUrl.ts:10` — platform fallback host is `karlsgas.lovable.app`.
 
-`git diff origin/main..origin/dev -- supabase/functions/provision-tenant/index.ts` is 1116 lines (largely reformatting plus the substantive changes quoted below); full text in `/tmp/exec-logs/eaf5557c-...log`.
+## 7. Fallback paths that silently reduce functionality
 
-Does the `dev` version create a `settings` row for the new org? Yes — `dev` lines 726-744ff:
+- `send-booking-confirmation/index.ts:97` — missing template mapping falls back to generic `"booking_confirmation"`.
+- `_shared/sumupCredentials.ts:89-98` — unknown environment label defaults to **live** payments.
+- `renewal-reminder-14/30` — missing country code defaults to `"353"`.
+- `trigger-outstanding-reminder/index.ts:106` — missing company name/phone become empty strings in customer messages.
+- `trigger-review-request/index.ts:115` — missing per-tenant secret falls back to a global secret name.
+- `notify-import-errors/index.ts:111` — links default to `karlsgas.lovable.app`.
+- `review-request`, `send-whatsapp-receipt`, `notify-delivery-failure` — missing settings become `""` and the feature silently no-ops.
 
-```ts
-  // Step 4: settings upsert
-  // (user may already have a settings row from a prior org)
-  const {
-    error: settingsErr,
-  } = await supabase
-    .from("settings")
-    .upsert(
-      {
-        organisation_id:
-          newOrgId,
-        user_id: newUserId,
-```
+## 8. Quote workflow root cause
 
-`main` has the same step (lines 284-296):
+The quote message body is **hard-coded** in `send-quote-whatsapp/index.ts:332-362`. `settings.template_quote_sent` is editable in Settings but **read by no server function** — editing it does nothing. The approval and PDF links are built from the company's own web address; when it is blank they are omitted with a warning (`index.ts:176-195`), which is exactly what produced the short message. The PDF function is stricter than the WhatsApp function (it omits the link with no fallback), so the two can disagree. `message_footer` blank causes a silent "skipped" 200 response.
 
-```ts
-  // Step 4: settings upsert (user may already have a settings row from a prior org)
-  const { error: settingsErr } = await supabase
-    .from("settings")
-    .upsert({
-      organisation_id: newOrgId,
-      user_id: newUserId,
-```
+## 9. Team Management root cause
 
-Per-tenant vs shared secret name — `dev` lines 76-84:
+`get_user_role()` reads only the engineer record and defaults to "engineer", never consulting the profile. Office/admin staff without an engineer record therefore fail role checks. Role allow-lists diverge across at least **9** places (frontend type omits `owner`/`superadmin`; `resetRoles.ts:8` invents `owner_manager`; six different role sets across database policies). Two functions already patch this individually rather than centrally.
 
-```ts
-  // A new tenant must NEVER inherit the shared/K&N WhatsApp key. When no
-  // per-tenant secret name is supplied we seed the integration without one, so
-  // WhatsApp sends fail closed until the tenant's own secret is configured.
-  const resolvedApiKeySecret =
-    typeof api_key_secret ===
-      "string" &&
-    api_key_secret.trim()
-      ? api_key_secret.trim()
-      : null;
-```
+## 10-12. Recommended architecture (design only)
 
-`main` lines 73-75:
+- **One `provisionTenant`** covering everything in §5, idempotent per company, writing a `tenant_config_version` stamp and only marking the company ready at the end. Templates seeded from a **product-owned catalogue**, not from K&N.
+- **One role source of truth**: profile-first resolution, one shared allow-list used by frontend, functions and database policies.
+- **`validateTenant(organisationId)`** health check returning PASS/FAIL per area (organisation, admin, roles, settings, branding, templates, quote workflow, approval URL, PDF, WhatsApp, notifications, certificates, payments, booking) plus config version.
+- **Clean-tenant integration test**: create company → admin → customer → job → engineer → quote → PDF → approval URL → approve → deposit → payment → complete → certificate → renewal, with zero K&N data.
 
-```ts
-    typeof api_key_secret === "string" && api_key_secret.trim()
-      ? api_key_secret.trim()
-      : "THREESIXTY_API_KEY";
-```
+## 13. Remediation priorities
 
-Other substantive diff hunks (from the diff output): CORS replaced by `getCorsHeaders(req)` from `../_shared/cors.ts`; inline superadmin check replaced by `requirePlatformAdmin` / `isPlatformAdminDenied` from `../_shared/platformAdmin.ts`; new required field `job_reference_prefix` with `/^[A-Z0-9]{2,6}$/` validation.
+- **P0** — unsigned `x-org-id` fallback still live; SumUp environment defaulting to live; divergent role sets in database policies.
+- **P1** — provisioning gaps (§5); K&N-as-master template provisioning; role resolution ignoring profiles; missing web address at creation; silent-degrade fallbacks in customer-facing messages.
+- **P2** — tenant health check; clean-tenant test; provisioning transaction + version stamp.
+- **P3** — dead columns (`bot_*`), `plumb-on-call`/`karlsgas.ie` literals, debug pages with hardcoded UUIDs, unused `org_price_list`.
 
-## 5. Migrations on `dev` but not `main`
-
-```text
-$ git diff origin/main..origin/dev --name-status -- supabase/migrations/ | wc -l
-151          # all entries status "A" (added); zero modifications/deletions
-$ migrations matching /policy|row level security/i : 41
-```
-
-Top files by count of `policy|row level security|organisation_id|grant|revoke` matches:
-
-```text
-63 20260825125233_5d008334-6232-40c9-b9c7-8add65f91f92.sql
-61 20260819165508_60d9e33b-48fa-42c0-b39f-af6eaeb920a7.sql
-49 20260725190456_3dfb4649-c622-479b-9c15-ae6788c2e044.sql
-45 20260812130753_6127ae69-3920-43a8-a83e-0f344cbea434.sql
-44 20260823132110_52cbf8d1-b49f-454b-9287-8a23585a4e89.sql
-44 20260823125914_226405c8-3b9e-416f-a4d0-2e18967e3ed6.sql
-44 20260708155427_b15f1c09-f2df-4434-aa45-45ea7495a80d.sql
-44 20260707131806_a81cca0a-f58d-42e7-93fb-b4dddde6a26a.sql
-42 20260827145257_bee02f9a-98de-41f9-bec8-ebc01f97909f.sql
-31 20260827162017_351b3000-b298-4765-bd83-03fa394b8ffb.sql
-```
-
-First 5 lines of the 10 most recent added migrations:
-
-```sql
--- 20260911191620_ff97d730...sql
-CREATE OR REPLACE FUNCTION public.get_receipt_public(p_receipt_number text)
- RETURNS json
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
--- 20260911191659_d75d2561...sql
-GRANT EXECUTE ON FUNCTION public.get_receipt_public(text) TO service_role;
--- 20260911191734_4f2cad86...sql
-CREATE OR REPLACE FUNCTION public.get_receipt_public(p_receipt_number text)
- RETURNS json
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
--- 20260914142725_5fb3f278...sql
-CREATE OR REPLACE FUNCTION public.next_org_quote_number(p_org_id uuid)
-RETURNS text
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
--- 20260914142739_50d19824...sql
-REVOKE EXECUTE ON FUNCTION public.next_org_quote_number(uuid) FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.set_quote_number() FROM anon, authenticated;
--- 20260914142808_8019a507...sql
-ALTER TABLE public.quotes DROP CONSTRAINT IF EXISTS quotes_quote_number_key;
-CREATE UNIQUE INDEX IF NOT EXISTS quotes_org_quote_number_key
-  ON public.quotes (organisation_id, quote_number);
--- 20260914142816_59f0140f...sql
-UPDATE public.quotes
-SET quote_number = 'Q-2026-0001'
-WHERE organisation_id = 'c0aa41ac-41ab-42d8-8085-972c072b0279'
-  AND quote_number = 'Q-2026-0170';
--- 20260914143023_364bfb3c...sql
-CREATE OR REPLACE FUNCTION public.get_quote_by_number(p_quote_number text)
-RETURNS json
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path TO 'public'
--- 20260914143851_fe799629...sql
-CREATE UNIQUE INDEX IF NOT EXISTS organisations_public_domain_unique
-  ON public.organisations (lower(public_domain))
-  WHERE public_domain IS NOT NULL;
--- 20260914144314_5fd7f1ed...sql
-CREATE POLICY "Superadmins can update organisations"
-ON public.organisations
-FOR UPDATE
-TO authenticated
-USING (
-```
-
-The remaining 141 filenames were listed in raw command output; the full first-5-lines dump for all 151 files was not included here for length. Say the word and I will emit it in batches.
+Nothing was changed. Next step, on your word: turn §4 and §5 into a single scoped P1 provisioning change, one concern at a time.
