@@ -936,51 +936,193 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Step 5c: seed tenant_integrations rows
-  // so WhatsApp + Tally work out of the box
+  // Step 5c: seed tenant_integrations placeholders — one row per type, created
+  // only when absent so a re-run never duplicates them. No credential value is
+  // ever copied from another tenant: WhatsApp/payment keys stay empty until the
+  // tenant's own secret is configured, and the webhook secret is freshly
+  // generated for this tenant alone.
   const {
-    error: tiErr,
+    data: existingIntegrations,
   } = await supabase
     .from("tenant_integrations")
-    .insert([
-      {
-        organisation_id:
-          newOrgId,
-        integration_type:
-          "360messenger",
-        config: {
-          api_key_secret:
-            resolvedApiKeySecret,
-          company_name,
-          company_phone,
-          country_code:
-            resolvedCountryCode,
-          waba_id:
-            waba_id ?? null,
-        },
-      },
-      {
-        organisation_id:
-          newOrgId,
-        integration_type:
-          "tally",
-        config: {},
-      },
-    ]);
+    .select(
+      "integration_type"
+    )
+    .eq(
+      "organisation_id",
+      newOrgId
+    );
 
-  if (tiErr) {
+  const haveTypes = new Set(
+    (
+      existingIntegrations ??
+      []
+    ).map(
+      (r: any) =>
+        r.integration_type
+    )
+  );
+
+  const integrationRows = [
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "360messenger",
+      config: {
+        api_key_secret:
+          resolvedApiKeySecret,
+        company_name,
+        company_phone,
+        country_code:
+          resolvedCountryCode,
+        waba_id:
+          waba_id ?? null,
+      },
+    },
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "tally",
+      config: {
+        webhook_secret:
+          generateWebhookSecret(),
+      },
+    },
+    {
+      organisation_id:
+        newOrgId,
+      integration_type:
+        "sumup",
+      config:
+        defaultPaymentPlaceholder(),
+    },
+  ].filter(
+    (r) =>
+      !haveTypes.has(
+        r.integration_type
+      )
+  );
+
+  if (
+    integrationRows.length > 0
+  ) {
+    const {
+      error: tiErr,
+    } = await supabase
+      .from(
+        "tenant_integrations"
+      )
+      .insert(
+        integrationRows
+      );
+
+    if (tiErr) {
+      await logFailure(
+        "step 5c",
+        tiErr.message
+      );
+
+      return json(
+        {
+          error:
+            "provision_failed",
+          step: "5c",
+          detail:
+            tiErr.message,
+        },
+        500
+      );
+    }
+  }
+
+  // Step 5d: default job/product categories (names only, no prices).
+  const {
+    data: existingCategories,
+  } = await supabase
+    .from("categories")
+    .select("name")
+    .eq(
+      "organisation_id",
+      newOrgId
+    );
+
+  const haveCategories =
+    new Set(
+      (
+        existingCategories ??
+        []
+      ).map((r: any) =>
+        String(r.name)
+          .trim()
+          .toLowerCase()
+      )
+    );
+
+  const categoryRows =
+    DEFAULT_CATEGORIES.filter(
+      (name) =>
+        !haveCategories.has(
+          name.toLowerCase()
+        )
+    ).map((name) => ({
+      organisation_id:
+        newOrgId,
+      name,
+    }));
+
+  if (categoryRows.length > 0) {
+    const {
+      error: catErr,
+    } = await supabase
+      .from("categories")
+      .insert(categoryRows);
+
+    if (catErr) {
+      await logFailure(
+        "step 5d",
+        catErr.message
+      );
+
+      return json(
+        {
+          error:
+            "provision_failed",
+          step: "5d",
+          detail:
+            catErr.message,
+        },
+        500
+      );
+    }
+  }
+
+  // Step 6e: stamp the configuration version. Only newly provisioned tenants
+  // reach this line; existing tenants are never backfilled.
+  const {
+    error: versionErr,
+  } = await supabase
+    .from("organisations")
+    .update({
+      tenant_config_version:
+        TENANT_CONFIG_VERSION,
+    })
+    .eq("id", newOrgId);
+
+  if (versionErr) {
     await logFailure(
-      "step 5c",
-      tiErr.message
+      "step 6e",
+      versionErr.message
     );
 
     return json(
       {
         error:
           "provision_failed",
-        step: "5c",
+        step: "6e",
         detail:
-          tiErr.message,
+          versionErr.message,
       },
       500
     );
@@ -994,5 +1136,20 @@ Deno.serve(async (req) => {
     org_slug: finalSlug,
     invited_email:
       owner_email,
+    public_domain:
+      resolvedDomain,
+    tenant_config_version:
+      TENANT_CONFIG_VERSION,
+    defaults_applied: {
+      settings: !existingSettings,
+      branding: !existingBrand,
+      categories:
+        categoryRows.length,
+      integrations:
+        integrationRows.map(
+          (r) =>
+            r.integration_type
+        ),
+    },
   });
 });
