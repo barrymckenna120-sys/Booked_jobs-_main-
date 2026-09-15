@@ -19,4 +19,11 @@
 - [x] Fully paid presentation — settled jobs no longer show historical deposit wording; genuine partial deposits keep their deposit and balance labels.
 - [x] Finance Sales search — customer, job reference, receipt and invoice matching; contextual no-results state; direct receipt action on Office job details.
 - [x] Receipt PDF download — iOS-safe immediate loading route, bounded weak-network handling, secure public receipt resolution, and tenant-isolation verification for K&N and Dublin Gas.
-- [ ] Tenant initialisation v1 — product-owned `_shared/tenantDefaults.ts`, `organisations.tenant_config_version` (existing tenants stay 0), idempotent provisioning of approved BookedJobs defaults in `provision-tenant`. No K&N runtime source, no existing-tenant backfill.
+- [x] Tenant initialisation v1 — product-owned `_shared/tenantDefaults.ts`, `organisations.tenant_config_version` (existing tenants stay 0), idempotent provisioning of approved BookedJobs defaults in `provision-tenant`. No K&N runtime source, no existing-tenant backfill.
+
+- [x] Tenant initialisation v1 clean-tenant E2E — fresh tenant provisioned (Ennis Test Gas): blank public web address, empty service areas, config version 1, 6 categories, branding, 3 integrations, settings defaults. Job completion, certificate draft, renewal date, isolation (both directions) and re-run safety verified.
+- [ ] BJ — Welcome tour hardcodes "Karl's Gas" (src/components/OnboardingTour.tsx:144); parameterise per tenant.
+- [ ] BJ — Area-code/Eircode validation rejects F-prefix routing keys (AREA_CODE_RE in src/lib/customerValidation.ts); needs Irish routing-key review.
+- [ ] BJ — WhatsApp/SumUp "not configured" errors surface raw technical text; replace with "WhatsApp is not connected for this company" style copy.
+- [ ] BJ — Certificate form does not prefill the tenant's RGI number from settings (blank on new tenant cert).
+- [ ] BJ — No tenant health-check/validation tool exists yet (P2 from provisioning audit).
