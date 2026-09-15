@@ -768,44 +768,62 @@ Deno.serve(async (req) => {
 
 
 
-  // Step 4: settings upsert
-  // (user may already have a settings row from a prior org)
+  // Step 4: settings upsert — company identity always, product defaults only on
+  // first creation so a re-run never overwrites values the tenant has edited.
+  const {
+    data: existingSettings,
+  } = await supabase
+    .from("settings")
+    .select("id")
+    .eq("user_id", newUserId)
+    .maybeSingle();
+
+  const identityFields = {
+    organisation_id: newOrgId,
+    user_id: newUserId,
+    company_name,
+    company_phone,
+    business_name:
+      company_name,
+    business_phone:
+      company_phone,
+    business_address:
+      addressPart || null,
+    business_email:
+      (business_email ?? "")
+        .toString()
+        .trim() || null,
+    rgi_number:
+      (rgi_number ?? "")
+        .toString()
+        .trim() || null,
+    message_footer,
+    owner_name,
+    cert_prefix: derivePrefix(
+      finalSlug,
+      2
+    ),
+  };
+
+  const settingsPayload =
+    existingSettings
+      ? identityFields
+      : {
+        ...identityFields,
+        ...DEFAULT_SETTINGS,
+        invoice_prefix:
+          derivePrefix(
+            finalSlug,
+            1
+          ),
+      };
+
   const {
     error: settingsErr,
   } = await supabase
     .from("settings")
     .upsert(
-      {
-        organisation_id:
-          newOrgId,
-        user_id: newUserId,
-        company_name,
-        company_phone,
-        business_name:
-          company_name,
-        business_phone:
-          company_phone,
-        business_address:
-          addressPart || null,
-        business_email:
-          (
-            business_email ?? ""
-          )
-            .toString()
-            .trim() || null,
-        rgi_number:
-          (
-            rgi_number ?? ""
-          )
-            .toString()
-            .trim() || null,
-        message_footer,
-        owner_name,
-        cert_prefix:
-          finalSlug
-            .slice(0, 2)
-            .toUpperCase(),
-      },
+      settingsPayload,
       {
         onConflict:
           "user_id",
