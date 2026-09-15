@@ -8,7 +8,7 @@ import {
   DEFAULT_TERMS,
   defaultPaymentPlaceholder,
   derivePrefix,
-  derivePublicDomain,
+  generateWebhookSecret,
   generateWebhookSecret,
   TENANT_CONFIG_VERSION,
 } from "../../../supabase/functions/_shared/tenantDefaults.ts";
