@@ -7,7 +7,7 @@ import {
   DEFAULT_SETTINGS,
   defaultPaymentPlaceholder,
   derivePrefix,
-  derivePublicDomain,
+  generateWebhookSecret,
   generateWebhookSecret,
   TENANT_CONFIG_VERSION,
 } from "../_shared/tenantDefaults.ts";
