@@ -345,31 +345,14 @@ Deno.serve(async (req) => {
   }
 
   // Step 3: insert organisation.
-  // The public web address is DERIVED from this tenant's own slug — never copied
-  // from another tenant. If that address is already taken we leave it blank so
-  // the tenant-specific value can be entered later.
-  const candidateDomain =
-    derivePublicDomain(finalSlug);
+  // The public web address is deliberately left BLANK at provisioning time.
+  // BookedJobs has no wildcard DNS for <slug>.bookedjobs.ie, so deriving one
+  // here produced customer-facing links on a hostname that does not resolve.
+  // Public links therefore fall back to the platform's own working app host
+  // (see _shared/platformPublicUrl.ts) until a real tenant domain is connected
+  // and verified, at which point it can be stored in public_domain.
+  const resolvedDomain: string | null = null;
 
-  let resolvedDomain:
-    | string
-    | null = null;
-
-  if (candidateDomain) {
-    const { data: domainTaken } =
-      await supabase
-        .from("organisations")
-        .select("id")
-        .eq(
-          "public_domain",
-          candidateDomain
-        )
-        .maybeSingle();
-
-    if (!domainTaken)
-      resolvedDomain =
-        candidateDomain;
-  }
 
   const {
     data: org,
