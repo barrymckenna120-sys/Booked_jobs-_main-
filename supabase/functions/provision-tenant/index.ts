@@ -848,15 +848,29 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Step 5: brand_settings insert
+  // Step 5: brand_settings — real product defaults, created once.
   const {
-    error: brandErr,
+    data: existingBrand,
   } = await supabase
     .from("brand_settings")
-    .insert({
-      organisation_id:
-        newOrgId,
-    });
+    .select("id")
+    .eq(
+      "organisation_id",
+      newOrgId
+    )
+    .maybeSingle();
+
+  const {
+    error: brandErr,
+  } = existingBrand
+    ? { error: null }
+    : await supabase
+      .from("brand_settings")
+      .insert({
+        organisation_id:
+          newOrgId,
+        ...DEFAULT_BRAND_SETTINGS,
+      });
 
   if (brandErr) {
     await logFailure(
