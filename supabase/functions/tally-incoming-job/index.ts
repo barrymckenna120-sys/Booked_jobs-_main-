@@ -487,6 +487,7 @@ Deno.serve(async (req) => {
       // tally_submission_id will reject the second one (Postgres 23505).
       // Re-query and return the existing row so the caller sees success.
       if (submissionId && (jobErr as { code?: string } | null)?.code === "23505") {
+        // Same-tenant race: return the row that won.
         const { data: raceRow } = await supabase
           .from("service_calls")
           .select("id, customer_id, job_reference")
@@ -512,6 +513,17 @@ Deno.serve(async (req) => {
             },
           );
         }
+        // The submission id is already used by a job under a DIFFERENT tenant
+        // (a replay of an older submission). Acknowledge it instead of looking
+        // like a server fault; no job details are disclosed.
+        await logSubmission("duplicate", { replay_of_other_tenant: true });
+        return new Response(
+          JSON.stringify({ success: true, duplicate: true, already_received: true }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       console.error("Job creation failed:", jobErr);
       await logSubmission("failed", { error: (jobErr as { message?: string } | null)?.message ?? null });
