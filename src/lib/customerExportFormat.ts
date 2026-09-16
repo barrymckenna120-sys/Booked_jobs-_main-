@@ -86,3 +86,186 @@ export const formatBoilerMakeModel = (
   if (combined) return combined;
   return [cleanText(brand), cleanText(model)].filter(Boolean).join(" ");
 };
+
+/** Yes / No / blank for nullable booleans. */
+export const formatBooleanForExport = (raw: unknown): string =>
+  raw === true ? "Yes" : raw === false ? "No" : "";
+
+/** Numbers exported as plain text, blank when absent. */
+export const formatNumberForExport = (raw: unknown): string =>
+  raw === null || raw === undefined || raw === "" ? "" : String(raw);
+
+const RENEWAL_STAGE_LABELS: Record<string, string> = {
+  not_contacted: "Not Contacted",
+  reminded: "Reminded",
+  confirmed: "Confirmed",
+  booked: "Booked In",
+  paid: "Paid",
+};
+
+/** Renewal stage uses the same labels as the Customer Profile dropdown. */
+export const formatRenewalStageForExport = (raw: unknown): string => {
+  const v = cleanText(raw);
+  if (!v) return "";
+  return RENEWAL_STAGE_LABELS[v.toLowerCase()] || v;
+};
+
+/**
+ * Warranty expiry mirrors the Customer Profile: installation date + warranty
+ * years. The stored warranty_expiry_date column is used only as a fallback when
+ * nothing can be derived, so the export can never contradict the profile.
+ */
+export const deriveWarrantyExpiry = (
+  installationDate: unknown,
+  warrantyYears: unknown,
+  storedExpiry?: unknown,
+): string => {
+  const install = formatDateForExport(installationDate);
+  const years = typeof warrantyYears === "number" ? warrantyYears : Number(warrantyYears);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(install) && Number.isFinite(years)) {
+    const d = new Date(`${install}T12:00:00`);
+    d.setFullYear(d.getFullYear() + years);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  return formatDateForExport(storedExpiry);
+};
+
+/**
+ * Warranty status uses the existing BookedJobs rule (Customer Profile and
+ * Warranty Tracker): expired when the expiry has passed, "Expiring Soon" within
+ * 90 days, otherwise "Under Warranty". Blank when no expiry can be established.
+ */
+export const deriveWarrantyStatus = (expiry: string, today = new Date()): string => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return "";
+  const expiryDate = new Date(`${expiry}T12:00:00`);
+  const now = new Date(today);
+  now.setHours(0, 0, 0, 0);
+  if (expiryDate < now) return "Expired";
+  const days = (expiryDate.getTime() - now.getTime()) / 86_400_000;
+  return days <= 90 ? "Expiring Soon" : "Under Warranty";
+};
+
+/** Column order of the customer export. Preview and Excel both use this. */
+export const EXPORT_COLUMNS = [
+  "Customer Name",
+  "Mobile Number",
+  "Landline",
+  "Email",
+  "Address",
+  "Eircode",
+  "Area Code",
+  "GPRN",
+  "Owner or Tenant",
+  "Customer Type",
+  "Opted Out of Reminders",
+  "WhatsApp Reminders",
+  "WhatsApp Opt-In",
+  "Reminders Consent",
+  "Boiler Brand",
+  "Boiler Model",
+  "Boiler Make / Model",
+  "Boiler Location",
+  "Boiler Type",
+  "Installation Date",
+  "Boiler Age",
+  "Warranty Years",
+  "Warranty Expiry Date",
+  "Warranty Status",
+  "Under Warranty",
+  "Access Notes",
+  "Last Service Date",
+  "Last Service Engineer",
+  "Engineer Notes",
+  "Next Service Due",
+  "Scheduled Service Date",
+  "Last Reminder Sent",
+  "Service Status",
+  "Renewal Stage",
+  "Assigned Engineer",
+  "Customer Notes",
+  "Source",
+  "Job Tag",
+  "Job Tag Date",
+  "Customer Since",
+] as const;
+
+export type ExportColumn = (typeof EXPORT_COLUMNS)[number];
+export type ExportRow = Record<ExportColumn, string>;
+
+/** Columns that must be written as Excel text cells (identifiers). */
+export const TEXT_EXPORT_COLUMNS: ExportColumn[] = [
+  "Mobile Number",
+  "Landline",
+  "Eircode",
+  "Area Code",
+  "GPRN",
+];
+
+/**
+ * The single canonical row builder. One customer = one row. No job, payment or
+ * message-history lookups — every value comes from the customer record itself
+ * or from the derived warranty helpers above.
+ */
+export const buildExportRows = (customers: any[]): ExportRow[] =>
+  customers.map((c) => {
+    const expiry = deriveWarrantyExpiry(
+      c.boiler_installation_date,
+      c.warranty_years,
+      c.warranty_expiry_date,
+    );
+    return {
+      "Customer Name": cleanText(c.name),
+      "Mobile Number": formatPhoneForExport(c.phone),
+      "Landline": formatPhoneForExport(c.landline_phone),
+      "Email": cleanText(c.email),
+      "Address": cleanText(c.address),
+      "Eircode": formatEircodeForExport(c.eircode),
+      "Area Code": formatAreaCodeForExport(c.area_code),
+      "GPRN": formatIdentifierForExport(c.gprn),
+      "Owner or Tenant": cleanText(c.owner_or_tenant),
+      "Customer Type": cleanText(c.customer_type),
+      "Opted Out of Reminders": formatBooleanForExport(c.opted_out),
+      "WhatsApp Reminders": formatBooleanForExport(c.whatsapp_reminders_enabled),
+      "WhatsApp Opt-In": formatBooleanForExport(c.whatsapp_opt_in),
+      "Reminders Consent": formatBooleanForExport(c.reminders_consent),
+      "Boiler Brand": cleanText(c.boiler_brand),
+      "Boiler Model": cleanText(c.boiler_model),
+      "Boiler Make / Model": formatBoilerMakeModel(c.boiler_make_model, c.boiler_brand, c.boiler_model),
+      "Boiler Location": cleanText(c.boiler_location),
+      "Boiler Type": cleanText(c.boiler_type),
+      "Installation Date": formatDateForExport(c.boiler_installation_date),
+      "Boiler Age": formatNumberForExport(c.boiler_age),
+      "Warranty Years": formatNumberForExport(c.warranty_years),
+      "Warranty Expiry Date": expiry,
+      "Warranty Status": deriveWarrantyStatus(expiry),
+      "Under Warranty": formatBooleanForExport(c.under_warranty),
+      "Access Notes": cleanText(c.access_notes),
+      "Last Service Date": formatDateForExport(c.last_service_date),
+      "Last Service Engineer": cleanText(c.last_service_engineer),
+      "Engineer Notes": cleanText(c.engineer_notes),
+      "Next Service Due": formatDateForExport(c.next_service_due),
+      "Scheduled Service Date": formatDateForExport(c.scheduled_service_date),
+      "Last Reminder Sent": formatDateForExport(c.last_reminder_sent),
+      "Service Status": formatServiceStatusForExport(c.service_status),
+      "Renewal Stage": formatRenewalStageForExport(c.renewal_stage),
+      "Assigned Engineer": cleanText(c.assigned_engineer),
+      "Customer Notes": cleanText(c.notes),
+      "Source": cleanText(c.source),
+      "Job Tag": cleanText(c.job_tag),
+      "Job Tag Date": formatDateForExport(c.job_tag_date),
+      "Customer Since": formatDateForExport(c.customer_since),
+    };
+  });
+
+/** Customer columns the export reads — keeps the selection query light. */
+export const EXPORT_SELECT_COLUMNS = [
+  "id", "name", "phone", "landline_phone", "email", "address", "eircode", "area_code",
+  "gprn", "owner_or_tenant", "customer_type", "opted_out", "whatsapp_reminders_enabled",
+  "whatsapp_opt_in", "reminders_consent", "boiler_brand", "boiler_model", "boiler_make_model",
+  "boiler_location", "boiler_type", "boiler_installation_date", "boiler_age", "warranty_years",
+  "warranty_expiry_date", "under_warranty", "access_notes", "last_service_date",
+  "last_service_engineer", "engineer_notes", "next_service_due", "scheduled_service_date",
+  "last_reminder_sent", "service_status", "renewal_stage", "assigned_engineer", "notes",
+  "source", "job_tag", "job_tag_date", "customer_since",
+].join(", ");
