@@ -58,29 +58,25 @@ export default defineConfig(({ mode }) => ({
 
         navigateFallback: "/index.html",
 
+        // Every route in this app is client-side (React Router). The only paths
+        // that must never be answered with the app shell are the ones served by
+        // something other than the SPA: the Supabase/Lovable API prefixes, the
+        // OAuth consent handler, and static files under /public. Previously the
+        // real app routes (including "/", the PWA start_url) were denied here,
+        // so an offline or stalled navigation was never served the precached
+        // shell — it went to the network and hung. That was the reported
+        // "5G but no internet, app never loads" failure.
         navigateFallbackAllowlist: [
-          /^\/(?!rest|functions|~oauth|storage|realtime|sw\.js|firebase-messaging-sw\.js|assets|icons|manifest\.json|offline\.html|robots\.txt|placeholder\.svg).*/,
+          /^\/(?!rest|functions|~oauth|\.lovable|storage|realtime|sw\.js|firebase-messaging-sw\.js|assets|icons|images|manifest\.json|offline\.html|landing-page\.html|robots\.txt|sitemap\.xml|placeholder\.svg|favicon\.ico).*/,
         ],
 
         navigateFallbackDenylist: [
           /^\/rest/,
           /^\/functions/,
           /^\/~oauth/,
+          /^\/\.lovable/,
           /^\/storage/,
           /^\/realtime/,
-          /^\/$/,
-          /^\/auth/,
-          /^\/engineer/,
-          /^\/dashboard/,
-          /^\/admin/,
-          /^\/jobs/,
-          /^\/customers/,
-          /^\/certificates/,
-          /^\/reset-password/,
-          /^\/reset-admin/,
-          /^\/quote/,
-          /^\/pdf/,
-          /^\/b/,
         ],
 
         runtimeCaching: [
@@ -92,21 +88,9 @@ export default defineConfig(({ mode }) => ({
                 /^\/rest/,
                 /^\/functions/,
                 /^\/~oauth/,
+                /^\/\.lovable/,
                 /^\/storage/,
                 /^\/realtime/,
-                /^\/$/,
-                /^\/auth/,
-                /^\/engineer/,
-                /^\/dashboard/,
-                /^\/admin/,
-                /^\/jobs/,
-                /^\/customers/,
-                /^\/certificates/,
-                /^\/reset-password/,
-                /^\/reset-admin/,
-                /^\/quote/,
-                /^\/pdf/,
-                /^\/b/,
               ];
 
               return !denied.some((re) => re.test(url.pathname));
@@ -116,7 +100,10 @@ export default defineConfig(({ mode }) => ({
 
             options: {
               cacheName: "html",
-              networkTimeoutSeconds: 15,
+              // A cellular connection that shows full bars but passes no
+              // traffic makes fetch hang until the OS gives up. Fall back to
+              // the cached shell quickly instead of showing a blank screen.
+              networkTimeoutSeconds: 4,
             },
           },
 
