@@ -29,6 +29,7 @@ import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
+import { buildCustomerSinceDate } from "@/lib/customerSinceDate";
 
 import {
   validateRequired, validatePhone, validatePhoneLegacyShape, validateLandline, validateEircode, validateAreaCode,
@@ -827,13 +828,8 @@ const CustomerDetail = () => {
                 const selMonth = existing[1] ? String(parseInt(existing[1])) : "";
                 const selDay = existing[2] ? String(parseInt(existing[2])) : "";
 
-                const buildCsDate = (y: string, m: string, d: string) => {
-                  if (!y || !m) return null;
-                  const dayVal = d || "1";
-                  const monthStr = m.padStart(2, "0");
-                  const dayStr = String(dayVal).padStart(2, "0");
-                  return `${y}-${monthStr}-${dayStr}`;
-                };
+                const buildCsDate = buildCustomerSinceDate;
+
 
                 return (
                   <div className="flex gap-2">
