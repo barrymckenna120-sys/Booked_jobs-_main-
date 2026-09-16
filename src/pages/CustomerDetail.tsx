@@ -29,6 +29,7 @@ import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
+import { buildCustomerSinceDate } from "@/lib/customerSinceDate";
 
 import {
   validateRequired, validatePhone, validatePhoneLegacyShape, validateLandline, validateEircode, validateAreaCode,
