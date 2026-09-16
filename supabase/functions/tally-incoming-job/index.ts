@@ -6,6 +6,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
+import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
 
 
 const MAX_NAME_LEN = 200;
@@ -412,6 +413,43 @@ Deno.serve(async (req) => {
       afternoon: "Afternoon",
     };
     const timeBlock = timeBlockMap[(preferredTime ?? "").toLowerCase()] ?? preferredTime ?? null;
+
+    // BJ-0132 — content-level de-duplication. The sender can deliver the same
+    // booking twice, milliseconds apart, with a DIFFERENT submission id each
+    // time, so the submission-id guard above cannot catch it. Claim the booking
+    // fingerprint atomically; the losing copy returns the existing job.
+    const claim = await claimBookingIntake(
+      supabase,
+      orgData.id,
+      {
+        phone: mobileNumber ?? normalisedPhone,
+        jobType: "Boiler Service",
+        address: fullAddress ?? "",
+        scheduledDate: preferredDay ?? null,
+        timeBlock,
+      },
+      "tally-incoming-job",
+    );
+
+    if (claim.outcome === "duplicate") {
+      console.log("[tally-incoming-job] duplicate booking content:", claim.fingerprint);
+      await logSubmission("duplicate", {
+        duplicate_kind: "content_fingerprint",
+        job_id: claim.existingServiceCallId,
+      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          id: claim.existingServiceCallId,
+          customer_id: customerId,
+          duplicate: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     // Create service call
     const { data: job, error: jobErr } = await supabase
