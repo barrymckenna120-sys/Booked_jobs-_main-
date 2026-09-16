@@ -3,7 +3,8 @@ import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { isMachineCaller } from "../_shared/machineAuth.ts";
+import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
+import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 
 
@@ -264,6 +265,25 @@ Deno.serve(async (req) => {
       };
     })();
 
+    // How this submission was bound to a tenant (recorded only, nothing enforced
+    // here). Makes unauthenticated "self-declared organisation" arrivals visible.
+    const bindingDiagnostics = describeOrgBinding({
+      via: bound.via,
+      resolvedOrgId: orgData.id,
+      claimedOrgId,
+      secretHeaderPresent: providedSecret(req).length > 0,
+      sharedSecretPresent: hasSharedSecret(req),
+      bearerPresent: bearerToken(req).length > 0,
+      submittedFormId: sanitize(body.formId, MAX_SHORT_LEN) ?? sanitize(body.form_id, MAX_SHORT_LEN) ?? null,
+    });
+    if (bindingDiagnostics.org_binding_is_fallback) {
+      console.warn(
+        `tally-incoming-job: UNAUTHENTICATED tenant binding — stored under ${orgData.id} ` +
+          `on the sender's own claim (${bindingDiagnostics.org_binding_fallback_reason}). ` +
+          `This sender must present its own tenant webhook secret.`,
+      );
+    }
+
     // Audit trail: every submission records its id, arrival time, and outcome.
     const logSubmission = async (
       outcome: "created" | "duplicate" | "failed",
@@ -280,6 +300,7 @@ Deno.serve(async (req) => {
             created_job: outcome === "created",
             rejected_as_duplicate: outcome === "duplicate",
             ...submittedDayDiagnostics,
+            ...bindingDiagnostics,
             ...extra,
           },
         });

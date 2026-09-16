@@ -3,7 +3,8 @@ import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normalisePhoneE164 } from "../_shared/phone.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { isMachineCaller } from "../_shared/machineAuth.ts";
+import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
+import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 
 
@@ -94,6 +95,39 @@ Deno.serve(async (req) => {
       return bound.response;
     }
     const organisation_id = bound.orgId;
+
+    // Record how this rebooking was bound to a tenant (recorded only, nothing
+    // enforced here) so unauthenticated self-declared arrivals are visible.
+    const bindingDiagnostics = describeOrgBinding({
+      via: bound.via,
+      resolvedOrgId: organisation_id,
+      claimedOrgId: typeof claimedOrganisationId === "string" ? claimedOrganisationId : null,
+      secretHeaderPresent: providedSecret(req).length > 0,
+      sharedSecretPresent: hasSharedSecret(req),
+      bearerPresent: bearerToken(req).length > 0,
+      submittedFormId: (body as any)?.formId ?? (body as any)?.form_id ?? null,
+    });
+    if (bindingDiagnostics.org_binding_is_fallback) {
+      console.warn(
+        `tally-boiler-rebook: UNAUTHENTICATED tenant binding — stored under ${organisation_id} ` +
+          `on the sender's own claim (${bindingDiagnostics.org_binding_fallback_reason}). ` +
+          `This sender must present its own tenant webhook secret.`,
+      );
+    }
+    try {
+      await supabase.from("debug_logs").insert({
+        organisation_id,
+        event: "tally_rebook_submission",
+        payload: {
+          tally_submission_id:
+            (typeof tally_submission_id === "string" && tally_submission_id.trim()) || null,
+          received_at: new Date().toISOString(),
+          ...bindingDiagnostics,
+        },
+      });
+    } catch (logErr) {
+      console.error("[tally-boiler-rebook] audit log failed", logErr);
+    }
 
     if (!phone || !organisation_id) {
       await logInvocation(supabase, body, organisation_id ?? null, "bad_request_missing_fields");
