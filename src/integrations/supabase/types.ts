@@ -1016,6 +1016,7 @@ export type Database = {
           error_message: string
           function_name: string
           id: string
+          organisation_id: string | null
           payload: Json | null
         }
         Insert: {
@@ -1023,6 +1024,7 @@ export type Database = {
           error_message: string
           function_name: string
           id?: string
+          organisation_id?: string | null
           payload?: Json | null
         }
         Update: {
@@ -1030,9 +1032,18 @@ export type Database = {
           error_message?: string
           function_name?: string
           id?: string
+          organisation_id?: string | null
           payload?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "edge_function_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_log: {
         Row: {
