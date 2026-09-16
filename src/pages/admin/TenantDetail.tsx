@@ -29,6 +29,7 @@ import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/Admin
 import { normalisePublicDomain, publicDomainSaveError } from "@/lib/publicDomain";
 import {
   ArrowLeft,
+  Copy,
   Loader2,
   Mail,
   Pencil,
@@ -119,6 +120,8 @@ export default function TenantDetail() {
   const [editActive, setEditActive] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Superadmin-only reveal of masked config values (e.g. webhook secrets).
+  const [revealedId, setRevealedId] = useState<string | null>(null);
 
   // Add integration
   const [addOpen, setAddOpen] = useState(false);
@@ -915,6 +918,19 @@ export default function TenantDetail() {
                       </div>
                       {!isEditing ? (
                         <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setRevealedId(revealedId === i.id ? null : i.id)
+                            }
+                          >
+                            {revealedId === i.id ? (
+                              "Hide values"
+                            ) : (
+                              "Reveal values"
+                            )}
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
                             <Pencil className="mr-1 h-3 w-3" /> Edit
                           </Button>
@@ -981,10 +997,27 @@ export default function TenantDetail() {
                           <p className="text-muted-foreground italic">No config</p>
                         ) : (
                           Object.entries(i.config ?? {}).map(([k, v]) => (
-                            <div key={k} className="flex gap-3">
+                            <div key={k} className="flex gap-3 items-start">
                               <div className="text-muted-foreground min-w-[140px]">{k}</div>
-                              <div className="font-mono text-xs break-all">
-                                {maskValue(k, v)}
+                              <div className="font-mono text-xs break-all flex items-start gap-1">
+                                {revealedId === i.id ? String(v) : maskValue(k, v)}
+                                {revealedId === i.id && v != null && typeof v === "string" && (
+                                  <button
+                                    type="button"
+                                    aria-label={`Copy ${k}`}
+                                    className="ml-1 text-muted-foreground hover:text-foreground"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(v);
+                                        toast.success("Copied to clipboard");
+                                      } catch (_e) {
+                                        toast.error("Copy failed — select the text manually");
+                                      }
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))
