@@ -6,6 +6,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
+import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
 
 
 // Phone helpers now live in ../_shared/phone.ts so other inbound handlers
@@ -217,6 +218,47 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: false, reason: "not_found" }),
         {
           status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // BJ-0132 — content-level de-duplication. The sender can deliver the same
+    // rebooking twice, milliseconds apart, with a DIFFERENT submission id each
+    // time, so the submission-id guard above cannot catch it.
+    const { data: fingerprintCustomer } = await supabase
+      .from("customers")
+      .select("address")
+      .eq("id", matchedCustomer.id)
+      .eq("organisation_id", organisation_id)
+      .maybeSingle();
+    const fingerprintAddress =
+      (fingerprintCustomer as { address?: string } | null)?.address ?? "";
+
+    const claim = await claimBookingIntake(
+      supabase,
+      organisation_id,
+      {
+        phone: normalisedPhone,
+        jobType: "Boiler Service",
+        address: fingerprintAddress,
+        scheduledDate: preferred_date || null,
+        timeBlock: preferred_time || null,
+      },
+      "tally-boiler-rebook",
+    );
+
+    if (claim.outcome === "duplicate") {
+      await logInvocation(supabase, body, organisation_id, "duplicate_content_fingerprint");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          job_id: claim.existingServiceCallId,
+          customer_id: matchedCustomer.id,
+          duplicate: true,
+        }),
+        {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
