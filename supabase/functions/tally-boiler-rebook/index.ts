@@ -6,6 +6,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
+import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
 
 
 // Phone helpers now live in ../_shared/phone.ts so other inbound handlers
@@ -222,6 +223,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // BJ-0132 — content-level de-duplication. The sender can deliver the same
+    // rebooking twice, milliseconds apart, with a DIFFERENT submission id each
+    // time, so the submission-id guard above cannot catch it.
+    const { data: fingerprintCustomer } = await supabase
+      .from("customers")
+      .select("address")
+      .eq("id", matchedCustomer.id)
+      .eq("organisation_id", organisation_id)
+      .maybeSingle();
+    const fingerprintAddress =
+      (fingerprintCustomer as { address?: string } | null)?.address ?? "";
+
+    const claim = await claimBookingIntake(
+      supabase,
+      organisation_id,
+      {
+        phone: normalisedPhone,
+        jobType: "Boiler Service",
+        address: fingerprintAddress,
+        scheduledDate: preferred_date || null,
+        timeBlock: preferred_time || null,
+      },
+      "tally-boiler-rebook",
+    );
+
+    if (claim.outcome === "duplicate") {
+      await logInvocation(supabase, body, organisation_id, "duplicate_content_fingerprint");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          job_id: claim.existingServiceCallId,
+          customer_id: matchedCustomer.id,
+          duplicate: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     // Create service call
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
@@ -264,6 +306,16 @@ Deno.serve(async (req) => {
             },
           );
         }
+        // Submission id already used by a job under a DIFFERENT tenant (replay
+        // of an older submission) — acknowledge rather than report a fault.
+        await logInvocation(supabase, body, organisation_id, "duplicate_submission_other_tenant");
+        return new Response(
+          JSON.stringify({ success: true, duplicate: true, already_received: true }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       console.error("Job creation error:", jobErr);
       await logInvocation(
@@ -277,6 +329,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Point the fingerprint claim at the job it produced.
+    if (claim.outcome === "claimed") {
+      await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-boiler-rebook");
+    }
+
 
     // Update customer next_service_due and advance renewal_stage
     const customerUpdate: Record<string, string> = {

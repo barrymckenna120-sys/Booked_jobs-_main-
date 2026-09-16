@@ -102,6 +102,30 @@ export type Database = {
           },
         ]
       }
+      booking_intake_claims: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          id: string
+          organisation_id: string
+          service_call_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          id?: string
+          organisation_id: string
+          service_call_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          organisation_id?: string
+          service_call_id?: string | null
+        }
+        Relationships: []
+      }
       booking_links: {
         Row: {
           created_at: string

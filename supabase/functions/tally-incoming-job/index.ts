@@ -6,6 +6,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
+import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
 
 
 const MAX_NAME_LEN = 200;
@@ -413,6 +414,43 @@ Deno.serve(async (req) => {
     };
     const timeBlock = timeBlockMap[(preferredTime ?? "").toLowerCase()] ?? preferredTime ?? null;
 
+    // BJ-0132 — content-level de-duplication. The sender can deliver the same
+    // booking twice, milliseconds apart, with a DIFFERENT submission id each
+    // time, so the submission-id guard above cannot catch it. Claim the booking
+    // fingerprint atomically; the losing copy returns the existing job.
+    const claim = await claimBookingIntake(
+      supabase,
+      orgData.id,
+      {
+        phone: mobileNumber ?? normalisedPhone,
+        jobType: "Boiler Service",
+        address: fullAddress ?? "",
+        scheduledDate: preferredDay ?? null,
+        timeBlock,
+      },
+      "tally-incoming-job",
+    );
+
+    if (claim.outcome === "duplicate") {
+      console.log("[tally-incoming-job] duplicate booking content:", claim.fingerprint);
+      await logSubmission("duplicate", {
+        duplicate_kind: "content_fingerprint",
+        job_id: claim.existingServiceCallId,
+      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          id: claim.existingServiceCallId,
+          customer_id: customerId,
+          duplicate: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     // Create service call
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
@@ -449,6 +487,7 @@ Deno.serve(async (req) => {
       // tally_submission_id will reject the second one (Postgres 23505).
       // Re-query and return the existing row so the caller sees success.
       if (submissionId && (jobErr as { code?: string } | null)?.code === "23505") {
+        // Same-tenant race: return the row that won.
         const { data: raceRow } = await supabase
           .from("service_calls")
           .select("id, customer_id, job_reference")
@@ -474,6 +513,17 @@ Deno.serve(async (req) => {
             },
           );
         }
+        // The submission id is already used by a job under a DIFFERENT tenant
+        // (a replay of an older submission). Acknowledge it instead of looking
+        // like a server fault; no job details are disclosed.
+        await logSubmission("duplicate", { replay_of_other_tenant: true });
+        return new Response(
+          JSON.stringify({ success: true, duplicate: true, already_received: true }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       console.error("Job creation failed:", jobErr);
       await logSubmission("failed", { error: (jobErr as { message?: string } | null)?.message ?? null });
@@ -489,6 +539,13 @@ Deno.serve(async (req) => {
       customer_id: customerId,
       customer_status_at_booking: customerMatched ? "existing" : "new",
     });
+
+    // Point the fingerprint claim at the job it produced, so a second copy of
+    // the same booking can return this job instead of creating another.
+    if (claim.outcome === "claimed") {
+      await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-incoming-job");
+    }
+
 
     // BJ-0131a — advisory job-level duplicate detection. Runs only after the
     // service call exists, excludes the row just inserted, and never affects
