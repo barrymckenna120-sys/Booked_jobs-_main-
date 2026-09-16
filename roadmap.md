@@ -27,3 +27,4 @@
 - [ ] BJ — WhatsApp/SumUp "not configured" errors surface raw technical text; replace with "WhatsApp is not connected for this company" style copy.
 - [ ] BJ — Certificate form does not prefill the tenant's RGI number from settings (blank on new tenant cert).
 - [ ] BJ — No tenant health-check/validation tool exists yet (P2 from provisioning audit).
+- [x] Customer export — Select → Preview → Export flow (searchable, filterable, org-scoped selection) with one canonical row builder shared by preview and Excel, expanded customer-profile column set.

@@ -43,6 +43,7 @@ const Customers = lazy(() => import("./pages/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
 const ImportCustomers = lazy(() => import("./pages/ImportCustomers"));
+const ExportCustomers = lazy(() => import("./pages/ExportCustomers"));
 const QuoteAcceptance = lazy(() => import("./pages/QuoteAcceptance"));
 const WhatsApp = lazy(() => import("./pages/WhatsApp"));
 const WhatsAppTemplates = lazy(() => import("./pages/WhatsAppTemplates"));
@@ -328,6 +329,15 @@ function AppContent() {
             element={
               <OfficeRoute>
                 <ImportCustomers />
+              </OfficeRoute>
+            }
+          />
+
+          <Route
+            path="/settings/export"
+            element={
+              <OfficeRoute>
+                <ExportCustomers />
               </OfficeRoute>
             }
           />
