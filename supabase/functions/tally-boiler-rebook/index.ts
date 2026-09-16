@@ -306,6 +306,16 @@ Deno.serve(async (req) => {
             },
           );
         }
+        // Submission id already used by a job under a DIFFERENT tenant (replay
+        // of an older submission) — acknowledge rather than report a fault.
+        await logInvocation(supabase, body, organisation_id, "duplicate_submission_other_tenant");
+        return new Response(
+          JSON.stringify({ success: true, duplicate: true, already_received: true }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
       console.error("Job creation error:", jobErr);
       await logInvocation(
@@ -319,6 +329,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Point the fingerprint claim at the job it produced.
+    if (claim.outcome === "claimed") {
+      await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-boiler-rebook");
+    }
+
 
     // Update customer next_service_due and advance renewal_stage
     const customerUpdate: Record<string, string> = {
