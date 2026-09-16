@@ -3,7 +3,8 @@ import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { isMachineCaller } from "../_shared/machineAuth.ts";
+import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
+import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 
 
