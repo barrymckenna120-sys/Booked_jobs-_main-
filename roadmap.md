@@ -28,3 +28,6 @@
 - [ ] BJ — Certificate form does not prefill the tenant's RGI number from settings (blank on new tenant cert).
 - [ ] BJ — No tenant health-check/validation tool exists yet (P2 from provisioning audit).
 - [x] Customer export — Select → Preview → Export flow (searchable, filterable, org-scoped selection) with one canonical row builder shared by preview and Excel, expanded customer-profile column set.
+- [ ] DG bookings Step 1 — Tally booking date lands in the past (DG-1023..DG-1026 dated 03/04 Sep, received 16 Sep). `tally-incoming-job` submission log now records submitted `preferred_day`/`preferred_time` + past-date diagnostics; awaiting a real booking before agreeing the handling fix.
+- [ ] DG bookings Step 2 — One booking creates two jobs with distinct submission ids (id-based guard can't catch it); consider content-window dedupe at intake.
+- [ ] DG bookings Step 3 — Schedule presentation: surface unallocated jobs dated outside the visible week and mark past booked dates.
