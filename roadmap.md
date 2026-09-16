@@ -28,6 +28,7 @@
 - [ ] BJ — Certificate form does not prefill the tenant's RGI number from settings (blank on new tenant cert).
 - [ ] BJ — No tenant health-check/validation tool exists yet (P2 from provisioning audit).
 - [x] Customer export — Select → Preview → Export flow (searchable, filterable, org-scoped selection) with one canonical row builder shared by preview and Excel, expanded customer-profile column set.
-- [ ] DG bookings Step 1 — Tally booking date lands in the past (DG-1023..DG-1026 dated 03/04 Sep, received 16 Sep). `tally-incoming-job` submission log now records submitted `preferred_day`/`preferred_time` + past-date diagnostics; awaiting a real booking before agreeing the handling fix.
-- [ ] DG bookings Step 2 — One booking creates two jobs with distinct submission ids (id-based guard can't catch it); consider content-window dedupe at intake.
-- [ ] DG bookings Step 3 — Schedule presentation: surface unallocated jobs dated outside the visible week and mark past booked dates.
+- [ ] Bookings Step 1 (re-targeted at K&N Gas Services Ltd) — Tally booking dates land in the past (first seen via DG-1023..DG-1026, dated 03/04 Sep). `tally-incoming-job` submission log now records submitted `preferred_day`/`preferred_time` + past-date diagnostics; evidence now comes from a real K&N Gas Services Ltd booking (book.kngasservices.ie), then agree the handling fix.
+- [ ] Bookings Step 2 (re-targeted at K&N Gas Services Ltd) — one booking creating two jobs with distinct submission ids (id-based guard can't catch it); content-window dedupe at intake; shared code, verify against K&N Gas Services Ltd bookings.
+- [ ] Bookings Step 3 — Schedule presentation: surface unallocated jobs dated outside the visible week and mark past booked dates; shared presentation code, all tenants.
+- [ ] On hold awaiting Barry — confirm Dublin Gas's role (clarified 16/09/26 as a test account, K&N Gas Services Ltd the live booking tenant); until confirmed, DG-1023..DG-1026 left untouched as evidence; deferred fallback-door closure also waits on this.
