@@ -540,6 +540,13 @@ Deno.serve(async (req) => {
       customer_status_at_booking: customerMatched ? "existing" : "new",
     });
 
+    // Point the fingerprint claim at the job it produced, so a second copy of
+    // the same booking can return this job instead of creating another.
+    if (claim.outcome === "claimed") {
+      await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-incoming-job");
+    }
+
+
     // BJ-0131a — advisory job-level duplicate detection. Runs only after the
     // service call exists, excludes the row just inserted, and never affects
     // the submission outcome (all failures are logged inside the helper).
