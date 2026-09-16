@@ -29,6 +29,7 @@ import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/Admin
 import { normalisePublicDomain, publicDomainSaveError } from "@/lib/publicDomain";
 import {
   ArrowLeft,
+  Copy,
   Loader2,
   Mail,
   Pencil,
