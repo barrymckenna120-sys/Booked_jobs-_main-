@@ -1,56 +1,60 @@
-# Customer Export — Select, Preview, then Export
+# Wire a genuine SumUp sandbox for K&N (gated on a real sandbox key)
 
-Today "Export to Excel" in Settings → Data downloads every customer instantly. This adds a Select → Preview → Export flow modelled on the existing Import screen. The formatting work already done is reused untouched.
+## Where things stand (confirmed by read-only checks)
 
-## Pre-work report (as requested)
+- Production K N Gas Services Limited is wired **live**: merchant `M9MEJM9K`, key name `SUMUP_API_KEY_KNGAS_LTD`. It does have a live credential, so any wiring must leave that untouched.
+- The saved `SUMUP_SANDBOX_API_KEY_KN_V2` authenticates as **live** merchant `M9MEJM9K` (WEBLIVEVIEW LIMITED), no `extdev` flag. It cannot be used.
+- `M9GH65GY` is already stored as **Dublin Gas's live merchant code**, so it must never be written as K&N's sandbox merchant.
 
-**Current export:** `handleExport` inside `src/components/settings/DataTab.tsx` — fetches all non-archived customers, maps 20 columns through `src/lib/customerExportFormat.ts`, forces Phone/Eircode/GPRN/Area Code to text cells, writes the file.
+Nothing is wired and no checkout is created until a key passes the gate below.
 
-**Import pieces reused:** `src/pages/ImportCustomers.tsx` supplies the page shell, Card + Table preview layout, checkbox column with header select-all, count badges and footer action bar. Copied as patterns into the new screen; the Import page itself is not refactored.
+## Step 1 — Obtain and prove a real sandbox key
 
-**Selection storage:** in-memory `Set<string>` of customer ids on the new screen. Survives search and filter changes because it is keyed by id, not by row position.
+1. You generate an API key from **inside the sandbox account itself** (SumUp Dashboard, Developer settings, Sandboxes tab, open the sandbox, then create a key there). A key created from the main account always comes out live.
+2. Save it as a new secret `SUMUP_SANDBOX_API_KEY_KN_V3` (V2 stays untouched; it is a live key and will be dealt with in step 5).
+3. **Gate:** read-only whoami against the new key. It must return a merchant code that is neither `M9MEJM9K` nor `M9GH65GY`, and must carry the sandbox/`extdev` marker. If it returns either live merchant, I stop and report — no config write, no checkout.
+4. Only once the gate passes: the €11.00 always-fails sandbox test, to confirm sandbox decline behaviour before any config change.
 
-**Select All with pagination:** the list is fetched once per organisation with a light column set, then filtered and paged in the browser. So "Select all" always means *all customers matching the current filters* (not just the visible page), and the label states the number explicitly. Page size 25 with prev/next, same as the Customers list.
+## Step 2 — Wire K&N's sandbox environment
 
-**Database/schema change:** none.
+A single scoped write to the K&N `tenant_integrations` SumUp row, using the merchant code whoami actually returned:
 
-**Column comparison (nothing removed).** Existing 20 columns stay. Customer Profile fields not currently exported: Landline, Owner/Tenant, Customer Type, Boiler Location, Boiler Age, Warranty Years, Warranty Expiry Date, Renewal Stage, Scheduled Service Date, Last Reminder Sent, Reminders/WhatsApp consent, Opted Out, Source, Job Tag. Proposal: add only **Renewal Stage** and **Warranty Expiry Date** (both shown in the selection table / relevant to renewals) and leave the rest out unless you want them. Say the word and I'll include any of the others.
+```text
+config.environments.sandbox = {
+  merchant_code:  <merchant code from whoami>
+  api_key_secret: "SUMUP_SANDBOX_API_KEY_KN_V3"
+}
+```
 
-## The screen
+- `environments.live`, the top-level live merchant/key, `webhook_secret` and `is_active` are all left exactly as they are.
+- Which org row gets the sandbox entry (dev `8c37827f…` vs production `c0aa41ac…`) is decided with you before the write — production is currently the live one, so the dev row is the safer host for sandbox testing.
+- `environment` is only switched to `sandbox` on the row we agree, never on production without your explicit say-so.
+- Written idempotently, merged not replaced, read back afterwards and diffed.
+- Resolver re-run for K&N **and** Dublin Gas to prove DG still resolves to its own live pair unchanged.
 
-New route `/settings/export` (page `src/pages/ExportCustomers.tsx`); the Data tab button navigates there instead of downloading.
+## Step 3 — End-to-end test on scratch data only
 
-**Step 1 — Select**
-- Header: `120 customers` and a live `34 selected`, plus a line naming the filters currently applied.
-- Search box "Search customers…" matching name, mobile, address, Eircode and GPRN.
-- Filters: Service Status (All / Up to Date / Due Soon / Overdue / Serviced), Renewal Stage (All / Not Contacted / Reminded / Confirmed / Booked In / Paid), Area Code (All + the area codes actually present for that organisation). No new status values invented.
-- Table columns: checkbox, Customer Name, Mobile, Address, Eircode, Area Code, Service Status, Next Service Due, Renewal Stage.
-- Header checkbox selects/clears every customer matching the current filters, labelled so it is unambiguous.
-- Footer: `Preview Export →`, disabled at zero selected.
+1. Scratch job under a clearly-named test customer, reserved scratch phone number, small amount. No real customer is contacted.
+2. Create a checkout and confirm the hosted URL comes back against the sandbox merchant, not either live one.
+3. Pay the sandbox checkout, then read back `sumup_webhook_events`, `payment_checkout_attempts`, `job_payments`, and the job's `payment_status` / `paid_at` / `balance_due`.
+4. Run the €11 always-fails card again through the real flow to confirm the decline path and the payment-failed notification.
+5. Delete the scratch job, its webhook/payment/activity rows and the scratch customer; re-query each to show zero rows.
 
-**Step 2 — Preview**
-- Same table styling, showing the exact formatted rows that go into the file — produced by the same helper functions the writer uses, so `D24W289 → D24 W289`, `D24W → D24`, `active → Up to Date`, dates `YYYY-MM-DD`, phone/GPRN identical.
-- Heading `34 customers selected for export`.
-- Footer: `← Back to Selection` and `Export 34 Customers to Excel`, or `Export All 120 Customers to Excel` when everything is selected. Never enabled at zero.
+## Step 4 — Regression coverage for this week's payment fixes
 
-## Technical notes
+Before claiming coverage, I re-read today's payment changes from git history and list each fix with the exact sandbox scenario that exercises it — expected to cover the payment-status misclassification, the duplicate-entry submit guard, the missing job total, and the payment-completion diagnostics. Any fix a sandbox checkout genuinely cannot reach is named as still requiring another method, rather than being claimed as covered.
 
-- Fetch: `customers` with `organisation_id = orgId`, `is_archived = false`, selecting only the exported columns — no jobs, payments or message history. Tenant scoping comes from the existing RLS policy plus the org filter; selected ids are intersected with the fetched (already scoped) set before the file is written, so a frontend-supplied id can never widen the result.
-- Row building moves into a shared `buildExportRows(customers)` in `src/lib/customerExportFormat.ts` (pure), used by both the preview and the sheet writer, so the two cannot drift. The existing per-field helpers and the text-cell forcing are unchanged.
-- Sheet writing (`xlsx-js-style`, column widths, text columns) moves to a small `exportCustomersToExcel(rows)` helper called from the new page.
+## Step 5 — Clean up the misleading live-key secret
 
-## Files
+Re-query `tenant_integrations` for any row referencing `SUMUP_SANDBOX_API_KEY_KN_V2`. If nothing references it, delete it — a secret named "sandbox" holding a live key is a real hazard. If any row does reference it, flag it and delete nothing.
 
-- `src/pages/ExportCustomers.tsx` (new)
-- `src/lib/customerExportFormat.ts` (add `buildExportRows`, unchanged helpers)
-- `src/lib/customerExportWorkbook.ts` (new — sheet writing)
-- `src/components/settings/DataTab.tsx` (button navigates)
-- `src/App.tsx` (route)
+## Out of scope
 
-## Tests
+- No changes to the resolver, webhook handler, or checkout-creation code.
+- No changes to Dublin Gas, and no move of any tenant to sandbox mode beyond the one row we agree.
+- `SUMUP_API_KEY_KNGAS_LTD` and `SUMUP_API_KEY_DUBLIN_GAS` are left alone.
+- Refunds for earlier real test charges are a separate ticket.
 
-`src/lib/__tests__/customerExportFormat.test.ts` extended, plus a new selection/filter test file for the pure helpers: one customer, several, all, search-then-select, select-then-search keeps selection, filter-then-select, clear filter keeps selection, zero selected blocks export, preview row count equals written row count, preview values equal written values, ids outside the fetched org set are dropped, and a 5,000-row filter/select-all timing check.
+## Order and gating
 
-Manual: click through the flow in Settings → Data, confirm counts, filters and the downloaded file.
-
-Risk: Low — one settings screen, no database, schema, RLS or import changes.
+Steps run strictly in order. Each database write is its own review-gated, read-back-verified step. No configuration is touched until whoami and the €11 test prove the key is genuinely sandbox.
