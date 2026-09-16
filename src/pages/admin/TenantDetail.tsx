@@ -119,6 +119,8 @@ export default function TenantDetail() {
   const [editActive, setEditActive] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Superadmin-only reveal of masked config values (e.g. webhook secrets).
+  const [revealedId, setRevealedId] = useState<string | null>(null);
 
   // Add integration
   const [addOpen, setAddOpen] = useState(false);
@@ -915,6 +917,19 @@ export default function TenantDetail() {
                       </div>
                       {!isEditing ? (
                         <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setRevealedId(revealedId === i.id ? null : i.id)
+                            }
+                          >
+                            {revealedId === i.id ? (
+                              "Hide values"
+                            ) : (
+                              "Reveal values"
+                            )}
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => startEdit(i)}>
                             <Pencil className="mr-1 h-3 w-3" /> Edit
                           </Button>
