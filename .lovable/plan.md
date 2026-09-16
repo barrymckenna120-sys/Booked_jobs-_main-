@@ -1,33 +1,56 @@
-# Correct production booking sender identity
+# Customer Export — Select, Preview, then Export
 
-## Goal
-Update only the external Tally/Make sender configuration for `book.kngasservices.ie` and `rebook.kngasservices.ie`, using the working dev flows as the structural reference. No BookedJobs code, tenant-resolution logic, or existing stray bookings will be changed.
+Today "Export to Excel" in Settings → Data downloads every customer instantly. This adds a Select → Preview → Export flow modelled on the existing Import screen. The formatting work already done is reused untouched.
 
-## Confirmed current state
-- Both BookedJobs handlers accept `x-webhook-secret` (or `x-make-secret`) as the preferred company identity.
-- The booking handler reads `organisation_id` from the request body and rejects it if it conflicts with the company resolved from the secret.
-- The rebooking handler follows the same rule.
-- No Make.com workspace connection is currently available in this session, so the sender scenarios cannot yet be inspected or changed directly. The skipped access question leaves this as the only execution blocker.
+## Pre-work report (as requested)
 
-## Plan
-1. Obtain approved access to the two Make scenarios, or inspect secret-redacted scenario blueprints supplied by the user.
-2. Compare the working dev and production scenarios module-by-module:
-   - Tally trigger/form selected
-   - webhook destination (`tally-incoming-job` versus `tally-boiler-rebook`)
-   - request method and JSON body mapping
-   - `x-webhook-secret` or `x-make-secret` header mapping
-   - `organisation_id` body mapping
-   - any form IDs or other company identifiers
-3. Record the exact dev-specific sender fields before making changes, without printing either secret.
-4. Change only the two production scenarios:
-   - set the production tenant's existing Tally webhook secret in the private header
-   - set any body `organisation_id` to the production organisation
-   - preserve every unrelated trigger, field mapping, scheduling rule, and dev scenario
-5. Re-read both production scenarios and compare them with dev to confirm structural parity while company IDs and secrets remain distinct.
-6. Submit one uniquely identifiable test through each public production form.
-7. Verify each request resolved via `tenant_secret`, created its record only under K&N Gas Services Limited, and appeared in Jobs and Schedule.
-8. Verify no corresponding record was created under the old dev company, the existing dev automation remains unchanged, and another tenant cannot read the new production records.
-9. Report only the requested headings, with all secrets redacted.
+**Current export:** `handleExport` inside `src/components/settings/DataTab.tsx` — fetches all non-archived customers, maps 20 columns through `src/lib/customerExportFormat.ts`, forces Phone/Eircode/GPRN/Area Code to text cells, writes the file.
 
-## Stop conditions
-Stop without changing BookedJobs if Make access is unavailable, either scenario cannot be identified confidently, a production secret is absent, or a test fails. Report the exact blocker or failed step; do not modify KN-538 or KN-539.
+**Import pieces reused:** `src/pages/ImportCustomers.tsx` supplies the page shell, Card + Table preview layout, checkbox column with header select-all, count badges and footer action bar. Copied as patterns into the new screen; the Import page itself is not refactored.
+
+**Selection storage:** in-memory `Set<string>` of customer ids on the new screen. Survives search and filter changes because it is keyed by id, not by row position.
+
+**Select All with pagination:** the list is fetched once per organisation with a light column set, then filtered and paged in the browser. So "Select all" always means *all customers matching the current filters* (not just the visible page), and the label states the number explicitly. Page size 25 with prev/next, same as the Customers list.
+
+**Database/schema change:** none.
+
+**Column comparison (nothing removed).** Existing 20 columns stay. Customer Profile fields not currently exported: Landline, Owner/Tenant, Customer Type, Boiler Location, Boiler Age, Warranty Years, Warranty Expiry Date, Renewal Stage, Scheduled Service Date, Last Reminder Sent, Reminders/WhatsApp consent, Opted Out, Source, Job Tag. Proposal: add only **Renewal Stage** and **Warranty Expiry Date** (both shown in the selection table / relevant to renewals) and leave the rest out unless you want them. Say the word and I'll include any of the others.
+
+## The screen
+
+New route `/settings/export` (page `src/pages/ExportCustomers.tsx`); the Data tab button navigates there instead of downloading.
+
+**Step 1 — Select**
+- Header: `120 customers` and a live `34 selected`, plus a line naming the filters currently applied.
+- Search box "Search customers…" matching name, mobile, address, Eircode and GPRN.
+- Filters: Service Status (All / Up to Date / Due Soon / Overdue / Serviced), Renewal Stage (All / Not Contacted / Reminded / Confirmed / Booked In / Paid), Area Code (All + the area codes actually present for that organisation). No new status values invented.
+- Table columns: checkbox, Customer Name, Mobile, Address, Eircode, Area Code, Service Status, Next Service Due, Renewal Stage.
+- Header checkbox selects/clears every customer matching the current filters, labelled so it is unambiguous.
+- Footer: `Preview Export →`, disabled at zero selected.
+
+**Step 2 — Preview**
+- Same table styling, showing the exact formatted rows that go into the file — produced by the same helper functions the writer uses, so `D24W289 → D24 W289`, `D24W → D24`, `active → Up to Date`, dates `YYYY-MM-DD`, phone/GPRN identical.
+- Heading `34 customers selected for export`.
+- Footer: `← Back to Selection` and `Export 34 Customers to Excel`, or `Export All 120 Customers to Excel` when everything is selected. Never enabled at zero.
+
+## Technical notes
+
+- Fetch: `customers` with `organisation_id = orgId`, `is_archived = false`, selecting only the exported columns — no jobs, payments or message history. Tenant scoping comes from the existing RLS policy plus the org filter; selected ids are intersected with the fetched (already scoped) set before the file is written, so a frontend-supplied id can never widen the result.
+- Row building moves into a shared `buildExportRows(customers)` in `src/lib/customerExportFormat.ts` (pure), used by both the preview and the sheet writer, so the two cannot drift. The existing per-field helpers and the text-cell forcing are unchanged.
+- Sheet writing (`xlsx-js-style`, column widths, text columns) moves to a small `exportCustomersToExcel(rows)` helper called from the new page.
+
+## Files
+
+- `src/pages/ExportCustomers.tsx` (new)
+- `src/lib/customerExportFormat.ts` (add `buildExportRows`, unchanged helpers)
+- `src/lib/customerExportWorkbook.ts` (new — sheet writing)
+- `src/components/settings/DataTab.tsx` (button navigates)
+- `src/App.tsx` (route)
+
+## Tests
+
+`src/lib/__tests__/customerExportFormat.test.ts` extended, plus a new selection/filter test file for the pure helpers: one customer, several, all, search-then-select, select-then-search keeps selection, filter-then-select, clear filter keeps selection, zero selected blocks export, preview row count equals written row count, preview values equal written values, ids outside the fetched org set are dropped, and a 5,000-row filter/select-all timing check.
+
+Manual: click through the flow in Settings → Data, confirm counts, filters and the downloaded file.
+
+Risk: Low — one settings screen, no database, schema, RLS or import changes.
