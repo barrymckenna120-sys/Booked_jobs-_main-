@@ -241,6 +241,29 @@ Deno.serve(async (req) => {
 
     const receivedAt = new Date().toISOString();
 
+    // Diagnostics for the requested day/time exactly as submitted (no contact details).
+    // Dates are compared in Europe/Dublin to match how the office reads the schedule.
+    const submittedDayDiagnostics = (() => {
+      const raw = preferredDay ?? null;
+      const parsed = raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+      let daysFromToday: number | null = null;
+      if (parsed) {
+        const todayDublin = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+        const msPerDay = 86_400_000;
+        daysFromToday = Math.round(
+          (Date.parse(`${parsed}T12:00:00Z`) - Date.parse(`${todayDublin}T12:00:00Z`)) / msPerDay,
+        );
+      }
+      return {
+        submitted_preferred_day: raw,
+        submitted_preferred_time: preferredTime ?? null,
+        preferred_day_parsed: parsed,
+        preferred_day_is_date_only: parsed !== null,
+        preferred_day_days_from_today: daysFromToday,
+        preferred_day_in_past: daysFromToday !== null ? daysFromToday < 0 : null,
+      };
+    })();
+
     // Audit trail: every submission records its id, arrival time, and outcome.
     const logSubmission = async (
       outcome: "created" | "duplicate" | "failed",
@@ -256,6 +279,7 @@ Deno.serve(async (req) => {
             outcome,
             created_job: outcome === "created",
             rejected_as_duplicate: outcome === "duplicate",
+            ...submittedDayDiagnostics,
             ...extra,
           },
         });
