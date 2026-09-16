@@ -257,15 +257,3 @@ export const buildExportRows = (customers: any[]): ExportRow[] =>
       "Customer Since": formatDateForExport(c.customer_since),
     };
   });
-
-/** Customer columns the export reads — keeps the selection query light. */
-export const EXPORT_SELECT_COLUMNS = [
-  "id", "name", "phone", "landline_phone", "email", "address", "eircode", "area_code",
-  "gprn", "owner_or_tenant", "customer_type", "opted_out", "whatsapp_reminders_enabled",
-  "whatsapp_opt_in", "reminders_consent", "boiler_brand", "boiler_model", "boiler_make_model",
-  "boiler_location", "boiler_type", "boiler_installation_date", "boiler_age", "warranty_years",
-  "warranty_expiry_date", "under_warranty", "access_notes", "last_service_date",
-  "last_service_engineer", "engineer_notes", "next_service_due", "scheduled_service_date",
-  "last_reminder_sent", "service_status", "renewal_stage", "assigned_engineer", "notes",
-  "source", "job_tag", "job_tag_date", "customer_since",
-].join(", ");
