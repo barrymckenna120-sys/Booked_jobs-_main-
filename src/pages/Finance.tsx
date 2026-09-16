@@ -525,25 +525,27 @@ const Finance = () => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[hsl(var(--success))] to-[hsl(142,72%,22%)] px-6 pt-10 pb-7 text-white relative overflow-hidden">
-        <div className="absolute -top-10 -right-5 w-40 h-40 rounded-full bg-white/[.07] pointer-events-none" />
-        <div className="absolute -bottom-12 left-5 w-30 h-30 rounded-full bg-white/[.05] pointer-events-none" />
-
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-sm font-bold opacity-85 mb-1">{dateRange.label}</p>
-            <h1 className="text-3xl font-black tracking-tight text-white">Finance</h1>
-          </div>
-          <div className="[&_span]:text-white [&_button]:text-white [&_button[class*=bg-primary]]:!bg-white/30 [&_button[class*=bg-primary]]:!text-white [&_button[class*=bg-primary]]:!font-extrabold [&_div]:border-white/30 [&_div]:bg-white/10 [&_button:hover]:bg-white/20">
+      {/* Header — compact finance summary card, aligned with content keylines */}
+      <div className="px-4">
+        <div className="bg-success-light border border-success/20 rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 mb-4">
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{dateRange.label}</p>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Finance</h1>
+            </div>
             <DateRangeToggle value={viewMode} onChange={setViewMode} anchor={anchor} onAnchorChange={setAnchor} />
           </div>
-        </div>
 
-        <div className="bg-white/15 rounded-2xl px-5 py-4 inline-flex flex-col gap-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-65">{dateRange.label} Revenue</p>
-          <p className="text-4xl font-black tracking-tighter leading-none text-white">{eur(revenue)}</p>
-          <p className="text-xs opacity-65">{eur(outstanding)} outstanding</p>
+          <div className="bg-card border border-border rounded-xl px-5 py-4 inline-flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">{dateRange.label} Revenue</p>
+              <p className="text-3xl font-black tracking-tight leading-none text-foreground">{eur(revenue)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{eur(outstanding)} outstanding</p>
+            </div>
+          </div>
         </div>
       </div>
 
