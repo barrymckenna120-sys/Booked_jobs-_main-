@@ -5,16 +5,22 @@ import { Upload, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx-js-style";
+import {
+  cleanText,
+  formatAreaCodeForExport,
+  formatBoilerMakeModel,
+  formatDateForExport,
+  formatEircodeForExport,
+  formatIdentifierForExport,
+  formatPhoneForExport,
+  formatServiceStatusForExport,
+} from "@/lib/customerExportFormat";
+
+const TEXT_COLUMNS = ["Phone Number", "Eircode", "GPRN", "Area Code"];
 
 const DataTab = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const formatDate = (d: string | null) => {
-    if (!d) return "";
-    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
-  };
 
   const handleExport = async () => {
     toast({ title: "Exporting...", description: "Fetching customer data." });
@@ -28,28 +34,42 @@ const DataTab = () => {
       return;
     }
     const rows = data.map((c) => ({
-      "Customer Name": c.name,
-      "Phone Number": c.phone,
-      "Email": c.email || "",
-      "Address": c.address,
-      "Eircode": c.eircode,
-      "Area Code": c.area_code || "",
-      "GPRN": (c as any).gprn || "",
-      "Access Notes": c.access_notes || "",
-      "Boiler Make / Model": c.boiler_make_model || "",
-      "Boiler Type": c.boiler_type || "",
-      "Installation Date": formatDate(c.boiler_installation_date),
+      "Customer Name": cleanText(c.name),
+      "Phone Number": formatPhoneForExport(c.phone),
+      "Email": cleanText(c.email),
+      "Address": cleanText(c.address),
+      "Eircode": formatEircodeForExport(c.eircode),
+      "Area Code": formatAreaCodeForExport(c.area_code),
+      "GPRN": formatIdentifierForExport((c as any).gprn),
+      "Access Notes": cleanText(c.access_notes),
+      "Boiler Make / Model": formatBoilerMakeModel(c.boiler_make_model, (c as any).boiler_brand, (c as any).boiler_model),
+      "Boiler Type": cleanText(c.boiler_type),
+      "Installation Date": formatDateForExport(c.boiler_installation_date),
       "Under Warranty": c.under_warranty === true ? "Yes" : c.under_warranty === false ? "No" : "",
-      "Last Service Date": formatDate(c.last_service_date),
-      "Last Service Engineer": c.last_service_engineer || "",
-      "Engineer Notes": c.engineer_notes || "",
-      "Next Service Due": formatDate(c.next_service_due),
-      "Service Status": c.service_status || "",
-      "Assigned Engineer": c.assigned_engineer || "",
-      "Customer Notes": c.notes || "",
-      "Customer Since": formatDate(c.customer_since),
+      "Last Service Date": formatDateForExport(c.last_service_date),
+      "Last Service Engineer": cleanText(c.last_service_engineer),
+      "Engineer Notes": cleanText(c.engineer_notes),
+      "Next Service Due": formatDateForExport(c.next_service_due),
+      "Service Status": formatServiceStatusForExport(c.service_status),
+      "Assigned Engineer": cleanText(c.assigned_engineer),
+      "Customer Notes": cleanText(c.notes),
+      "Customer Since": formatDateForExport(c.customer_since),
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const headers = Object.keys(rows[0]);
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+    // Force identifier columns to text cells so Excel cannot strip "+",
+    // leading zeros, or convert them to numbers/scientific notation.
+    headers.forEach((header, colIdx) => {
+      if (!TEXT_COLUMNS.includes(header)) return;
+      for (let rowIdx = 1; rowIdx <= rows.length; rowIdx++) {
+        const ref = XLSX.utils.encode_cell({ c: colIdx, r: rowIdx });
+        const cell = ws[ref];
+        if (!cell) continue;
+        cell.t = "s";
+        cell.v = String(cell.v ?? "");
+        cell.z = "@";
+      }
+    });
     ws["!cols"] = [
       { wch: 20 }, { wch: 16 }, { wch: 24 }, { wch: 28 }, { wch: 12 }, { wch: 10 },
       { wch: 28 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
