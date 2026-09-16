@@ -32,8 +32,8 @@ After Step 2, submit one booking through book.kngasservices.ie and read back how
 ### Step 4 — Then close the fallback door (Stage 2, already agreed in principle)
 Once both live forms authenticate cleanly, switch the endpoint from warn-only to rejecting unauthenticated bookings. This ships as its own reviewed step, only after Step 3 passes — doing it earlier would reject Karl's real bookings.
 
-## Open decision, not part of this plan
-Whether the original K&N tenant's 481 jobs and 85 customers move to the Ltd tenant, or the Ltd tenant starts fresh. Karl's staff logins currently sit on the original tenant. This needs Barry's decision before Karl works day-to-day in the new account; it is a separate piece of work.
+## Decided: clean start
+The Ltd tenant stays fresh — the original tenant's 481 jobs and 85 customers are **not** moved. No data migration in this plan or any follow-up. The only remaining setup question is giving Karl and his office staff logins on the new tenant, which is separate work.
 
 ## Technical notes
 - Step 1 writes only the tally config keys for organisation `kn-gas-services-ltd` in `tenant_integrations`, merging into the existing row (booking URLs and webhook secret preserved). It is a data change, so it ships as its own isolated, idempotent, review-gated step with a real read-back.
