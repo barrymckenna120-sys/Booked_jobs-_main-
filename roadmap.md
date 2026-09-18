@@ -42,3 +42,8 @@
 - [ ] Wrong-company bookings follow-up — other tenants still have no booking form reference stored (Dublin Gas, Cavan, Ennis, Sligo, original K&N); populate per tenant as each is verified.
 - [x] Decided 16/09/26 — K&N Gas Services Ltd is a clean start: the original tenant's 481 jobs / 85 customers are NOT migrated. Remaining setup: staff logins on the new tenant.
 - [x] P1 mobile-data startup (fonts) — Google Fonts stylesheet in `index.html` was render-blocking and not cached; now loaded non-blocking (`media="print"` + `onload` promotion, `<noscript>` fallback). Verified: renders with both font hosts blocked, and 1.47s first render with a hanging font request. No service-worker/cache, auth or data changes. Separate follow-up: iPhone "Load failed" shown as "Incorrect email or password" on sign-in (`src/pages/Auth.tsx`).
+
+## BJ — weak-signal stuck loading (18/09/26)
+- [x] Step 1: landing-path lookup at "/" time-bounded with least-privileged fallback (src/lib/resolveLandingPath.ts, src/App.tsx)
+- [x] Step 2: startup loader hard ceiling (25s) with Connection problem + Retry (src/lib/startupFallback.ts, RouteFallback)
+- [ ] Step 3 (HELD): pre-store engineer screens up front — only after a real-device weak-signal retest confirms Steps 1-2
