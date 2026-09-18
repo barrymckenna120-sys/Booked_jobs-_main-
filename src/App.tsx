@@ -14,7 +14,8 @@ import {
 } from "react-router-dom";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveLandingPath } from "@/lib/resolveLandingPath";
+import { resolveLandingPathSafe } from "@/lib/resolveLandingPath";
+import { STARTUP_TIMEOUT_MS } from "@/lib/startupFallback";
 import { supabase } from "@/integrations/supabase/client";
 
 import Auth from "./pages/Auth";
@@ -167,7 +168,9 @@ const RootRoute = () => {
 
     setResolving(true);
 
-    resolveLandingPath(user.id)
+    // Always resolves (bounded + fallback), so `target` can never stay null and
+    // leave the loader on screen forever.
+    resolveLandingPathSafe(user.id)
       .then(setTarget)
       .finally(() => setResolving(false));
   }, [loading, user]);
@@ -183,35 +186,78 @@ const RootRoute = () => {
   return <Navigate to={target!} replace />;
 };
 
-/** Full-screen brand loader, used only while the session is being restored. */
-const RouteFallback = () => (
-  <div
-    role="status"
-    aria-live="polite"
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      height: "100dvh",
-      minHeight: "100vh",
-      backgroundColor: "#ffffff",
-    }}
-  >
-    <img
-      src="/icons/icon-192.png"
-      alt=""
-      width={80}
-      height={80}
+/**
+ * Full-screen brand loader, used while the session is being restored and as the
+ * Suspense fallback for every lazy route. It carries a hard ceiling: a startup
+ * step that is not itself time-bounded (a route chunk fetch that hangs on a
+ * dead cellular connection) previously showed "Loading..." indefinitely.
+ */
+const RouteFallback = () => {
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStuck(true), STARTUP_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
       style={{
-        width: 80,
-        height: 80,
-        marginBottom: 16,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100dvh",
+        minHeight: "100vh",
+        backgroundColor: "#ffffff",
+        padding: 24,
+        textAlign: "center",
       }}
-    />
-    <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
-  </div>
-);
+    >
+      <img
+        src="/icons/icon-192.png"
+        alt=""
+        width={80}
+        height={80}
+        style={{
+          width: 80,
+          height: 80,
+          marginBottom: 16,
+        }}
+      />
+      {stuck ? (
+        <>
+          <p style={{ color: "#0f172a", fontSize: 16, fontWeight: 700 }}>
+            Connection problem
+          </p>
+          <p style={{ color: "#64748b", fontSize: 14, maxWidth: 320, marginTop: 8 }}>
+            BookedJobs could not finish loading. Check your signal and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: 16,
+              padding: "10px 20px",
+              fontSize: 15,
+              fontWeight: 600,
+              color: "#ffffff",
+              backgroundColor: "#4A86E8",
+              border: "none",
+              borderRadius: 10,
+            }}
+          >
+            Retry
+          </button>
+        </>
+      ) : (
+        <p style={{ color: "#4A86E8", fontSize: 16 }}>Loading...</p>
+      )}
+    </div>
+  );
+};
 
 function AppContent() {
   const { loading } = useAuth("");
