@@ -1,62 +1,65 @@
-# P1 — Mobile-data loading failure: read-only diagnostic
+# Stuck-loading on weak signal — investigation findings (no fixes)
 
-Nothing was changed. This is the traced startup chain, the confirmed code-level findings, and the two device tests to run before any fix.
+Read-only. Nothing was changed.
 
-## Startup chain, as the code actually runs it
+## 1. Is the 15-second session timeout still in place?
 
-```text
-domain (kngasservices.bookedjobs.ie / karlsgas.lovable.app)
-  -> index.html            (served by saved copy after the recent offline fix)
-  -> BLOCKING: fonts.googleapis.com stylesheet   <-- not saved on the phone
-  -> async: ddwl4m2hdecbv.cloudfront.net tracking script (non-blocking)
-  -> /assets/index-*.js + .css   (saved on the phone)
-  -> React boot -> service worker -> Supabase client created
-  -> session restore (bounded, 15s) -> sign-in screen or app
-  -> per-screen data requests (bounded, 15s, one retry)
-```
+Yes, intact and not regressed. The session restore, the wake-from-background
+session check and sign-out are all time-bounded, and the regression test that
+covers a session restore that never answers is still present and passing.
+So the screen is not stuck waiting on the sign-in check.
 
-Outside addresses required during start-up and sign-in: the app's own domain, `fonts.googleapis.com` + `fonts.gstatic.com`, `ddwl4m2hdecbv.cloudfront.net`, `ktkfuquqxbrmuqrmbmdj.supabase.co` (database, auth, functions), `www.gstatic.com` (push notifications), and later `res.cloudinary.com` for photos.
+## 2. What a 15-second auth timeout cannot catch
 
-## Confirmed findings (read from the code, not inferred)
+Three startup steps run *after* the session is known and none of them has any
+time limit or error state. Any one of them can leave "Loading..." on screen
+indefinitely, which matches both phones.
 
-1. **Fonts block the first paint and are never saved for offline use.** `index.html` loads the Google Fonts stylesheet as a normal blocking stylesheet. The saved-copy list in `vite.config.ts` covers the page, the app files, icons and the manifest — it does not cover fonts, and there is no rule to serve fonts from the phone. On a connection that shows full bars but passes no traffic, the browser waits on that stylesheet before showing anything. This is the earliest single request in the chain that can hold the screen blank, and it sits *outside* everything we fixed last time.
-2. **A network failure on an iPhone is reported as "Incorrect email or password".** The sign-in screen treats a failure as a connection problem only when the message contains "failed to fetch" or "network", or when the phone reports itself offline. iOS Safari words a failed request as **"Load failed"**, and a 5G-with-no-internet phone reports itself *online*. Both conditions miss, so the code falls through to the generic wrong-credentials message. That fully explains the misleading login error Barry saw, and it also means each such failure can count toward the five-attempt account lock.
-3. Session restore, the lockout pre-check and screen data requests are all time-bounded already, so they are unlikely to be the cause of an indefinite spinner.
-4. The tracking script is loaded asynchronously and cannot block the screen.
+**a. The landing-path decision on the app's own start address — strongest match.**
+The installed app always opens at "/", which asks the database "is this person
+an engineer or office?" before choosing which screen to send them to. That
+question has no time limit, and if it fails, the code clears its "working"
+flag but never sets a destination — so the brand loader stays on screen
+forever, with no error, no retry and no timeout. This is the only path found
+that hangs *permanently by construction* rather than eventually erroring.
 
-## Priority table
+**b. Screen code arriving over the network.**
+Every screen is downloaded separately on first visit. Only the shell is stored
+up front; individual screens are stored the first time they are opened. A
+request for a screen that hangs (rather than fails) shows the same "Loading..."
+with no limit — the existing one-time reload recovery only triggers on an
+outright failure, never on a stall.
 
-| # | Failure point | Evidence | File / function | Wi-Fi | 4G/5G-no-internet | Reproduce | Recommended fix | Risk |
-|---|---|---|---|---|---|---|---|---|
-| P1 | Blocking Google Fonts stylesheet, not saved offline | `index.html` head; saved-copy list in `vite.config.ts` has no font entries | `index.html`, `vite.config.ts` | loads instantly | blank screen until the browser gives up on fonts | throttle/deny only `fonts.googleapis.com`, reload | make fonts non-blocking and/or serve them from the phone | low |
-| P2 | Network failure shown as wrong password | `src/pages/Auth.tsx` `handleSubmit` catch block; only matches "failed to fetch"/"network"/offline | `src/pages/Auth.tsx` | correct message | "Incorrect email or password", can lock the account | sign in with the backend blocked on an iPhone | also treat "load failed" / timeouts as connection problems | low |
-| P3 | Fonts stylesheet also delays the installed app after the saved page is served | same as P1, but on the home-screen icon path | `index.html` | fine | saved page appears then stalls on fonts | relaunch installed app with no usable data | as P1 | low |
-| P4 | Carrier DNS / IPv6 differences on the backend hostname | not verifiable from the codebase | n/a | fine | would fail sign-in and data, not the app frame | the two tests below | only if the tests point there | n/a |
+**c. Role check on the office shell (bounded, mentioned for completeness).**
+This one is time-limited and falls back to the least-privileged role, so it is
+not a candidate for a permanent hang.
 
-## Three most likely root causes, by evidence
+Android's "No internet connection" banner is Chrome's own hint that requests
+are failing at the network level; it confirms the phone had no usable data, and
+shows our UI had no bounded state to fall back to.
 
-1. The blocking, never-cached Google Fonts stylesheet holding the first paint on mobile data (strongest — visible in the code, and outside the previous fix).
-2. iOS wording of network failures being misread as wrong credentials on the sign-in screen (confirmed in the code; explains the reported login message).
-3. A network-path problem on the carrier (DNS/IPv6) affecting the backend hostname — plausible but not provable from the codebase; the two tests below decide it.
+## 3. Cold start versus returning user
 
-## The two tests, and what each result means
+- **Fresh cold start (worst case):** shell and screen code not yet stored, plus
+  the untimed landing-path question — both (a) and (b) apply. Permanent hang.
+- **Returning user, app already opened once on good signal:** shell and the
+  previously visited screens are stored, so the app paints. It then still hits
+  the untimed landing-path question at "/", so (a) alone can hang it.
+- **Expired sign-in on weak signal:** terminates after the existing limit, but
+  resolves as "signed out", so the person is sent to the login screen rather
+  than left loading. Separate symptom from the one reported.
 
-On the affected Samsung and iPhone, Wi-Fi off, mobile data on:
+Conclusion: the reported failure is almost certainly (a), with (b) making a
+never-before-used screen equally vulnerable. Both are compatible with the
+identical behaviour on iPhone and Android, since neither is browser-specific.
 
-- Test A — open the normal BookedJobs web address in Safari/Chrome (not the installed icon).
-- Test B — launch the installed BookedJobs icon.
+## Suggested next steps (for your decision, not started)
 
-Both fail the same way -> network/DNS/backend path, or the fonts request (cause 1 or 3).
-Browser fine, installed app fails -> the installed app's saved copy and update lifecycle.
-Frame appears but sign-in says wrong password -> cause 2, confirmed.
+1. Put a time limit and a visible retry on the landing-path decision, with a
+   safe default destination when it cannot be answered.
+2. Give the "Loading..." screen a hard ceiling: after a set wait, show a
+   "Connection problem — Retry" state instead of spinning.
+3. Only then consider storing the engineer screens up front so first use on
+   weak signal does not depend on the network.
 
-Please run those two and tell me exactly what each does (blank, spinner, error text, how long).
-
-## If you want the fix now instead
-
-Two small, separate changes, in this order, each verified on its own:
-
-1. Make the fonts stylesheet non-blocking and serve fonts from the phone when the network is unusable — `index.html` plus a font rule in the saved-copy config.
-2. Treat iOS "load failed" and timeouts as connection problems on the sign-in screen, so a signal problem never reads as a wrong password or counts toward the account lock.
-
-No changes to authentication rules, permissions, tenant separation, the database, or anything below the start-up path. Feature work stays paused until these are verified.
+Each would be a separate, independently reviewable change.
