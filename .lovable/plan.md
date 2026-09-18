@@ -1,65 +1,58 @@
-# Stuck-loading on weak signal — investigation findings (no fixes)
+# Fix the permanent stuck-loading screen on weak signal
 
-Read-only. Nothing was changed.
+Two separate, independently reviewable steps. Step 3 from the findings
+(storing engineer screens up front) is deliberately held until a real-device
+test confirms these two resolve it.
 
-## 1. Is the 15-second session timeout still in place?
+Scope guardrails: no changes to sign-in, permissions, tenant separation,
+data, queries or offline caching rules. Presentation and startup flow only.
 
-Yes, intact and not regressed. The session restore, the wake-from-background
-session check and sign-out are all time-bounded, and the regression test that
-covers a session restore that never answers is still present and passing.
-So the screen is not stuck waiting on the sign-in check.
+## Step 1 — Time-limit the landing decision at the app's start address
 
-## 2. What a 15-second auth timeout cannot catch
+When the installed app opens at "/", it asks the database whether the person
+is an engineer or office staff before choosing their screen. Today that
+question can hang forever and, if it fails, no destination is ever chosen —
+the brand loader stays on screen with no error and no retry.
 
-Three startup steps run *after* the session is known and none of them has any
-time limit or error state. Any one of them can leave "Loading..." on screen
-indefinitely, which matches both phones.
+Changes:
+- Give that question the same time limit the rest of the app already uses.
+- If it cannot be answered in time (or errors), send the person to a safe
+  default screen rather than leaving them on the loader. The default follows
+  the existing least-privileged behaviour used elsewhere, so nobody gains
+  access they would not otherwise have — the screen they land on still
+  enforces its own permission checks.
+- Keep the successful path byte-for-byte identical in behaviour.
 
-**a. The landing-path decision on the app's own start address — strongest match.**
-The installed app always opens at "/", which asks the database "is this person
-an engineer or office?" before choosing which screen to send them to. That
-question has no time limit, and if it fails, the code clears its "working"
-flag but never sets a destination — so the brand loader stays on screen
-forever, with no error, no retry and no timeout. This is the only path found
-that hangs *permanently by construction* rather than eventually erroring.
+## Step 2 — Give the loading screen a hard ceiling
 
-**b. Screen code arriving over the network.**
-Every screen is downloaded separately on first visit. Only the shell is stored
-up front; individual screens are stored the first time they are opened. A
-request for a screen that hangs (rather than fails) shows the same "Loading..."
-with no limit — the existing one-time reload recovery only triggers on an
-outright failure, never on a stall.
+Any remaining startup stall (for example a screen's code arriving over a dead
+connection) currently shows "Loading..." indefinitely.
 
-**c. Role check on the office shell (bounded, mentioned for completeness).**
-This one is time-limited and falls back to the least-privileged role, so it is
-not a candidate for a permanent hang.
+Changes:
+- After a fixed wait, the loading screen swaps to a plain "Connection problem"
+  state with a Retry button and, where relevant, a link back to the start.
+- Retry reloads rather than guessing at partial state.
+- Styling stays in the existing brand loader/error look; no new design.
 
-Android's "No internet connection" banner is Chrome's own hint that requests
-are failing at the network level; it confirms the phone had no usable data, and
-shows our UI had no bounded state to fall back to.
+## Technical notes
 
-## 3. Cold start versus returning user
+- Step 1: `src/lib/resolveLandingPath.ts` wrapped in `withRequestTimeout`
+  (`src/lib/queryDefaults.ts`), plus a `.catch` in `RootRoute`
+  (`src/App.tsx:160-184`) that resolves a fallback target so `target` can
+  never stay `null`. Fallback mirrors `ENGINEER_FALLBACK` semantics in
+  `useUserRole.ts`; route-level guards (`OfficeRoute`, RLS) remain the
+  authority.
+- Step 2: add an elapsed-time state inside `RouteFallback` (`src/App.tsx:187`)
+  so both the auth gate and every `Suspense` fallback inherit the ceiling in
+  one place; reuse `ErrorFallback`/`DataLoadError` visuals. Ceiling set above
+  `REQUEST_TIMEOUT_MS` so a slow-but-working connection is never cut short.
 
-- **Fresh cold start (worst case):** shell and screen code not yet stored, plus
-  the untimed landing-path question — both (a) and (b) apply. Permanent hang.
-- **Returning user, app already opened once on good signal:** shell and the
-  previously visited screens are stored, so the app paints. It then still hits
-  the untimed landing-path question at "/", so (a) alone can hang it.
-- **Expired sign-in on weak signal:** terminates after the existing limit, but
-  resolves as "signed out", so the person is sent to the login screen rather
-  than left loading. Separate symptom from the one reported.
+## Verification
 
-Conclusion: the reported failure is almost certainly (a), with (b) making a
-never-before-used screen equally vulnerable. Both are compatible with the
-identical behaviour on iPhone and Android, since neither is browser-specific.
-
-## Suggested next steps (for your decision, not started)
-
-1. Put a time limit and a visible retry on the landing-path decision, with a
-   safe default destination when it cannot be answered.
-2. Give the "Loading..." screen a hard ceiling: after a set wait, show a
-   "Connection problem — Retry" state instead of spinning.
-3. Only then consider storing the engineer screens up front so first use on
-   weak signal does not depend on the network.
-
-Each would be a separate, independently reviewable change.
+- Unit cover: landing path resolves the fallback on timeout and on rejection;
+  loader flips to the retry state after the ceiling and not before.
+- Full test suite, type check, production build.
+- Playwright on a phone-sized production build: normal load, request-stalled
+  load (no responses), offline relaunch, and reconnect — confirming no screen
+  spins forever and the successful path is unchanged.
+- Then a real-device retest on weak signal before reconsidering step 3.
