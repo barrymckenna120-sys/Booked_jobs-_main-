@@ -20,10 +20,29 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!--
+      Web fonts must never gate first paint. A blocking stylesheet from
+      fonts.googleapis.com holds rendering until the browser gives up, which on a
+      mobile connection that shows signal but passes no traffic looks like a
+      blank app. media="print" makes the request non-blocking; onload promotes it
+      to "all" once (if) it arrives. The <noscript> copy keeps the fonts for
+      script-disabled visitors. Tailwind's font stacks already fall back to
+      Inter / system-ui, so text renders immediately either way.
+    -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'; this.onload=null;"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
+
 
     <!-- Per-route <link rel="canonical"> is set via react-helmet-async in each public page. -->
 
