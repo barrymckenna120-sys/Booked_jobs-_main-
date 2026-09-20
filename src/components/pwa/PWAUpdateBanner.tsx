@@ -3,6 +3,12 @@ import { useLocation } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { RefreshCw, X } from "lucide-react";
 import { shouldSkipServiceWorker } from "@/lib/isPreviewHost";
+import {
+  BOOT_TIME,
+  consumeColdActivationBudget,
+  hasSpentColdActivation,
+  shouldAutoActivateWaitingWorker,
+} from "@/lib/swColdStart";
 
 /**
  * Shows a dismissible banner at the top of the app when a new service worker
@@ -25,6 +31,23 @@ const UpdateBanner = () => {
       console.warn("App shell SW registration failed:", err);
     },
   });
+
+  // Cold launch: a build that is already waiting gets adopted silently
+  // (activate + exactly one reload; the budget is spent before the call so it
+  // cannot loop). Updates discovered later, mid-session, still use the banner.
+  useEffect(() => {
+    if (
+      !shouldAutoActivateWaitingWorker({
+        needRefresh,
+        elapsedMs: Date.now() - BOOT_TIME,
+        alreadyActivated: hasSpentColdActivation(),
+      })
+    ) {
+      return;
+    }
+    if (!consumeColdActivationBudget()) return;
+    updateServiceWorker(true);
+  }, [needRefresh, updateServiceWorker]);
 
   if (pathname.startsWith("/auth")) return null;
   if (!needRefresh || dismissed) return null;
