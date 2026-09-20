@@ -7,9 +7,22 @@ import {
   shouldAutoActivateWaitingWorker,
 } from "../swColdStart";
 
+/** Minimal in-memory stand-in for sessionStorage (tests run in node env). */
+function makeStore() {
+  const map = new Map<string, string>();
+  return {
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, v),
+    removeItem: (k: string) => void map.delete(k),
+  };
+}
+
 describe("shouldAutoActivateWaitingWorker", () => {
+  let store = makeStore();
+
   beforeEach(() => {
-    resetColdActivationBudget();
+    store = makeStore();
+    resetColdActivationBudget(store);
   });
 
   it("activates a waiting worker detected at cold launch", () => {
@@ -17,7 +30,7 @@ describe("shouldAutoActivateWaitingWorker", () => {
       shouldAutoActivateWaitingWorker({
         needRefresh: true,
         elapsedMs: 1_200,
-        alreadyActivated: false,
+        alreadyActivated: hasSpentColdActivation(store),
       })
     ).toBe(true);
   });
@@ -43,9 +56,9 @@ describe("shouldAutoActivateWaitingWorker", () => {
   });
 
   it("never activates twice in one session (at most one reload)", () => {
-    expect(consumeColdActivationBudget()).toBe(true);
-    expect(hasSpentColdActivation()).toBe(true);
-    expect(consumeColdActivationBudget()).toBe(false);
+    expect(consumeColdActivationBudget(store)).toBe(true);
+    expect(hasSpentColdActivation(store)).toBe(true);
+    expect(consumeColdActivationBudget(store)).toBe(false);
     expect(
       shouldAutoActivateWaitingWorker({
         needRefresh: true,
@@ -56,14 +69,18 @@ describe("shouldAutoActivateWaitingWorker", () => {
   });
 
   it("does not re-activate after the new worker takes control", () => {
-    consumeColdActivationBudget();
-    // Fresh cold-start-looking conditions after controllerchange + reload.
+    consumeColdActivationBudget(store);
     expect(
       shouldAutoActivateWaitingWorker({
         needRefresh: true,
         elapsedMs: 200,
-        alreadyActivated: hasSpentColdActivation(),
+        alreadyActivated: hasSpentColdActivation(store),
       })
     ).toBe(false);
+  });
+
+  it("refuses auto-activation when no durable storage exists (loop safety)", () => {
+    expect(hasSpentColdActivation(null)).toBe(true);
+    expect(consumeColdActivationBudget(null)).toBe(false);
   });
 });
