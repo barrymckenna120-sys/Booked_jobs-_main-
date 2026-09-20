@@ -26,19 +26,31 @@ const ACTIVATED_FLAG = "bj_sw_cold_activated";
 /** Timestamp of this document's boot; used to measure the cold-start window. */
 export const BOOT_TIME = Date.now();
 
-export function hasSpentColdActivation(): boolean {
+type FlagStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+const defaultStore = (): FlagStore | null => {
   try {
-    return sessionStorage.getItem(ACTIVATED_FLAG) === "1";
+    return (globalThis as unknown as { sessionStorage?: FlagStore }).sessionStorage ?? null;
   } catch {
-    return true; // no durable flag -> treat as spent so we never loop
+    return null;
+  }
+};
+
+export function hasSpentColdActivation(store: FlagStore | null = defaultStore()): boolean {
+  if (!store) return true; // no durable flag -> treat as spent so we never loop
+  try {
+    return store.getItem(ACTIVATED_FLAG) === "1";
+  } catch {
+    return true;
   }
 }
 
 /** Consumes the one-per-session automatic activation budget. */
-export function consumeColdActivationBudget(): boolean {
-  if (hasSpentColdActivation()) return false;
+export function consumeColdActivationBudget(store: FlagStore | null = defaultStore()): boolean {
+  if (!store) return false;
+  if (hasSpentColdActivation(store)) return false;
   try {
-    sessionStorage.setItem(ACTIVATED_FLAG, "1");
+    store.setItem(ACTIVATED_FLAG, "1");
   } catch {
     return false;
   }
