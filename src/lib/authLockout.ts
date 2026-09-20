@@ -2,6 +2,8 @@
 // Keep in sync with supabase/functions/lock-failed-login/index.ts
 // (ban_duration is set to LOCKOUT_DURATION_HOURS there — currently "1h").
 
+import { RequestTimeoutError } from "@/lib/queryDefaults";
+
 export const LOCKOUT_MAX_ATTEMPTS = 5;
 export const LOCKOUT_DURATION_HOURS = 1;
 export const LOCKOUT_DURATION_LABEL = "1 hour";
@@ -11,6 +13,27 @@ export const GENERIC_AUTH_ERROR =
 
 export const BLOCKED_AUTH_ERROR =
   "Your account has been blocked. Please contact your administrator.";
+
+/**
+ * True when a sign-in failure is a network/connectivity problem rather than a
+ * credential rejection. Covers the wording thrown by each browser engine:
+ * Chromium "Failed to fetch", Gecko "NetworkError", and WebKit/iOS
+ * "Load failed" — plus our own request timeouts and a reported offline state.
+ */
+export function isAuthNetworkError(
+  error: unknown,
+  onLine: boolean,
+): boolean {
+  if (error instanceof RequestTimeoutError) return true;
+  const message = String((error as any)?.message ?? "").toLowerCase();
+  return (
+    message === "request_timeout" ||
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("load failed") ||
+    onLine === false
+  );
+}
 
 /**
  * Inline error string shown under the sign-in form for a given failed-attempt count.

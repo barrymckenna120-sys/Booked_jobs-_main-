@@ -4,10 +4,7 @@ import PageSeo from "@/components/seo/PageSeo";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
-import {
-  withRequestTimeout,
-  RequestTimeoutError,
-} from "@/lib/queryDefaults";
+import { withRequestTimeout } from "@/lib/queryDefaults";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -365,20 +362,7 @@ const Auth = () => {
           redirectPath
       );
     } catch (error: any) {
-      const isNetworkError =
-        error instanceof
-          RequestTimeoutError ||
-        error?.message ===
-          "REQUEST_TIMEOUT" ||
-        (error?.message || "")
-          .toLowerCase()
-          .includes(
-            "failed to fetch"
-          ) ||
-        (error?.message || "")
-          .toLowerCase()
-          .includes("network") ||
-        navigator.onLine === false;
+      const isNetworkError = isAuthNetworkError(error, navigator.onLine);
 
       if (isNetworkError) {
         setFormError(
