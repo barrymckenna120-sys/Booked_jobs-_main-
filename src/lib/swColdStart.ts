@@ -74,9 +74,9 @@ export function shouldAutoActivateWaitingWorker(input: {
 }
 
 /** Test-only helper. */
-export function resetColdActivationBudget(): void {
+export function resetColdActivationBudget(store: FlagStore | null = defaultStore()): void {
   try {
-    sessionStorage.removeItem(ACTIVATED_FLAG);
+    store?.removeItem(ACTIVATED_FLAG);
   } catch {
     /* noop */
   }
