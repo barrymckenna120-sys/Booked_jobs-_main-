@@ -22,6 +22,27 @@ installDevAuthProbe();
 
 installGlobalErrorHandlers();
 
+// Tell the inline boot watchdog in index.html that the bundle is alive, so it
+// never shows the recovery screen on a healthy launch. Also report a recovery
+// that already happened on the previous launch, so stale-install failures are
+// visible instead of silent.
+const signalBoot = () => {
+  const w = window as unknown as { __bjBootSignal?: () => void };
+  w.__bjBootSignal?.();
+  try {
+    const waited = localStorage.getItem("bj_boot_watchdog_fired");
+    if (waited) {
+      localStorage.removeItem("bj_boot_watchdog_fired");
+      Sentry.captureMessage("Boot watchdog recovered a stuck launch", {
+        level: "warning",
+        tags: { boot_watchdog_waited_ms: waited },
+      });
+    }
+  } catch {
+    /* storage unavailable — nothing to report */
+  }
+};
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary
