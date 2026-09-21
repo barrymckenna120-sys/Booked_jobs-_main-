@@ -44,6 +44,11 @@ export default defineConfig(({ mode }) => ({
           "index.html",
           "offline.html",
           "assets/index-*.{js,css}",
+          // The shared vendor bundle is a *static* import of the entry, so a
+          // precached index.html that points at a vendor file the phone never
+          // fetched cannot boot at all on a weak connection. Pre-store it with
+          // the entry rather than leaving it to the on-demand /assets/ rule.
+          "assets/vendor-*.js",
           "manifest*.json",
           "*.ico",
           "icons/*.png",

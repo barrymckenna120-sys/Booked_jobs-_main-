@@ -130,6 +130,162 @@
 
   <body>
     <div id="root"></div>
+
+    <!--
+      Boot watchdog. Every other timeout in this app lives inside the JS bundle,
+      so a stale or un-fetchable cached shell (the installed home-screen app
+      failure) has no escape hatch: the launch screen just never progresses.
+      This script is deliberately inline and dependency-free so it runs even
+      when the bundle is the broken part. Thresholds and the one-shot budget
+      mirror src/lib/bootRecovery.ts (unit-tested); keep the two in sync.
+    -->
+    <script>
+      (function () {
+        var OFFER_MS = 8000;
+        var AUTO_MS = 20000;
+        var FLAG = "bj_boot_recovery_attempted";
+        var booted = false;
+
+        window.__bjBootSignal = function () {
+          booted = true;
+          var el = document.getElementById("bj-boot-recovery");
+          if (el && el.parentNode) el.parentNode.removeChild(el);
+        };
+
+        function spent() {
+          try {
+            return sessionStorage.getItem(FLAG) === "1";
+          } catch (e) {
+            return true;
+          }
+        }
+
+        function consume() {
+          try {
+            if (spent()) return false;
+            sessionStorage.setItem(FLAG, "1");
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        function clearAppShell() {
+          var jobs = [];
+
+          if (window.caches && caches.keys) {
+            jobs.push(
+              caches
+                .keys()
+                .then(function (names) {
+                  return Promise.all(
+                    names
+                      .filter(function (n) {
+                        var l = String(n).toLowerCase();
+                        // Firebase push storage is unrelated — leave it alone.
+                        return l.indexOf("firebase") === -1 && l.indexOf("fcm") === -1;
+                      })
+                      .map(function (n) {
+                        return caches.delete(n);
+                      })
+                  );
+                })
+                .catch(function () {})
+            );
+          }
+
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            jobs.push(
+              navigator.serviceWorker
+                .getRegistrations()
+                .then(function (regs) {
+                  return Promise.all(
+                    regs
+                      .filter(function (r) {
+                        return r.scope.indexOf("firebase-cloud-messaging") === -1;
+                      })
+                      .map(function (r) {
+                        return r.unregister();
+                      })
+                  );
+                })
+                .catch(function () {})
+            );
+          }
+
+          return Promise.all(jobs);
+        }
+
+        function reload() {
+          var url = window.location.href.split("#")[0];
+          url += (url.indexOf("?") === -1 ? "?" : "&") + "bjr=" + Date.now();
+          window.location.replace(url);
+        }
+
+        function recover(force, waitedMs) {
+          if (!force && !consume()) return;
+          try {
+            localStorage.setItem("bj_boot_watchdog_fired", String(waitedMs || 0));
+          } catch (e) {}
+          clearAppShell().then(reload, reload);
+        }
+
+        function showOffer(waitedMs) {
+          if (booted || document.getElementById("bj-boot-recovery")) return;
+
+          var wrap = document.createElement("div");
+          wrap.id = "bj-boot-recovery";
+          wrap.setAttribute("role", "status");
+          wrap.style.cssText =
+            "position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:#ffffff;font-family:Inter,system-ui,-apple-system,sans-serif;";
+
+          var icon = document.createElement("img");
+          icon.src = "/icons/icon-192.png";
+          icon.alt = "";
+          icon.width = 72;
+          icon.height = 72;
+          icon.style.cssText = "width:72px;height:72px;";
+
+          var title = document.createElement("p");
+          title.textContent = "BookedJobs couldn't start";
+          title.style.cssText = "margin:0;color:#0f172a;font-size:17px;font-weight:700;";
+
+          var body = document.createElement("p");
+          body.textContent =
+            "This usually means an old copy of the app is stored on your phone. Resetting keeps you logged in where possible and takes a few seconds.";
+          body.style.cssText =
+            "margin:0;color:#64748b;font-size:14px;line-height:1.45;max-width:320px;";
+
+          var button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Reset app";
+          button.style.cssText =
+            "margin-top:4px;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;background:#4A86E8;border:none;border-radius:10px;";
+          button.onclick = function () {
+            button.disabled = true;
+            button.textContent = "Resetting…";
+            recover(true, waitedMs);
+          };
+
+          wrap.appendChild(icon);
+          wrap.appendChild(title);
+          wrap.appendChild(body);
+          wrap.appendChild(button);
+          document.body.appendChild(wrap);
+        }
+
+        setTimeout(function () {
+          if (booted) return;
+          showOffer(OFFER_MS);
+        }, OFFER_MS);
+
+        setTimeout(function () {
+          if (booted) return;
+          recover(false, AUTO_MS);
+        }, AUTO_MS);
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 
