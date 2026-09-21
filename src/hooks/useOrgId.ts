@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getAdminViewingOrgId, SUPER_ADMIN_EMAIL } from "@/hooks/useAdminViewAs";
 import { resolveEffectiveOrgId } from "@/lib/resolveEffectiveOrgId";
 import { fetchProfile } from "@/lib/profileCache";
+import { setSentryOrgContext } from "@/lib/sentryIdentity";
 
 
 /**
@@ -41,13 +42,15 @@ export function useOrgId() {
         }
 
         if (!cancelled) {
-          setOrgId(resolveEffectiveOrgId({
+          const effectiveOrgId = resolveEffectiveOrgId({
             profileOrgId: (profile as any)?.organisation_id ?? null,
             profileRole: (profile as any)?.role ?? null,
             sessionEmail: session.user.email ?? null,
             viewingOrgId: getAdminViewingOrgId(),
             legacySuperAdminEmail: SUPER_ADMIN_EMAIL,
-          }));
+          });
+          setOrgId(effectiveOrgId);
+          setSentryOrgContext(effectiveOrgId);
           setReady(true);
         }
       } catch (e) {

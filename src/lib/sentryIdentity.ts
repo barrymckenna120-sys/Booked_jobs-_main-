@@ -34,21 +34,22 @@ export function setSentryOrgContext(orgId: string | null): void {
       return;
     }
 
-    supabase
-      .from("organisations")
-      .select("id, name")
-      .eq("id", orgId)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("organisations")
+          .select("id, name")
+          .eq("id", orgId)
+          .maybeSingle();
         const name = (data as { name?: string } | null)?.name;
         if (name) {
           orgNameCache.set(orgId, name);
           Sentry.setTag("org_name", name);
         }
-      })
-      .catch(() => {
+      } catch {
         // Non-critical — org_id tag is already set.
-      });
+      }
+    })();
   } catch {
     // Non-critical.
   }

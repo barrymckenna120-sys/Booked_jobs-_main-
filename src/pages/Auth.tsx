@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
 import { withRequestTimeout } from "@/lib/queryDefaults";
+import * as Sentry from "@sentry/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -371,6 +372,10 @@ const Auth = () => {
         );
         return;
       }
+
+      // Report every non-network sign-in failure (bad credentials, banned
+      // user, server errors) before any user-facing message is chosen.
+      Sentry.captureException(error);
 
       const msg =
         (
