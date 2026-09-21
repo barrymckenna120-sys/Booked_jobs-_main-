@@ -1,3 +1,4 @@
+import "./instrument";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
@@ -7,7 +8,7 @@ import "./index.css";
 import { installOrgHeaderInterceptor } from "./integrations/supabase/orgHeaderInterceptor";
 import { shouldSkipServiceWorker } from "./lib/isPreviewHost";
 import { installGlobalErrorHandlers } from "./lib/globalErrorHandlers";
-import { buildSentryTags, trackServiceWorkerState } from "./lib/sentryContext";
+import { trackServiceWorkerState } from "./lib/sentryContext";
 import ErrorFallback from "./components/shared/ErrorFallback";
 // TEMPORARY: dev/preview-only auth probe for the token-refresh verification.
 // Remove this import together with src/lib/devAuthProbe.ts after sign-off.
@@ -18,15 +19,6 @@ trackServiceWorkerState();
 installDevAuthProbe();
 
 
-Sentry.init({
-  dsn: "https://940563403eba06fc2d04d2b29c84d18b@o4511293795074048.ingest.de.sentry.io/4511293857267792",
-  tracesSampleRate: 0.2,
-  integrations: [Sentry.browserTracingIntegration()],
-  beforeSend(event) {
-    event.tags = { ...buildSentryTags(), ...(event.tags ?? {}) };
-    return event;
-  },
-});
 
 installGlobalErrorHandlers();
 

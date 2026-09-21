@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { withRequestTimeout } from "@/lib/queryDefaults";
+import { setSentryUser } from "@/lib/sentryIdentity";
 
 
 
@@ -131,6 +132,7 @@ export const useAuth = (redirectTo = "/auth") => {
     // onAuthStateChange subscription still corrects state if it arrives late.
     const applyInitialSession = (session: Session | null) => {
       setUserIfChanged(session?.user ?? null);
+      setSentryUser(session?.user ?? null);
       setLoading(false);
       initialCheckDone.current = true;
       if (session?.user) {
@@ -157,6 +159,7 @@ export const useAuth = (redirectTo = "/auth") => {
           console.log("[Auth] Token refreshed for user:", session?.user?.id);
         }
         setUserIfChanged(session?.user ?? null);
+        setSentryUser(session?.user ?? null);
         setLoading(false);
         if (!session?.user && redirectTo && !isPublicPath(window.location.pathname)) {
           navigate(redirectTo, { replace: true });
