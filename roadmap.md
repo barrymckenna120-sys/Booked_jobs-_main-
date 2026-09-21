@@ -49,6 +49,6 @@
 - [ ] Step 3 (HELD): pre-store engineer screens up front — only after a real-device weak-signal retest confirms Steps 1-2
 
 ## BJ — installed PWA stuck on loading, browser fine (21/09/26)
-- [ ] P1: boot watchdog outside the app bundle (index.html) — "BookedJobs couldn't start" + Reset app at 8s, one automatic recovery at 20s, session-scoped one-shot budget; clears app-shell caches/SW only, Firebase push worker untouched
-- [ ] P2: pre-store the shared vendor bundle; one explicit update check at launch (keeps cold-launch activation from swColdStart)
+- [x] P1: boot watchdog outside the app bundle (index.html) — "BookedJobs couldn't start" + Reset app at 8s, one automatic recovery at 20s, session-scoped one-shot budget; clears app-shell caches/SW only, Firebase push worker untouched. Verified: healthy launch shows nothing; blocked bundle shows the screen at 8s and reloads exactly once, no loop.
+- [x] P2: pre-store the shared vendor bundle (precache 10 -> 11 entries); one explicit update check at launch via onRegisteredSW (keeps cold-launch activation from swColdStart)
 - [ ] P4: real-device iPhone check after publish — normal cold launch unaffected, recovery screen appears on a stale/broken install, offline launch of a loaded app still works
