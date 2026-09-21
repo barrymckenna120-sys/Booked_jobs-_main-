@@ -47,3 +47,8 @@
 - [x] Step 1: landing-path lookup at "/" time-bounded with least-privileged fallback (src/lib/resolveLandingPath.ts, src/App.tsx)
 - [x] Step 2: startup loader hard ceiling (25s) with Connection problem + Retry (src/lib/startupFallback.ts, RouteFallback)
 - [ ] Step 3 (HELD): pre-store engineer screens up front — only after a real-device weak-signal retest confirms Steps 1-2
+
+## BJ — installed PWA stuck on loading, browser fine (21/09/26)
+- [ ] P1: boot watchdog outside the app bundle (index.html) — "BookedJobs couldn't start" + Reset app at 8s, one automatic recovery at 20s, session-scoped one-shot budget; clears app-shell caches/SW only, Firebase push worker untouched
+- [ ] P2: pre-store the shared vendor bundle; one explicit update check at launch (keeps cold-launch activation from swColdStart)
+- [ ] P4: real-device iPhone check after publish — normal cold launch unaffected, recovery screen appears on a stale/broken install, offline launch of a loaded app still works
