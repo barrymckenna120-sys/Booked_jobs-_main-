@@ -60,6 +60,8 @@ createRoot(document.getElementById("root")!).render(
   </React.StrictMode>
 );
 
+signalBoot();
+
 
 // Service worker registration — guarded against Lovable preview iframes/hosts.
 // NOTE: the published app lives on *.lovable.app, which is NOT a preview host.

@@ -27,6 +27,14 @@ const UpdateBanner = () => {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    // Ask once, at launch, whether a newer build exists instead of waiting for
+    // the browser's own update schedule. Without this an installed home-screen
+    // app can keep launching an old cached shell for a long time.
+    onRegisteredSW(_swUrl, registration) {
+      registration?.update().catch(() => {
+        /* offline or blocked — the cached shell keeps working */
+      });
+    },
     onRegisterError(err) {
       console.warn("App shell SW registration failed:", err);
     },
