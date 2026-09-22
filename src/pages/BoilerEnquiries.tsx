@@ -24,10 +24,32 @@ export const STATUS_BADGE: Record<BoilerEnquiryStatus, string> = {
   LOST: "bg-destructive/10 text-destructive",
 };
 
+// Badge styling for the linked quote's status, mirroring QuotesList.tsx
+const QUOTE_STATUS_BADGE: Record<string, string> = {
+  draft: "bg-muted text-muted-foreground",
+  sent: "bg-primary/10 text-primary",
+  viewed: "bg-[hsl(var(--warning))]/10 text-[hsl(var(--warning))]",
+  accepted: "bg-[hsl(142,76%,92%)] text-[hsl(142,72%,29%)]",
+  expired: "bg-destructive/10 text-destructive",
+  rejected: "bg-destructive/10 text-destructive",
+  converted: "bg-primary/10 text-primary",
+};
+
+const TAB_LABELS: Record<BoilerEnquiryStatus, string> = {
+  NEW: "New",
+  CONTACTED: "Contacted",
+  NEEDS_INFO: "Needs Info",
+  READY_TO_QUOTE: "Ready to Quote",
+  QUOTED: "Quoted",
+  WON: "Won",
+  LOST: "Lost",
+};
+
 type EnquiryRow = {
   id: string;
   status: BoilerEnquiryStatus;
   created_at: string;
+  enquiry_type: string | null;
   property_type: string | null;
   bedrooms: string | null;
   bathroom_count: string | null;
@@ -36,10 +58,19 @@ type EnquiryRow = {
   address: string | null;
   eircode: string | null;
   source: string | null;
+  external_source: string | null;
   contact_name: string | null;
   contact_phone: string | null;
   contact_email: string | null;
   customers?: { id: string; name: string | null; phone: string | null; email: string | null } | null;
+};
+
+type LinkedQuote = {
+  id: string;
+  boiler_enquiry_id: string | null;
+  quote_number: string | null;
+  status: string | null;
+  created_at: string;
 };
 
 const unique = (values: (string | null)[]) =>
@@ -69,12 +100,45 @@ const BoilerEnquiries = () => {
     enabled: !!user && ready,
   });
 
+  const enquiryIds = useMemo(() => enquiries.map((e) => e.id), [enquiries]);
+
+  // One query for all linked quotes (same relationship BoilerEnquiryDetail uses),
+  // then the most recent quote per enquiry is shown.
+  const { data: linkedQuotes = [] } = useQuery({
+    queryKey: ["boiler-enquiry-linked-quotes", enquiryIds.join(",")],
+    queryFn: async () => {
+      if (enquiryIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("quotes")
+        .select("id, boiler_enquiry_id, quote_number, status, created_at")
+        .in("boiler_enquiry_id", enquiryIds)
+        .order("created_at", { ascending: false });
+      if (error) console.error("Linked quotes fetch error:", error);
+      return (data || []) as unknown as LinkedQuote[];
+    },
+    enabled: enquiryIds.length > 0,
+  });
+
+  const latestQuoteByEnquiry = useMemo(() => {
+    const map: Record<string, LinkedQuote> = {};
+    for (const q of linkedQuotes) {
+      if (q.boiler_enquiry_id && !map[q.boiler_enquiry_id]) map[q.boiler_enquiry_id] = q;
+    }
+    return map;
+  }, [linkedQuotes]);
+
   const timeframeOptions = useMemo(
     () => unique(enquiries.map((e) => e.installation_timeframe)),
     [enquiries],
   );
   const sourceOptions = useMemo(() => unique(enquiries.map((e) => e.source)), [enquiries]);
   const heatingOptions = useMemo(() => unique(enquiries.map((e) => e.current_heating)), [enquiries]);
+
+  // Tab counts always reflect the whole loaded set (not the filtered subset)
+  const statusCounts: Record<string, number> = { All: enquiries.length };
+  for (const s of BOILER_ENQUIRY_STATUSES) {
+    statusCounts[s] = enquiries.filter((e) => e.status === s).length;
+  }
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -101,7 +165,7 @@ const BoilerEnquiries = () => {
     });
   }, [enquiries, status, timeframe, source, heating, search]);
 
-  const newCount = enquiries.filter((e) => e.status === "NEW").length;
+  const newCount = statusCounts.NEW || 0;
 
   const Select = ({
     value,
@@ -124,6 +188,24 @@ const BoilerEnquiries = () => {
     </select>
   );
 
+  const quoteCell = (e: EnquiryRow) => {
+    const q = latestQuoteByEnquiry[e.id];
+    if (!q) return <span className="text-muted-foreground/50">—</span>;
+    const statusKey = String(q.status || "").toLowerCase();
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="font-semibold text-foreground">{q.quote_number || "—"}</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+            QUOTE_STATUS_BADGE[statusKey] || QUOTE_STATUS_BADGE.draft
+          }`}
+        >
+          {statusKey ? statusKey.charAt(0).toUpperCase() + statusKey.slice(1) : "—"}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -138,22 +220,33 @@ const BoilerEnquiries = () => {
         )}
       </div>
 
+      {/* Status tabs with counts (QuotesList convention) */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {(["All", ...BOILER_ENQUIRY_STATUSES] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setStatus(tab)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
+              status === tab
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {tab === "All" ? "All" : TAB_LABELS[tab]} ({statusCounts[tab] || 0})
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, mobile, email, address or eircode"
+            placeholder="Search name or phone"
             className="pl-9"
           />
         </div>
-        <Select
-          label="Status"
-          value={status}
-          onChange={(v) => setStatus(v as "All" | BoilerEnquiryStatus)}
-          options={[...BOILER_ENQUIRY_STATUSES]}
-        />
         <Select label="Timeframe" value={timeframe} onChange={setTimeframe} options={timeframeOptions} />
         <Select label="Source" value={source} onChange={setSource} options={sourceOptions} />
         <Select label="Heating" value={heating} onChange={setHeating} options={heatingOptions} />
@@ -164,7 +257,7 @@ const BoilerEnquiries = () => {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className="border-dashed">
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No boiler enquiries {enquiries.length === 0 ? "yet" : "match these filters"}.
           </CardContent>
@@ -173,39 +266,53 @@ const BoilerEnquiries = () => {
         <>
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
-            {filtered.map((e) => (
-              <button
-                key={e.id}
-                onClick={() => navigate(`/boiler-enquiries/${e.id}`)}
-                className="w-full text-left"
-              >
-                <Card className={e.status === "NEW" ? "border-primary/40" : undefined}>
-                  <CardContent className="p-4 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-foreground">
-                        {e.customers?.name || e.contact_name || "Unknown customer"}
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_BADGE[e.status]}`}>
-                        {BOILER_ENQUIRY_STATUS_LABELS[e.status]}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {[e.eircode, e.address].filter(Boolean).join(" · ") || "No address"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {[e.property_type, e.bedrooms && `${e.bedrooms} bed`, e.current_heating]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {[e.installation_timeframe, e.source].filter(Boolean).join(" · ")}
-                      {" · "}
-                      {format(new Date(e.created_at), "dd/MM/yy")}
-                    </p>
-                  </CardContent>
-                </Card>
-              </button>
-            ))}
+            {filtered.map((e) => {
+              const q = latestQuoteByEnquiry[e.id];
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => navigate(`/boiler-enquiries/${e.id}`)}
+                  className="w-full text-left"
+                >
+                  <Card className={e.status === "NEW" ? "border-primary/40" : undefined}>
+                    <CardContent className="p-4 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-foreground">
+                          {e.customers?.name || e.contact_name || "Unknown customer"}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_BADGE[e.status]}`}>
+                          {BOILER_ENQUIRY_STATUS_LABELS[e.status]}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {e.customers?.phone || e.contact_phone || "No phone"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {[e.eircode, e.address].filter(Boolean).join(" · ") || "No address"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {[e.enquiry_type || e.property_type, e.bedrooms && `${e.bedrooms} bed`, e.current_heating]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </p>
+                      {q && (
+                        <p className="text-sm">
+                          <span className="font-semibold text-foreground">{q.quote_number}</span>{" "}
+                          <span className="text-muted-foreground">
+                            {String(q.status || "").toLowerCase() || ""}
+                          </span>
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {[e.installation_timeframe, e.source || e.external_source].filter(Boolean).join(" · ")}
+                        {" · "}
+                        {format(new Date(e.created_at), "dd/MM/yy")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </button>
+              );
+            })}
           </div>
 
           {/* Desktop table */}
@@ -215,13 +322,12 @@ const BoilerEnquiries = () => {
                 <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold">Customer</th>
-                    <th className="px-4 py-3 text-left font-bold">Area</th>
-                    <th className="px-4 py-3 text-left font-bold">Property</th>
-                    <th className="px-4 py-3 text-left font-bold">Heating</th>
+                    <th className="px-4 py-3 text-left font-bold">Enquiry Type</th>
                     <th className="px-4 py-3 text-left font-bold">Timeframe</th>
                     <th className="px-4 py-3 text-left font-bold">Status</th>
-                    <th className="px-4 py-3 text-left font-bold">Submitted</th>
+                    <th className="px-4 py-3 text-left font-bold">Quote</th>
                     <th className="px-4 py-3 text-left font-bold">Source</th>
+                    <th className="px-4 py-3 text-left font-bold">Created</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -231,26 +337,28 @@ const BoilerEnquiries = () => {
                       onClick={() => navigate(`/boiler-enquiries/${e.id}`)}
                       className="cursor-pointer border-t border-border hover:bg-muted/40"
                     >
-                      <td className="px-4 py-3 font-semibold text-foreground">
-                        {e.customers?.name || e.contact_name || "Unknown"}
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">
+                          {e.customers?.name || e.contact_name || "Unknown"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {e.customers?.phone || e.contact_phone || "—"}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{e.eircode || e.address || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {[e.property_type, e.bedrooms && `${e.bedrooms} bed`, e.bathroom_count && `${e.bathroom_count} bath`]
-                          .filter(Boolean)
-                          .join(" · ") || "—"}
+                        {e.enquiry_type || e.property_type || "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{e.current_heating || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{e.installation_timeframe || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_BADGE[e.status]}`}>
                           {BOILER_ENQUIRY_STATUS_LABELS[e.status]}
                         </span>
                       </td>
+                      <td className="px-4 py-3">{quoteCell(e)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{e.source || e.external_source || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {format(new Date(e.created_at), "dd/MM/yy")}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{e.source || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
