@@ -72,6 +72,7 @@ const Pipeline = () => {
       {/* Content — each page renders its own layout */}
       <div className="-mx-4 sm:-mx-6 -mt-6">
         {activeTab === "incoming" && <IncomingJobs />}
+        {activeTab === "leads" && <BoilerEnquiries />}
         {activeTab === "quotes" && <QuotesList />}
         {activeTab === "renewals" && <Renewals />}
         {activeTab === "warranty" && <WarrantyTracker />}
