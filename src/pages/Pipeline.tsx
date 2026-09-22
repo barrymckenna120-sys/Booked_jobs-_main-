@@ -29,6 +29,7 @@ const Pipeline = () => {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const { user } = useAuth();
   const { isAdmin, isOffice } = useUserRole(user);
+  console.log("[Pipeline] role debug", { email: user?.email, userId: user?.id, isAdmin, isOffice });
 
   const tabs = useMemo(() => {
     const t = [...BASE_TABS];
