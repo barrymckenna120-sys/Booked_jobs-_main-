@@ -52,3 +52,9 @@
 - [x] P1: boot watchdog outside the app bundle (index.html) — "BookedJobs couldn't start" + Reset app at 8s, one automatic recovery at 20s, session-scoped one-shot budget; clears app-shell caches/SW only, Firebase push worker untouched. Verified: healthy launch shows nothing; blocked bundle shows the screen at 8s and reloads exactly once, no loop.
 - [x] P2: pre-store the shared vendor bundle (precache 10 -> 11 entries); one explicit update check at launch via onRegisteredSW (keeps cold-launch activation from swColdStart)
 - [ ] P4: real-device iPhone check after publish — normal cold launch unaffected, recovery screen appears on a stale/broken install, offline launch of a loaded app still works
+
+## Phase 3B — Tally new boiler enquiry intake (22/09/26)
+- [x] `boiler_enquiries` table (org-scoped, office-only RLS), `has_office_access()` helper, additive `boiler_enquiry_id` on `job_media` and `quotes`.
+- [x] `tally-boiler-enquiry` Edge Function: strict server-side tenant binding (no unauthenticated fallback), 256KB payload cap, submission-id idempotency, customer match-or-create (never overwrites trusted data), server-side photo copy into the tenant's private media store, attribution capture, office notification + customer activity, staged failure logging. Deployed.
+- [x] Office screens: Boiler Enquiries list + detail (Call / WhatsApp / Request info / Create quote), quote prefill through the existing quote form.
+- [ ] Prerequisite: no "New Gas Boilers Dublin" tenant exists yet — provision it and record its Tally form id + webhook secret before pointing the live form at BookedJobs.
