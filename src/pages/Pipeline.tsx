@@ -38,10 +38,10 @@ const Pipeline = () => {
 
   const tabs = useMemo(() => {
     const t = [...BASE_TABS];
-    if (isAdmin || isOffice) t.splice(1, 0, LEADS_TAB);
+    if (canSeeOfficeTabs) t.splice(1, 0, LEADS_TAB);
     if (isAdmin || isOffice) t.push(WARRANTY_TAB);
     return t;
-  }, [isAdmin, isOffice]);
+  }, [isAdmin, isOffice, canSeeOfficeTabs]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
