@@ -1,13 +1,9 @@
 /**
- * Phase 3B — Tally "Find My Boiler" → structured new boiler enquiry.
+ * Edge Function copy of `src/lib/boilerEnquiryPayload.ts`.
  *
- * Pure payload logic only: flattening a Tally submission, mapping it onto the
- * `boiler_enquiries` columns, extracting attribution, deciding which blank
- * customer fields may be filled, and validating uploaded photos.
- *
- * This module is mirrored by `supabase/functions/_shared/boilerEnquiryPayload.ts`
- * (Edge Functions cannot import from `src/`). Keep the two in sync — the tests
- * here are the contract.
+ * Edge Functions cannot import from `src/`, so this file mirrors the tested
+ * implementation. `src/lib/__tests__/boilerEnquiryPayloadMirror.test.ts`
+ * enforces that the two stay identical.
  */
 
 // ---------------------------------------------------------------- status
