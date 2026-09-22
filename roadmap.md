@@ -57,4 +57,7 @@
 - [x] `boiler_enquiries` table (org-scoped, office-only RLS), `has_office_access()` helper, additive `boiler_enquiry_id` on `job_media` and `quotes`.
 - [x] `tally-boiler-enquiry` Edge Function: strict server-side tenant binding (no unauthenticated fallback), 256KB payload cap, submission-id idempotency, customer match-or-create (never overwrites trusted data), server-side photo copy into the tenant's private media store, attribution capture, office notification + customer activity, staged failure logging. Deployed.
 - [x] Office screens: Boiler Enquiries list + detail (Call / WhatsApp / Request info / Create quote), quote prefill through the existing quote form.
-- [ ] Prerequisite: no "New Gas Boilers Dublin" tenant exists yet — provision it and record its Tally form id + webhook secret before pointing the live form at BookedJobs.
+- [x] New Gas Boilers Dublin tenant corrected in place (name, slug, owner Matt Murphy, phone, company email, RGI 5307); Tally form id `68qaMe` registered to that tenant only.
+- [x] Per-tenant webhook secret moved out of the database row: `tenant_integrations.config.webhook_secret_name` is now resolved from the encrypted secret store by `tenantSecretOrg` (`TALLY_WEBHOOK_SECRET_NEWGASBOILERS`). Negative paths re-verified in production (missing header 401, wrong secret 401).
+- [ ] Barry: add the webhook in Tally (form 68qaMe) with header `x-webhook-secret` = the saved password, then run one test submission and confirm it lands under Boiler Enquiries for New Gas Boilers Dublin.
+- [ ] Matt Murphy has no BookedJobs login yet — the only office account on this tenant is `sales@bookedjobs.ie`. There is no office-only invite path in the app (Team invites require an engineer record), so this needs a decision.
