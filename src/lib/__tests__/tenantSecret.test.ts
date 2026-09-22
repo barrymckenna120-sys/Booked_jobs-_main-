@@ -43,3 +43,36 @@ describe("per-tenant webhook secret matching (BJ-0089 Band 4)", () => {
     expect(orgForSecret(padded, "aaa")).toBe("org-a");
   });
 });
+
+describe("env-stored per-tenant webhook secret (webhook_secret_name)", () => {
+  const envRows = [
+    { organisation_id: "org-env", config: { webhook_secret_name: "TALLY_SECRET_ENV" } },
+    { organisation_id: "org-b", config: { webhook_secret: "bbb" } },
+  ];
+  const env = (name: string) => (name === "TALLY_SECRET_ENV" ? "s3cr3t-value" : undefined);
+
+  it("resolves the tenant when the secret lives in the secret store, not the row", () => {
+    expect(orgForSecret(envRows, "s3cr3t-value", env)).toBe("org-env");
+  });
+
+  it("does not match when no env resolver is supplied", () => {
+    expect(orgForSecret(envRows, "s3cr3t-value")).toBeNull();
+  });
+
+  it("does not match an unset or blank env secret", () => {
+    expect(orgForSecret(envRows, "s3cr3t-value", () => undefined)).toBeNull();
+    expect(orgForSecret(envRows, "s3cr3t-value", () => "   ")).toBeNull();
+  });
+
+  it("still matches inline secrets on other tenants", () => {
+    expect(orgForSecret(envRows, "bbb", env)).toBe("org-b");
+  });
+
+  it("fails closed when two tenants resolve to the same env value", () => {
+    const ambiguous = [
+      { organisation_id: "org-a", config: { webhook_secret_name: "A" } },
+      { organisation_id: "org-b", config: { webhook_secret: "same" } },
+    ];
+    expect(orgForSecret(ambiguous, "same", () => "same")).toBeNull();
+  });
+});

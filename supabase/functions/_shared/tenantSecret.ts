@@ -11,10 +11,18 @@ export type TenantIntegrationRow = {
 
 const SECRET_KEYS = ["webhook_secret", "make_webhook_secret"];
 
+/**
+ * Resolves the value of an environment-stored secret by name. Tenants should
+ * prefer `config.webhook_secret_name` (the value lives in the encrypted secret
+ * store, never in a database row) over an inline `webhook_secret`.
+ */
+export type SecretEnvResolver = (name: string) => string | undefined;
+
 /** Organisations whose configured webhook secret equals `provided`. */
 export function orgsMatchingSecret(
   rows: TenantIntegrationRow[],
   provided: string,
+  secretEnv?: SecretEnvResolver,
 ): string[] {
   const needle = (provided ?? "").trim();
   if (!needle) return [];
@@ -22,10 +30,15 @@ export function orgsMatchingSecret(
   for (const row of rows ?? []) {
     const orgId = (row?.organisation_id ?? "").trim();
     if (!orgId) continue;
-    const config = row?.config ?? {};
+    const config = (row?.config ?? {}) as Record<string, unknown>;
     for (const key of SECRET_KEYS) {
-      const value = String((config as Record<string, unknown>)[key] ?? "").trim();
+      const value = String(config[key] ?? "").trim();
       if (value && value === needle) orgs.add(orgId);
+    }
+    const named = String(config.webhook_secret_name ?? "").trim();
+    if (named && secretEnv) {
+      const fromEnv = String(secretEnv(named) ?? "").trim();
+      if (fromEnv && fromEnv === needle) orgs.add(orgId);
     }
   }
   return [...orgs];
@@ -35,7 +48,8 @@ export function orgsMatchingSecret(
 export function orgForSecret(
   rows: TenantIntegrationRow[],
   provided: string,
+  secretEnv?: SecretEnvResolver,
 ): string | null {
-  const matches = orgsMatchingSecret(rows, provided);
+  const matches = orgsMatchingSecret(rows, provided, secretEnv);
   return matches.length === 1 ? matches[0] : null;
 }

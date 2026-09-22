@@ -48,7 +48,11 @@ export async function tenantSecretOrg(req: Request): Promise<string | null> {
     const { data } = await supabase
       .from("tenant_integrations")
       .select("organisation_id, config");
-    return orgForSecret((data ?? []) as TenantIntegrationRow[], provided);
+    return orgForSecret(
+      (data ?? []) as TenantIntegrationRow[],
+      provided,
+      (name) => Deno.env.get(name) ?? undefined,
+    );
   } catch (_e) {
     return null;
   }
