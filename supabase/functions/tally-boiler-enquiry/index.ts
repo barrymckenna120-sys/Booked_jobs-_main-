@@ -124,12 +124,16 @@ Deno.serve(async (req) => {
 
     // --- validation ---------------------------------------------------------
     const contact = extractContact(flat);
+    // Question NAMES only (never answers) so a mapping mismatch is diagnosable
+    // without storing personal data in the log.
+    const fieldNames = Object.keys(flat).slice(0, 100);
     const valid = validateEnquirySubmission(contact);
     if (!valid.ok) {
       await logStage(supabase, "validation_failed", {
         submission_id: submissionId,
         organisation_id: organisationId,
         reason: valid.error,
+        field_names: fieldNames,
       });
       return json({ success: false, error: valid.error }, 400);
     }
@@ -245,6 +249,7 @@ Deno.serve(async (req) => {
         await logStage(supabase, `customer_insert_failed:${createErr?.message ?? "unknown"}`, {
           submission_id: submissionId,
           organisation_id: organisationId,
+          field_names: fieldNames,
         });
         return json({ success: false, error: "Failed to record customer" }, 500);
       }
