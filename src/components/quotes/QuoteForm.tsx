@@ -35,9 +35,13 @@ type LineItem = {
 type QuoteFormProps = {
   quoteId?: string;
   onSaved?: () => void;
+  /** Optional prefill / linkage (used by the boiler enquiry "Create quote" action). */
+  initialCustomerId?: string;
+  initialJobType?: string;
+  boilerEnquiryId?: string;
 };
 
-const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
+const QuoteForm = ({ quoteId, onSaved, initialCustomerId, initialJobType, boilerEnquiryId }: QuoteFormProps) => {
   const { user } = useAuth();
   const { canAccessOffice } = useUserRole(user);
   const { orgId } = useOrgId();
@@ -47,8 +51,8 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
   const [quoteNumber, setQuoteNumber] = useState("");
 
   // Form fields
-  const [customerId, setCustomerId] = useState("");
-  const [jobType, setJobType] = useState("");
+  const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
+  const [jobType, setJobType] = useState(initialJobType ?? "");
   const [jobDescription, setJobDescription] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([{ id: crypto.randomUUID(), description: "", qty: "1", unit_price: "", cost_price: "", product_id: null }]);
   const [discount, setDiscount] = useState("0");
@@ -214,6 +218,7 @@ const QuoteForm = ({ quoteId, onSaved }: QuoteFormProps) => {
       expiry_date: expiryDate ? format(expiryDate, "yyyy-MM-dd") : null,
       status,
       ...(sendNow ? { sent_at: new Date().toISOString() } : {}),
+      ...(boilerEnquiryId ? { boiler_enquiry_id: boilerEnquiryId } : {}),
     };
 
     let savedQuoteId = quoteId;
