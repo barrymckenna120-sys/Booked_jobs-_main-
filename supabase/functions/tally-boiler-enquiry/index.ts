@@ -160,6 +160,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // --- owning user (customers.user_id is NOT NULL) ------------------------
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("id, owner_user_id")
+      .eq("id", organisationId)
+      .maybeSingle();
+    const ownerUserId = (orgRow as { owner_user_id: string | null } | null)?.owner_user_id ?? null;
+    if (!ownerUserId) {
+      await logStage(supabase, "organisation_owner_missing", {
+        submission_id: submissionId,
+        organisation_id: organisationId,
+      });
+      return json({ success: false, error: "Organisation owner not configured" }, 500);
+    }
+
     // --- customer match or create ------------------------------------------
     const fields = mapBoilerEnquiryFields(flat);
     const attribution = extractAttribution(flat);
@@ -204,6 +219,7 @@ Deno.serve(async (req) => {
         .from("customers")
         .insert({
           organisation_id: organisationId,
+          user_id: ownerUserId,
           name: contact.name || "New boiler enquiry",
           phone: phone ?? contact.phone,
           email: contact.email,
