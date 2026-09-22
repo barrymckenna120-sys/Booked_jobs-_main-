@@ -46,10 +46,15 @@ const scalar = (value: unknown): unknown => {
     const parts = value
       .map((v) =>
         v && typeof v === "object"
-          ? String((v as { text?: unknown; label?: unknown; value?: unknown }).text ??
-              (v as { label?: unknown }).label ??
-              (v as { value?: unknown }).value ??
-              "")
+          ? String(
+              // `url` first: a Tally file answer is an array of upload objects,
+              // and its url is the only part worth keeping.
+              (v as { url?: unknown }).url ??
+                (v as { text?: unknown }).text ??
+                (v as { label?: unknown }).label ??
+                (v as { value?: unknown }).value ??
+                "",
+            )
           : String(v ?? ""),
       )
       .map((s) => s.trim())
