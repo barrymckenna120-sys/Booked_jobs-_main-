@@ -229,7 +229,8 @@ const QuoteForm = ({ quoteId, onSaved, initialCustomerId, initialJobType, boiler
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSaving(false); return; }
       await supabase.from("quote_line_items").delete().eq("quote_id", quoteId);
     } else {
-      const { data: existingJobs } = await supabase.from("service_calls").select("id").eq("customer_id", customerId).eq("user_id", user.id).eq("status", "Pending").order("created_at", { ascending: false }).limit(1);
+      // Match on job_type as well so we can't attach the quote to an unrelated pending job for the same customer.
+      const { data: existingJobs } = await supabase.from("service_calls").select("id").eq("customer_id", customerId).eq("user_id", user.id).eq("status", "Pending").eq("job_type", jobType || "Other").order("created_at", { ascending: false }).limit(1);
       let jobId = existingJobs?.[0]?.id;
       if (!jobId) {
         const { data: newJob } = await supabase.from("service_calls").insert({
@@ -252,6 +253,15 @@ const QuoteForm = ({ quoteId, onSaved, initialCustomerId, initialJobType, boiler
       savedQuoteId = newQuote.id;
       savedQuoteNumber = (newQuote as any).quote_number || "";
       setQuoteNumber(savedQuoteNumber);
+
+      // Link the enquiry through to QUOTED — only while it hasn't progressed yet.
+      if (boilerEnquiryId) {
+        await supabase
+          .from("boiler_enquiries")
+          .update({ status: "QUOTED" })
+          .eq("id", boilerEnquiryId)
+          .in("status", ["NEW", "CONTACTED"]);
+      }
     }
 
     const itemsPayload = lineItems.filter((li) => li.description.trim()).map((li, i) => ({
