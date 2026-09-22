@@ -102,6 +102,194 @@ export type Database = {
           },
         ]
       }
+      boiler_enquiries: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          bathroom_count: string | null
+          bedrooms: string | null
+          ber: string | null
+          boiler_relocation_required: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          current_heating: string | null
+          customer_id: string | null
+          cylinder_location: string | null
+          eircode: string | null
+          enquiry_type: string
+          existing_boiler_age: string | null
+          existing_boiler_location: string | null
+          existing_gas_connection: string | null
+          existing_water_pump: string | null
+          external_source: string | null
+          external_submission_id: string | null
+          floor_area: string | null
+          heat_pump_interest: string | null
+          hot_water_cylinder: string | null
+          hot_water_outlets: string | null
+          id: string
+          installation_timeframe: string | null
+          insulation_upgraded: string | null
+          interested_heating_zones: boolean | null
+          interested_radiators: boolean | null
+          interested_smart_controls: boolean | null
+          interested_system_flushing: boolean | null
+          interested_water_pressure_improvement: boolean | null
+          landing_page: string | null
+          office_review_notes: Json | null
+          organisation_id: string
+          poor_hot_water_flow: string | null
+          preferred_contact_method: string | null
+          preferred_new_location: string | null
+          property_type: string | null
+          purchase_priority: string | null
+          radiator_age: string | null
+          radiator_count: string | null
+          raw_payload: Json | null
+          referrer: string | null
+          rooms_hard_to_heat: string | null
+          rooms_hard_to_heat_notes: string | null
+          simultaneous_hot_water_usage: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          water_pressure: string | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          bathroom_count?: string | null
+          bedrooms?: string | null
+          ber?: string | null
+          boiler_relocation_required?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          current_heating?: string | null
+          customer_id?: string | null
+          cylinder_location?: string | null
+          eircode?: string | null
+          enquiry_type?: string
+          existing_boiler_age?: string | null
+          existing_boiler_location?: string | null
+          existing_gas_connection?: string | null
+          existing_water_pump?: string | null
+          external_source?: string | null
+          external_submission_id?: string | null
+          floor_area?: string | null
+          heat_pump_interest?: string | null
+          hot_water_cylinder?: string | null
+          hot_water_outlets?: string | null
+          id?: string
+          installation_timeframe?: string | null
+          insulation_upgraded?: string | null
+          interested_heating_zones?: boolean | null
+          interested_radiators?: boolean | null
+          interested_smart_controls?: boolean | null
+          interested_system_flushing?: boolean | null
+          interested_water_pressure_improvement?: boolean | null
+          landing_page?: string | null
+          office_review_notes?: Json | null
+          organisation_id: string
+          poor_hot_water_flow?: string | null
+          preferred_contact_method?: string | null
+          preferred_new_location?: string | null
+          property_type?: string | null
+          purchase_priority?: string | null
+          radiator_age?: string | null
+          radiator_count?: string | null
+          raw_payload?: Json | null
+          referrer?: string | null
+          rooms_hard_to_heat?: string | null
+          rooms_hard_to_heat_notes?: string | null
+          simultaneous_hot_water_usage?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          water_pressure?: string | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          bathroom_count?: string | null
+          bedrooms?: string | null
+          ber?: string | null
+          boiler_relocation_required?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          current_heating?: string | null
+          customer_id?: string | null
+          cylinder_location?: string | null
+          eircode?: string | null
+          enquiry_type?: string
+          existing_boiler_age?: string | null
+          existing_boiler_location?: string | null
+          existing_gas_connection?: string | null
+          existing_water_pump?: string | null
+          external_source?: string | null
+          external_submission_id?: string | null
+          floor_area?: string | null
+          heat_pump_interest?: string | null
+          hot_water_cylinder?: string | null
+          hot_water_outlets?: string | null
+          id?: string
+          installation_timeframe?: string | null
+          insulation_upgraded?: string | null
+          interested_heating_zones?: boolean | null
+          interested_radiators?: boolean | null
+          interested_smart_controls?: boolean | null
+          interested_system_flushing?: boolean | null
+          interested_water_pressure_improvement?: boolean | null
+          landing_page?: string | null
+          office_review_notes?: Json | null
+          organisation_id?: string
+          poor_hot_water_flow?: string | null
+          preferred_contact_method?: string | null
+          preferred_new_location?: string | null
+          property_type?: string | null
+          purchase_priority?: string | null
+          radiator_age?: string | null
+          radiator_count?: string | null
+          raw_payload?: Json | null
+          referrer?: string | null
+          rooms_hard_to_heat?: string | null
+          rooms_hard_to_heat_notes?: string | null
+          simultaneous_hot_water_usage?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          water_pressure?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boiler_enquiries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_intake_claims: {
         Row: {
           created_at: string
@@ -1701,6 +1889,7 @@ export type Database = {
       }
       job_media: {
         Row: {
+          boiler_enquiry_id: string | null
           customer_id: string | null
           file_name: string
           file_type: string | null
@@ -1716,6 +1905,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          boiler_enquiry_id?: string | null
           customer_id?: string | null
           file_name: string
           file_type?: string | null
@@ -1731,6 +1921,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          boiler_enquiry_id?: string | null
           customer_id?: string | null
           file_name?: string
           file_type?: string | null
@@ -1746,6 +1937,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_media_boiler_enquiry_id_fkey"
+            columns: ["boiler_enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "boiler_enquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_media_customer_id_fkey"
             columns: ["customer_id"]
@@ -2746,6 +2944,7 @@ export type Database = {
           approved: boolean | null
           approved_at: string | null
           balance_due: number | null
+          boiler_enquiry_id: string | null
           bot_created: boolean | null
           callout_cost: number | null
           conversation_id: string | null
@@ -2794,6 +2993,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
+          boiler_enquiry_id?: string | null
           bot_created?: boolean | null
           callout_cost?: number | null
           conversation_id?: string | null
@@ -2842,6 +3042,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           balance_due?: number | null
+          boiler_enquiry_id?: string | null
           bot_created?: boolean | null
           callout_cost?: number | null
           conversation_id?: string | null
@@ -2884,6 +3085,13 @@ export type Database = {
           viewed_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "quotes_boiler_enquiry_id_fkey"
+            columns: ["boiler_enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "boiler_enquiries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotes_converted_job_id_fkey"
             columns: ["converted_job_id"]
@@ -4017,6 +4225,7 @@ export type Database = {
       get_receipt_public: { Args: { p_receipt_number: string }; Returns: Json }
       get_user_organisation_id: { Args: { _user_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
+      has_office_access: { Args: { _user_id: string }; Returns: boolean }
       is_ignored_number: {
         Args: { _organisation_id: string; _phone: string }
         Returns: boolean
