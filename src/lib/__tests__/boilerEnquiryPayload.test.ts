@@ -158,7 +158,7 @@ describe("validateEnquirySubmission", () => {
   it("rejects an email-only submission (a customer cannot exist without a phone)", () => {
     const result = validateEnquirySubmission({ name: null, phone: null, email: "a@b.ie" });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("A contact phone number is required");
+    expect(result.ok ? null : result.error).toBe("A contact phone number is required");
   });
 
   it("rejects a submission with no usable contact route", () => {
