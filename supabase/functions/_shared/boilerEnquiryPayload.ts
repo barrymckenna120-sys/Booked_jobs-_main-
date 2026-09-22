@@ -258,7 +258,9 @@ export const extractContact = (flat: Record<string, unknown>): BoilerEnquiryCont
     [/phone/, /mobile/, /(^|_)tel(ephone)?($|_)/, /number/, /contact/],
     looksLikePhone,
   ),
-  email: pickLoose(flat, ["email", "email_address", "your_email"], [/e_?mail/], looksLikeEmail),
+  // An email-shaped answer is unambiguous, so any question may carry it
+  // ("Where should we send your quote?").
+  email: pickLoose(flat, ["email", "email_address", "your_email"], [/./], looksLikeEmail),
 });
 
 export type BoilerEnquiryAttribution = {
