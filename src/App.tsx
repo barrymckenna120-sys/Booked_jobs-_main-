@@ -57,6 +57,8 @@ const EngineerJobDetail = lazy(() => import("./pages/engineer/EngineerJobDetail"
 const EngineerCertificates = lazy(() => import("./pages/engineer/EngineerCertificates"));
 const BookingRedirect = lazy(() => import("./pages/BookingRedirect"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
+const BoilerEnquiries = lazy(() => import("./pages/BoilerEnquiries"));
+const BoilerEnquiryDetail = lazy(() => import("./pages/BoilerEnquiryDetail"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
 const InboxPage = lazy(() => import("./pages/Inbox"));
@@ -443,6 +445,23 @@ function AppContent() {
             element={
               <OfficeRoute>
                 <IncomingJobsDebug />
+              </OfficeRoute>
+            }
+          />
+
+          <Route
+            path="/boiler-enquiries"
+            element={
+              <OfficeRoute>
+                <BoilerEnquiries />
+              </OfficeRoute>
+            }
+          />
+          <Route
+            path="/boiler-enquiries/:id"
+            element={
+              <OfficeRoute>
+                <BoilerEnquiryDetail />
               </OfficeRoute>
             }
           />
