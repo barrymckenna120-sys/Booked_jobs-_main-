@@ -154,3 +154,5 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
 
   [functions.superadmin-unblock-user]
     verify_jwt = false
+  [functions.tally-boiler-enquiry]
+    verify_jwt = false
