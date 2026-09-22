@@ -59,5 +59,6 @@
 - [x] Office screens: Boiler Enquiries list + detail (Call / WhatsApp / Request info / Create quote), quote prefill through the existing quote form.
 - [x] New Gas Boilers Dublin tenant corrected in place (name, slug, owner Matt Murphy, phone, company email, RGI 5307); Tally form id `68qaMe` registered to that tenant only.
 - [x] Per-tenant webhook secret moved out of the database row: `tenant_integrations.config.webhook_secret_name` is now resolved from the encrypted secret store by `tenantSecretOrg` (`TALLY_WEBHOOK_SECRET_NEWGASBOILERS`). Negative paths re-verified in production (missing header 401, wrong secret 401).
+- [x] Webhook password rotated 22/09/26 via the secure secret form (`TALLY_WEBHOOK_SECRET_NEWGASBOILERS`); value known only to Barry, never in chat/logs/database row. Wrong-password probe re-verified as 401 after rotation.
 - [ ] Barry: add the webhook in Tally (form 68qaMe) with header `x-webhook-secret` = the saved password, then run one test submission and confirm it lands under Boiler Enquiries for New Gas Boilers Dublin.
 - [ ] Matt Murphy has no BookedJobs login yet — the only office account on this tenant is `sales@bookedjobs.ie`. There is no office-only invite path in the app (Team invites require an engineer record), so this needs a decision.
