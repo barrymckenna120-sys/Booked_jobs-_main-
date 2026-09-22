@@ -250,9 +250,19 @@ export type BoilerEnquiryContact = {
 };
 
 export const extractContact = (flat: Record<string, unknown>): BoilerEnquiryContact => ({
-  name: pick(flat, ["name", "full_name", "customer_name", "your_name", "first_name"]),
-  phone: pick(flat, ["phone", "mobile", "phone_number", "mobile_number", "contact_number", "telephone"]),
-  email: pick(flat, ["email", "email_address", "your_email"]),
+  name: pickLoose(
+    flat,
+    ["name", "full_name", "customer_name", "your_name", "first_name"],
+    [/name/],
+    (value) => !looksLikeEmail(value) && !looksLikePhone(value),
+  ),
+  phone: pickLoose(
+    flat,
+    ["phone", "mobile", "phone_number", "mobile_number", "contact_number", "telephone"],
+    [/phone/, /mobile/, /(^|_)tel(ephone)?($|_)/, /number/, /contact/],
+    looksLikePhone,
+  ),
+  email: pickLoose(flat, ["email", "email_address", "your_email"], [/e_?mail/], looksLikeEmail),
 });
 
 export type BoilerEnquiryAttribution = {
@@ -404,14 +414,15 @@ export const enquiryPhotoUrls = (flat: Record<string, unknown>): string[] => {
 export type EnquiryValidation = { ok: true } | { ok: false; error: string };
 
 /**
- * A submission is usable when it carries at least one way to reach the
- * customer. Everything else is optional — questionnaires skip branches.
+ * A submission is usable when it carries a phone number: a customer record
+ * cannot exist without one, so accepting an email-only submission would fail at
+ * the database instead of here. Everything else is optional — questionnaires
+ * skip branches.
  */
 export const validateEnquirySubmission = (contact: BoilerEnquiryContact): EnquiryValidation => {
-  const hasPhone = Boolean(contact.phone && contact.phone.replace(/\D/g, "").length >= 7);
-  const hasEmail = Boolean(contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email));
-  if (!hasPhone && !hasEmail) {
-    return { ok: false, error: "A contact phone or email is required" };
+  const hasPhone = Boolean(contact.phone && looksLikePhone(contact.phone));
+  if (!hasPhone) {
+    return { ok: false, error: "A contact phone number is required" };
   }
   return { ok: true };
 };
