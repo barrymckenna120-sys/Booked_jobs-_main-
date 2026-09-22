@@ -274,3 +274,108 @@ describe("status and display rules", () => {
     expect(showsHeatPumpSection({})).toBe(false);
   });
 });
+
+/**
+ * The production "Find My Boiler" form (68qaMe) — exact question wording and
+ * envelope taken from the live submissions logged on 22/09/26, including its
+ * "Moblie No" and "Priorty" spellings. Test data only.
+ */
+describe("live Find My Boiler form (68qaMe)", () => {
+  const liveBody = {
+    eventId: "evt-live",
+    eventType: "FORM_RESPONSE",
+    createdAt: "2026-09-22T15:57:00.000Z",
+    data: {
+      responseId: "resp-live",
+      submissionId: "KpyvRvA",
+      respondentId: "resp-1",
+      formId: "68qaMe",
+      formName: "Find My Boiler",
+      submissionPdfUrl: "https://tally.so/pdf/KpyvRvA.pdf",
+      fields: [
+        { key: "question_dv5bgl", label: "Property", value: "Semi-detached" },
+        { key: "question_lllbeo", label: "How many bedrooms", value: "3" },
+        { key: "question_rbrxnk", label: "Approx No of radiators used", value: "11-15" },
+        { key: "question_gbl6ge", label: "Boiler type", value: "Gas boiler" },
+        { key: "question_obla2a", label: "Age of boiler", value: "15-20 years" },
+        { key: "question_v1vgej", label: "Current boiler location", value: "Kitchen" },
+        { key: "question_pblpx1", label: "No of bathrooms", value: "1" },
+        { key: "question_eblkrl", label: "Do you use 2 showers at the same time", value: "Sometimes" },
+        {
+          key: "question_rrv54o",
+          label: "Do you have good water pressure (good, average, poor, not sure)",
+          value: "Average",
+        },
+        { key: "question_4nlq6r", label: "Existing hot water cylinder or pump", value: "Cylinder, no pump" },
+        { key: "question_j9lzrq", label: "Priorty", value: "Long warranty" },
+        {
+          key: "question_2xlxwe",
+          label: "Interested in new radiators, smart controls or power flushing",
+          value: "New radiators, Power flushing",
+        },
+        { key: "question_xn2rqd", label: "When would you like the work completed", value: "Within a month" },
+        {
+          key: "question_zrl87v",
+          label: "Photos current boiler",
+          value: [{ url: "https://storage.tally.so/boiler.jpg" }],
+        },
+        { key: "question_nblrj0", label: "Contact details", value: "Test Boiler Customer" },
+        { key: "question_v1vay6", label: "Moblie No", value: "087 123 4567" },
+        { key: "question_qbd1zy", label: "Eircode", value: "D02 X285" },
+        { key: "question_9jobke", label: "Address", value: "1 Test Road, Dublin" },
+        { key: "question_exlmjx", label: "Email", value: "test.customer@example.com" },
+        { key: "question_wpp2we", label: "Preferred contact phone, WhatsApp or email", value: "WhatsApp" },
+      ],
+    },
+  };
+
+  const flat = flattenTallyPayload(liveBody);
+
+  it("reads the customer's contact details, not Tally's own envelope", () => {
+    expect(extractContact(flat)).toEqual({
+      name: "Test Boiler Customer",
+      phone: "087 123 4567",
+      email: "test.customer@example.com",
+    });
+  });
+
+  it("passes validation", () => {
+    expect(validateEnquirySubmission(extractContact(flat)).ok).toBe(true);
+  });
+
+  it("maps every answered question to its column", () => {
+    const fields = mapBoilerEnquiryFields(flat);
+    expect(fields.property_type).toBe("Semi-detached");
+    expect(fields.bedrooms).toBe("3");
+    expect(fields.radiator_count).toBe("11-15");
+    expect(fields.current_heating).toBe("Gas boiler");
+    expect(fields.existing_boiler_age).toBe("15-20 years");
+    expect(fields.existing_boiler_location).toBe("Kitchen");
+    expect(fields.bathroom_count).toBe("1");
+    expect(fields.simultaneous_hot_water_usage).toBe("Sometimes");
+    expect(fields.water_pressure).toBe("Average");
+    expect(fields.hot_water_cylinder).toBe("Cylinder, no pump");
+    expect(fields.purchase_priority).toBe("Long warranty");
+    expect(fields.installation_timeframe).toBe("Within a month");
+    expect(fields.preferred_contact_method).toBe("WhatsApp");
+    expect(fields.address).toBe("1 Test Road, Dublin");
+    expect(fields.eircode).toBe("D02 X285");
+  });
+
+  it("splits the multi-select extras answer into flags", () => {
+    const fields = mapBoilerEnquiryFields(flat);
+    expect(fields.interested_radiators).toBe(true);
+    expect(fields.interested_system_flushing).toBe(true);
+    expect(fields.interested_smart_controls).toBe(false);
+    expect(fields.interested_heating_zones).toBe(false);
+  });
+
+  it("picks up the uploaded boiler photo", () => {
+    expect(enquiryPhotoUrls(flat)).toEqual(["https://storage.tally.so/boiler.jpg"]);
+  });
+
+  it("never stores Tally's submission pdf as a customer photo or the form name as the customer", () => {
+    expect(enquiryPhotoUrls(flat)).not.toContain("https://tally.so/pdf/KpyvRvA.pdf");
+    expect(extractContact(flat).name).not.toBe("Find My Boiler");
+  });
+});

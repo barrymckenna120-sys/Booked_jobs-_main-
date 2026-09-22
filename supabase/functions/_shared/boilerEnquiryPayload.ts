@@ -46,10 +46,15 @@ const scalar = (value: unknown): unknown => {
     const parts = value
       .map((v) =>
         v && typeof v === "object"
-          ? String((v as { text?: unknown; label?: unknown; value?: unknown }).text ??
-              (v as { label?: unknown }).label ??
-              (v as { value?: unknown }).value ??
-              "")
+          ? String(
+              // `url` first: a Tally file answer is an array of upload objects,
+              // and its url is the only part worth keeping.
+              (v as { url?: unknown }).url ??
+                (v as { text?: unknown }).text ??
+                (v as { label?: unknown }).label ??
+                (v as { value?: unknown }).value ??
+                "",
+            )
           : String(v ?? ""),
       )
       .map((s) => s.trim())
@@ -116,10 +121,29 @@ const pick = (flat: Record<string, unknown>, keys: string[]): string | null => {
 };
 
 /**
- * Live forms reword their questions ("Best number to reach you on?"), so an
- * exact alias list alone silently loses answers. `pickLoose` falls back to any
- * answer whose question name matches one of `patterns` AND whose value passes
- * `accept`, so a loose name match can never pull in an unrelated answer.
+ * Tally's own envelope keys. They are never customer answers, so loose matching
+ * must ignore them — otherwise "formName" satisfies a /name/ match and the form
+ * title gets saved as the customer's name.
+ */
+const TALLY_META_KEYS = new Set([
+  "eventid",
+  "eventtype",
+  "createdat",
+  "responseid",
+  "submissionid",
+  "respondentid",
+  "formid",
+  "formname",
+  "submissionpdfurl",
+  "submissionpreviewurl",
+]);
+
+/**
+ * Live forms reword (and misspell) their questions — the production "Find My
+ * Boiler" form asks "Moblie No" and "Priorty" — so an exact alias list alone
+ * silently loses answers. `pickLoose` falls back to any answer whose question
+ * name matches one of `patterns` AND whose value passes `accept`, so a loose
+ * name match can never pull in an unrelated answer.
  */
 const pickLoose = (
   flat: Record<string, unknown>,
@@ -130,12 +154,19 @@ const pickLoose = (
   const exact = pick(flat, keys);
   if (exact && accept(exact)) return exact;
   for (const [key, raw] of Object.entries(flat)) {
+    if (TALLY_META_KEYS.has(key)) continue;
     if (raw === null || raw === undefined) continue;
     const text = String(raw).trim();
     if (!text || !accept(text)) continue;
     if (patterns.some((pattern) => pattern.test(key))) return text;
   }
   return exact;
+};
+
+/** True when the multi-select extras answer mentions `patterns`. */
+const mentions = (value: string | null, patterns: RegExp[]): boolean | null => {
+  if (!value) return null;
+  return patterns.some((pattern) => pattern.test(value.toLowerCase()));
 };
 
 const digitCount = (value: string): number => value.replace(/\D/g, "").length;
@@ -169,75 +200,168 @@ const pickBool = (flat: Record<string, unknown>, keys: string[]): boolean | null
 
 export type BoilerEnquiryFields = Record<string, string | boolean | null>;
 
-/** Tally answer → `boiler_enquiries` column mapping. */
-export const mapBoilerEnquiryFields = (flat: Record<string, unknown>): BoilerEnquiryFields => ({
-  // property
-  property_type: pick(flat, ["property_type", "type_of_property", "property"]),
-  bedrooms: pick(flat, ["bedrooms", "number_of_bedrooms", "how_many_bedrooms"]),
-  floor_area: pick(flat, ["floor_area", "floor_area_sqm", "property_size"]),
-  address: pickLoose(
+/**
+ * Tally answer → `boiler_enquiries` column mapping.
+ *
+ * Aliases include the live "Find My Boiler" question wording exactly as the
+ * form asks it (including its "Moblie No" / "Priorty" spellings), and each
+ * lookup also matches loosely on the question wording so a reworded question
+ * keeps landing in the same column.
+ */
+export const mapBoilerEnquiryFields = (flat: Record<string, unknown>): BoilerEnquiryFields => {
+  const extras = pickLoose(
     flat,
-    ["address", "property_address", "street_address"],
-    [/address/],
-    (value) => !looksLikeEmail(value),
-  ),
-  eircode: pickLoose(flat, ["eircode", "eir_code", "postcode"], [/eir_?code/, /post_?code/]),
+    ["interested_in_new_radiators_smart_controls_or_power_flushing", "interested_in"],
+    [/interested_in/],
+  );
 
-  // existing heating
-  current_heating: pick(flat, ["current_heating", "current_heating_system", "existing_heating"]),
-  existing_gas_connection: pick(flat, ["existing_gas_connection", "gas_connection", "mains_gas"]),
-  existing_boiler_age: pick(flat, ["existing_boiler_age", "boiler_age", "how_old_is_your_boiler"]),
-  existing_boiler_location: pick(flat, ["existing_boiler_location", "boiler_location", "where_is_your_boiler"]),
-  boiler_relocation_required: pick(flat, [
-    "boiler_relocation_required",
-    "relocate_boiler",
-    "same_location",
-    "keep_boiler_in_same_location",
-  ]),
-  preferred_new_location: pick(flat, ["preferred_new_location", "new_boiler_location"]),
+  return {
+    // property
+    property_type: pick(flat, ["property_type", "type_of_property", "property"]),
+    bedrooms: pickLoose(flat, ["bedrooms", "number_of_bedrooms", "how_many_bedrooms"], [/bedroom/]),
+    floor_area: pick(flat, ["floor_area", "floor_area_sqm", "property_size"]),
+    address: pickLoose(
+      flat,
+      ["address", "property_address", "street_address"],
+      [/address/],
+      (value) => !looksLikeEmail(value),
+    ),
+    eircode: pickLoose(flat, ["eircode", "eir_code", "postcode"], [/eir_?code/, /post_?code/]),
 
-  // heating system
-  radiator_count: pick(flat, ["radiator_count", "radiators", "number_of_radiators", "how_many_radiators"]),
-  radiator_age: pick(flat, ["radiator_age", "age_of_radiators"]),
-  rooms_hard_to_heat: pick(flat, ["rooms_hard_to_heat", "hard_to_heat_rooms", "any_rooms_hard_to_heat"]),
-  rooms_hard_to_heat_notes: pick(flat, ["rooms_hard_to_heat_notes", "hard_to_heat_notes"]),
-  existing_water_pump: pick(flat, ["existing_water_pump", "water_pump", "pump"]),
+    // existing heating
+    current_heating: pickLoose(
+      flat,
+      ["current_heating", "current_heating_system", "existing_heating", "boiler_type"],
+      [/boiler_type/, /current_heating/],
+    ),
+    existing_gas_connection: pick(flat, ["existing_gas_connection", "gas_connection", "mains_gas"]),
+    existing_boiler_age: pickLoose(
+      flat,
+      ["existing_boiler_age", "boiler_age", "age_of_boiler", "how_old_is_your_boiler"],
+      [/age_of_boiler/, /boiler_age/],
+    ),
+    existing_boiler_location: pickLoose(
+      flat,
+      [
+        "existing_boiler_location",
+        "boiler_location",
+        "current_boiler_location",
+        "where_is_your_boiler",
+      ],
+      [/boiler_location/],
+    ),
+    boiler_relocation_required: pick(flat, [
+      "boiler_relocation_required",
+      "relocate_boiler",
+      "same_location",
+      "keep_boiler_in_same_location",
+    ]),
+    preferred_new_location: pick(flat, ["preferred_new_location", "new_boiler_location"]),
 
-  // hot water
-  bathroom_count: pick(flat, ["bathroom_count", "bathrooms", "number_of_bathrooms", "how_many_bathrooms"]),
-  hot_water_outlets: pick(flat, ["hot_water_outlets", "outlets"]),
-  simultaneous_hot_water_usage: pick(flat, [
-    "simultaneous_hot_water_usage",
-    "simultaneous_hot_water",
-    "hot_water_at_the_same_time",
-  ]),
-  water_pressure: pick(flat, ["water_pressure", "mains_water_pressure"]),
-  poor_hot_water_flow: pick(flat, ["poor_hot_water_flow", "hot_water_flow"]),
-  hot_water_cylinder: pick(flat, ["hot_water_cylinder", "cylinder", "do_you_have_a_cylinder"]),
-  cylinder_location: pick(flat, ["cylinder_location", "where_is_the_cylinder"]),
+    // heating system
+    radiator_count: pickLoose(
+      flat,
+      [
+        "radiator_count",
+        "radiators",
+        "number_of_radiators",
+        "how_many_radiators",
+        "approx_no_of_radiators_used",
+      ],
+      [/radiator/],
+    ),
+    radiator_age: pick(flat, ["radiator_age", "age_of_radiators"]),
+    rooms_hard_to_heat: pick(flat, ["rooms_hard_to_heat", "hard_to_heat_rooms", "any_rooms_hard_to_heat"]),
+    rooms_hard_to_heat_notes: pick(flat, ["rooms_hard_to_heat_notes", "hard_to_heat_notes"]),
+    existing_water_pump: pick(flat, ["existing_water_pump", "water_pump", "pump"]),
 
-  // preferences
-  purchase_priority: pick(flat, ["purchase_priority", "what_matters_most", "priority"]),
-  installation_timeframe: pick(flat, ["installation_timeframe", "timeframe", "when_do_you_want_it_installed"]),
+    // hot water
+    bathroom_count: pickLoose(
+      flat,
+      ["bathroom_count", "bathrooms", "number_of_bathrooms", "how_many_bathrooms", "no_of_bathrooms"],
+      [/bathroom/],
+    ),
+    hot_water_outlets: pick(flat, ["hot_water_outlets", "outlets"]),
+    simultaneous_hot_water_usage: pickLoose(
+      flat,
+      [
+        "simultaneous_hot_water_usage",
+        "simultaneous_hot_water",
+        "hot_water_at_the_same_time",
+        "do_you_use_2_showers_at_the_same_time",
+      ],
+      [/same_time/, /simultaneous/],
+    ),
+    water_pressure: pickLoose(
+      flat,
+      ["water_pressure", "mains_water_pressure"],
+      [/water_pressure/],
+    ),
+    poor_hot_water_flow: pick(flat, ["poor_hot_water_flow", "hot_water_flow"]),
+    hot_water_cylinder: pickLoose(
+      flat,
+      [
+        "hot_water_cylinder",
+        "cylinder",
+        "do_you_have_a_cylinder",
+        "existing_hot_water_cylinder_or_pump",
+      ],
+      [/cylinder/],
+    ),
+    cylinder_location: pick(flat, ["cylinder_location", "where_is_the_cylinder"]),
 
-  // interested extras
-  interested_radiators: pickBool(flat, ["interested_radiators", "new_radiators", "radiators_interest"]),
-  interested_smart_controls: pickBool(flat, ["interested_smart_controls", "smart_controls"]),
-  interested_heating_zones: pickBool(flat, ["interested_heating_zones", "heating_zones", "zones"]),
-  interested_system_flushing: pickBool(flat, ["interested_system_flushing", "system_flushing", "power_flush"]),
-  interested_water_pressure_improvement: pickBool(flat, [
-    "interested_water_pressure_improvement",
-    "water_pressure_improvement",
-  ]),
+    // preferences
+    purchase_priority: pickLoose(
+      flat,
+      ["purchase_priority", "what_matters_most", "priority", "priorty"],
+      [/prior/],
+    ),
+    installation_timeframe: pickLoose(
+      flat,
+      [
+        "installation_timeframe",
+        "timeframe",
+        "when_do_you_want_it_installed",
+        "when_would_you_like_the_work_completed",
+      ],
+      [/timeframe/, /when_would_you/, /when_do_you/],
+    ),
 
-  // heat pump
-  heat_pump_interest: pick(flat, ["heat_pump_interest", "heat_pump", "interested_in_a_heat_pump"]),
-  ber: pick(flat, ["ber", "ber_rating", "energy_rating"]),
-  insulation_upgraded: pick(flat, ["insulation_upgraded", "insulation", "has_insulation_been_upgraded"]),
+    // interested extras — the live form asks these as one multi-select answer
+    interested_radiators:
+      pickBool(flat, ["interested_radiators", "new_radiators", "radiators_interest"]) ??
+      mentions(extras, [/radiator/]),
+    interested_smart_controls:
+      pickBool(flat, ["interested_smart_controls", "smart_controls"]) ??
+      mentions(extras, [/smart/, /control/]),
+    interested_heating_zones:
+      pickBool(flat, ["interested_heating_zones", "heating_zones", "zones"]) ??
+      mentions(extras, [/zone/]),
+    interested_system_flushing:
+      pickBool(flat, ["interested_system_flushing", "system_flushing", "power_flush"]) ??
+      mentions(extras, [/flush/]),
+    interested_water_pressure_improvement:
+      pickBool(flat, ["interested_water_pressure_improvement", "water_pressure_improvement"]) ??
+      mentions(extras, [/pressure/]),
 
-  // contact
-  preferred_contact_method: pick(flat, ["preferred_contact_method", "contact_preference", "preferred_contact"]),
-});
+    // heat pump
+    heat_pump_interest: pick(flat, ["heat_pump_interest", "heat_pump", "interested_in_a_heat_pump"]),
+    ber: pick(flat, ["ber", "ber_rating", "energy_rating"]),
+    insulation_upgraded: pick(flat, ["insulation_upgraded", "insulation", "has_insulation_been_upgraded"]),
+
+    // contact
+    preferred_contact_method: pickLoose(
+      flat,
+      [
+        "preferred_contact_method",
+        "contact_preference",
+        "preferred_contact",
+        "preferred_contact_phone_whatsapp_or_email",
+      ],
+      [/preferred_contact/],
+    ),
+  };
+};
 
 export type BoilerEnquiryContact = {
   name: string | null;
@@ -248,14 +372,25 @@ export type BoilerEnquiryContact = {
 export const extractContact = (flat: Record<string, unknown>): BoilerEnquiryContact => ({
   name: pickLoose(
     flat,
-    ["name", "full_name", "customer_name", "your_name", "first_name"],
-    [/name/],
+    ["name", "full_name", "customer_name", "your_name", "first_name", "contact_details"],
+    [/name/, /contact_details/],
     (value) => !looksLikeEmail(value) && !looksLikePhone(value),
   ),
   phone: pickLoose(
     flat,
-    ["phone", "mobile", "phone_number", "mobile_number", "contact_number", "telephone"],
-    [/phone/, /mobile/, /(^|_)tel(ephone)?($|_)/, /number/, /contact/],
+    [
+      "phone",
+      "mobile",
+      "phone_number",
+      "mobile_number",
+      "contact_number",
+      "telephone",
+      "moblie_no",
+      "mobile_no",
+    ],
+    // /mob/ deliberately covers the live form's "Moblie No" misspelling; every
+    // loose match is still gated on the answer looking like a phone number.
+    [/phone/, /mob/, /(^|_)tel(ephone)?($|_)/, /number/, /contact/],
     looksLikePhone,
   ),
   // An email-shaped answer is unambiguous, so any question may carry it
@@ -401,9 +536,17 @@ export const normaliseEnquiryPhotoUrls = (input: unknown, depth = 0): string[] =
   return PHOTO_URL_RE.test(raw) ? [raw] : [];
 };
 
+const PHOTO_QUESTION_RE = /photo|image|upload|attachment/;
+
 export const enquiryPhotoUrls = (flat: Record<string, unknown>): string[] => {
   const keys = ["photos", "photo", "photo_video_upload", "photo_upload", "uploads", "images", "boiler_photos"];
   const found = keys.flatMap((key) => normaliseEnquiryPhotoUrls(flat[key]));
+  // The live form asks "Photos Current Boiler", so any upload question counts.
+  // Tally's own submission links are excluded by TALLY_META_KEYS.
+  for (const [key, value] of Object.entries(flat)) {
+    if (TALLY_META_KEYS.has(key) || !PHOTO_QUESTION_RE.test(key)) continue;
+    found.push(...normaliseEnquiryPhotoUrls(value));
+  }
   return Array.from(new Set(found)).slice(0, MAX_ENQUIRY_PHOTOS);
 };
 
