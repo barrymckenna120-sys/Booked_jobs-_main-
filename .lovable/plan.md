@@ -1,43 +1,51 @@
-# Boiler Enquiries list — tabbed status view
+# Rewrite Boiler Enquiries list — tabbed status view
 
-## Conflict to settle first
+## Current state (verified)
 
-A boiler enquiries list page **already exists** and `/boiler-enquiries` is **already registered** as an office-only route (`src/pages/BoilerEnquiries.tsx`, built in Phase 3B). It has a search box, four dropdown filters and a table, but no status tabs with counts and no linked-quote column.
+`src/pages/BoilerEnquiries.tsx` (266 lines) is the live `/boiler-enquiries` page, office-guarded, fetching `boiler_enquiries` joined to `customers`, RLS-scoped via the signed-in user's company. Its four dropdown filters filter on:
 
-So "create a new page only, do not modify any existing file" and "add a new route /boiler-enquiries" cannot both hold. This plan takes the least invasive route that still gives you a new file:
+1. **Status** — `boiler_enquiries.status` (becomes redundant → replaced by tabs)
+2. **Timeframe** — `installation_timeframe` (kept)
+3. **Source** — `source` (kept)
+4. **Heating** — `current_heating` (kept)
 
-- Create a **new** page file with the tabs/counts/table pattern.
-- Change **one line** in `src/App.tsx` so the existing `/boiler-enquiries` route renders the new page.
-- Leave the old page file on disk, unmodified, no longer referenced — easy to revert by flipping that one line back.
+Allowed statuses (DB check constraint): NEW, CONTACTED, NEEDS_INFO, READY_TO_QUOTE, QUOTED, WON, LOST. Six enquiries currently exist, all NEW.
 
-If you would rather I rewrite the existing page in place, or keep both under separate URLs, say so and I'll adjust.
+## What changes
 
-## Status tabs
+**Rewrite `src/pages/BoilerEnquiries.tsx` in place** — same file, same route, same data, no new page, no `src/App.tsx` change. `BoilerEnquiryDetail.tsx` and all backend code untouched. Follow `QuotesList.tsx` conventions: same tab pill row with counts, search input, card-wrapped table, badge styling, `Loader2` spinner, empty state.
 
-The database allows seven statuses: NEW, CONTACTED, NEEDS_INFO, READY_TO_QUOTE, QUOTED, WON, LOST. You asked for six tabs (All / New / Contacted / Quoted / Won / Lost), which leaves NEEDS_INFO and READY_TO_QUOTE reachable only under All. Plan: show tabs for all seven so no enquiry is hard to find, with All first and each tab carrying its count. Tell me if you want strictly your six.
+### Filters
+- **Status dropdown: dropped** — superseded by the tab row (functionality preserved, relocated).
+- **Timeframe, Source, Heating dropdowns: kept** as-is, sitting beside the search box, each with its "All" default.
 
-## What gets built
+### Tabs
+One row of pills: **All** plus all seven statuses — New, Contacted, Needs Info, Ready to Quote, Quoted, Won, Lost — each with a live count from the loaded set. Counts always reflect the whole set (not the search-filtered subset), matching the existing "N new" behaviour.
 
-New page `src/pages/BoilerEnquiriesList.tsx`, following the `QuotesList.tsx` conventions (same tab pill row with counts, same search input, same card-wrapped table, same badge styling approach, same loading spinner and empty state):
+### Search
+Unchanged placement; matches customer name or phone from both the linked `customers` record and the enquiry's own contact fields (same haystack logic as today, narrowed to name/phone/email per spec: name + phone are the requirement, existing email matching stays).
 
-- Tab row: All plus each status, each with a live count from the loaded set.
-- Search box filtering by customer name or phone (both the linked customer record and the enquiry's own contact fields).
-- Table columns: Customer (name with phone beneath), Enquiry / Property type, Timeframe, Status (coloured badge), Quote (linked quote number plus its status badge, or a dash), Source (source / external source), Created (DD/MM/YY).
-- Mobile card layout mirroring the existing page, so small screens stay usable.
-- Row click navigates to `/boiler-enquiries/:id` — the detail page is untouched.
+### Table columns (desktop)
+1. **Customer** — name (bold) with phone beneath
+2. **Enquiry / Property type** — `property_type` (existing `enquiry_type`-style content)
+3. **Timeframe** — `installation_timeframe`
+4. **Status** — coloured badge, existing `STATUS_BADGE` mapping
+5. **Quote** — most recent linked quote's number + its status badge; dash when none. Loaded with **one** query over the visible enquiry ids on `quotes.boiler_enquiry_id` (the same relationship `BoilerEnquiryDetail.tsx` already queries), then grouped client-side.
+6. **Source** — `source` (falls back to `external_source` when blank)
+7. **Created** — `created_at` as DD/MM/YY
 
-Linked quotes are loaded with one query over the visible enquiry ids (`quotes` filtered by `boiler_enquiry_id`), the same relationship the detail page already uses; the most recent quote per enquiry is shown.
+### Mobile
+Card layout mirroring the current page (customer + status badge, address line, property line, timeframe/source/date line) plus the quote number where one exists.
 
-## Data access
+### Row click
+Navigates to `/boiler-enquiries/:id` — detail page unchanged.
 
-Read-only. No new tables, columns, functions or policies. Existing row-level security already restricts `boiler_enquiries` and `quotes` to the signed-in user's own company via `get_my_org_id()`, and the route stays behind the office-only guard, so engineers cannot reach it.
+## Constraints
 
-## Verification
+- Read-only data: no new tables, columns, functions or policy changes.
+- Stays behind the existing office-only route guard; no route edits.
+- One regression check after build: tab counts, a tab switch, search, empty state, row navigation to detail.
 
-Type check, production build, and the existing test suite. Click-through of the tabs, search, empty state and a row into the detail page against the six live enquiries.
+## Reporting
 
-## Files
-
-- New: `src/pages/BoilerEnquiriesList.tsx`
-- One-line change: `src/App.tsx` (lazy import target for the `/boiler-enquiries` route)
-- Unchanged: `src/pages/BoilerEnquiryDetail.tsx`, `src/pages/BoilerEnquiries.tsx`, all backend code
+Full diff of the rewritten file, stating explicitly which of the four original filters were kept, merged or dropped and why.
