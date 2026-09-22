@@ -166,7 +166,19 @@ Deno.serve(async (req) => {
       .select("id, owner_user_id")
       .eq("id", organisationId)
       .maybeSingle();
-    const ownerUserId = (orgRow as { owner_user_id: string | null } | null)?.owner_user_id ?? null;
+    let ownerUserId = (orgRow as { owner_user_id: string | null } | null)?.owner_user_id ?? null;
+    if (!ownerUserId) {
+      // Older tenants may have no owner recorded on the organisation: fall back
+      // to an office/admin profile inside the SAME organisation.
+      const { data: fallbackProfile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("organisation_id", organisationId)
+        .in("role", ["admin", "office", "owner", "manager"])
+        .limit(1)
+        .maybeSingle();
+      ownerUserId = (fallbackProfile as { user_id: string } | null)?.user_id ?? null;
+    }
     if (!ownerUserId) {
       await logStage(supabase, "organisation_owner_missing", {
         submission_id: submissionId,
