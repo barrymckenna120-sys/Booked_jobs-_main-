@@ -28,8 +28,13 @@ const Pipeline = () => {
   const initialTab: TabKey = (filterParam === "overdue" || filterParam === "due-soon") ? "renewals" : "incoming";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const { user } = useAuth();
-  const { isAdmin, isOffice } = useUserRole(user);
-  console.log("[Pipeline] role debug", { email: user?.email, userId: user?.id, isAdmin, isOffice });
+  const { role, canAccessOffice } = useUserRole(user);
+  // Leads (Boiler Enquiries) uses the same office-access predicate as the
+  // OfficeRoute guard on the standalone /boiler-enquiries page, so an account
+  // that can open the page directly also sees the tab here. Owner/manager
+  // accounts resolve to neither isAdmin nor isOffice, so isAdmin || isOffice
+  // would hide the tab from them (it already hides Warranty).
+  const canSeeOfficeTabs = role !== "engineer" || canAccessOffice;
 
   const tabs = useMemo(() => {
     const t = [...BASE_TABS];
