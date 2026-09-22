@@ -119,6 +119,40 @@ const pick = (flat: Record<string, unknown>, keys: string[]): string | null => {
   return null;
 };
 
+/**
+ * Live forms reword their questions ("Best number to reach you on?"), so an
+ * exact alias list alone silently loses answers. `pickLoose` falls back to any
+ * answer whose question name matches one of `patterns` AND whose value passes
+ * `accept`, so a loose name match can never pull in an unrelated answer.
+ */
+const pickLoose = (
+  flat: Record<string, unknown>,
+  keys: string[],
+  patterns: RegExp[],
+  accept: (value: string) => boolean = () => true,
+): string | null => {
+  const exact = pick(flat, keys);
+  if (exact && accept(exact)) return exact;
+  for (const [key, raw] of Object.entries(flat)) {
+    if (raw === null || raw === undefined) continue;
+    const text = String(raw).trim();
+    if (!text || !accept(text)) continue;
+    if (patterns.some((pattern) => pattern.test(key))) return text;
+  }
+  return exact;
+};
+
+const digitCount = (value: string): number => value.replace(/\D/g, "").length;
+
+export const looksLikePhone = (value: string): boolean => {
+  if (!value || value.includes("@")) return false;
+  const digits = digitCount(value);
+  return digits >= 7 && digits <= 15;
+};
+
+export const looksLikeEmail = (value: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
 const TRUTHY = new Set(["true", "yes", "y", "1", "on", "checked"]);
 const FALSY = new Set(["false", "no", "n", "0", "off", "unchecked"]);
 
@@ -145,8 +179,13 @@ export const mapBoilerEnquiryFields = (flat: Record<string, unknown>): BoilerEnq
   property_type: pick(flat, ["property_type", "type_of_property", "property"]),
   bedrooms: pick(flat, ["bedrooms", "number_of_bedrooms", "how_many_bedrooms"]),
   floor_area: pick(flat, ["floor_area", "floor_area_sqm", "property_size"]),
-  address: pick(flat, ["address", "property_address", "street_address"]),
-  eircode: pick(flat, ["eircode", "eir_code", "postcode"]),
+  address: pickLoose(
+    flat,
+    ["address", "property_address", "street_address"],
+    [/address/],
+    (value) => !looksLikeEmail(value),
+  ),
+  eircode: pickLoose(flat, ["eircode", "eir_code", "postcode"], [/eir_?code/, /post_?code/]),
 
   // existing heating
   current_heating: pick(flat, ["current_heating", "current_heating_system", "existing_heating"]),
@@ -211,9 +250,21 @@ export type BoilerEnquiryContact = {
 };
 
 export const extractContact = (flat: Record<string, unknown>): BoilerEnquiryContact => ({
-  name: pick(flat, ["name", "full_name", "customer_name", "your_name", "first_name"]),
-  phone: pick(flat, ["phone", "mobile", "phone_number", "mobile_number", "contact_number", "telephone"]),
-  email: pick(flat, ["email", "email_address", "your_email"]),
+  name: pickLoose(
+    flat,
+    ["name", "full_name", "customer_name", "your_name", "first_name"],
+    [/name/],
+    (value) => !looksLikeEmail(value) && !looksLikePhone(value),
+  ),
+  phone: pickLoose(
+    flat,
+    ["phone", "mobile", "phone_number", "mobile_number", "contact_number", "telephone"],
+    [/phone/, /mobile/, /(^|_)tel(ephone)?($|_)/, /number/, /contact/],
+    looksLikePhone,
+  ),
+  // An email-shaped answer is unambiguous, so any question may carry it
+  // ("Where should we send your quote?").
+  email: pickLoose(flat, ["email", "email_address", "your_email"], [/./], looksLikeEmail),
 });
 
 export type BoilerEnquiryAttribution = {
@@ -365,14 +416,15 @@ export const enquiryPhotoUrls = (flat: Record<string, unknown>): string[] => {
 export type EnquiryValidation = { ok: true } | { ok: false; error: string };
 
 /**
- * A submission is usable when it carries at least one way to reach the
- * customer. Everything else is optional — questionnaires skip branches.
+ * A submission is usable when it carries a phone number: a customer record
+ * cannot exist without one, so accepting an email-only submission would fail at
+ * the database instead of here. Everything else is optional — questionnaires
+ * skip branches.
  */
 export const validateEnquirySubmission = (contact: BoilerEnquiryContact): EnquiryValidation => {
-  const hasPhone = Boolean(contact.phone && contact.phone.replace(/\D/g, "").length >= 7);
-  const hasEmail = Boolean(contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email));
-  if (!hasPhone && !hasEmail) {
-    return { ok: false, error: "A contact phone or email is required" };
+  const hasPhone = Boolean(contact.phone && looksLikePhone(contact.phone));
+  if (!hasPhone) {
+    return { ok: false, error: "A contact phone number is required" };
   }
   return { ok: true };
 };

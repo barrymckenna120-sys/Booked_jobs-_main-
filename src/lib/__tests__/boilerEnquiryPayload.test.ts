@@ -155,13 +155,54 @@ describe("validateEnquirySubmission", () => {
     expect(validateEnquirySubmission({ name: "A", phone: "0871234567", email: null }).ok).toBe(true);
   });
 
-  it("accepts a submission with only a valid email", () => {
-    expect(validateEnquirySubmission({ name: null, phone: null, email: "a@b.ie" }).ok).toBe(true);
+  it("rejects an email-only submission (a customer cannot exist without a phone)", () => {
+    const result = validateEnquirySubmission({ name: null, phone: null, email: "a@b.ie" });
+    expect(result.ok).toBe(false);
+    expect((result as { error?: string }).error).toBe("A contact phone number is required");
   });
 
   it("rejects a submission with no usable contact route", () => {
     const result = validateEnquirySubmission({ name: "A", phone: "12", email: "not-an-email" });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("reworded live form questions", () => {
+  const body = (fields: { key: string; label: string; value: unknown }[]) => ({
+    data: { fields },
+  });
+
+  it("finds the phone, email, name, address and eircode behind reworded labels", () => {
+    const flat = flattenTallyPayload(
+      body([
+        { key: "a1", label: "What's your full name?", value: "Test Boiler Customer" },
+        { key: "a2", label: "Best number to reach you on?", value: "087 123 4567" },
+        { key: "a3", label: "Where should we send your quote?", value: "test@example.com" },
+        { key: "a4", label: "Property address", value: "1 Test Road, Dublin" },
+        { key: "a5", label: "Eircode (if known)", value: "D02 X285" },
+        { key: "a6", label: "How many bedrooms?", value: "3" },
+        { key: "a7", label: "Number of radiators", value: "11-15" },
+      ]),
+    );
+    expect(extractContact(flat)).toEqual({
+      name: "Test Boiler Customer",
+      phone: "087 123 4567",
+      email: "test@example.com",
+    });
+    const fields = mapBoilerEnquiryFields(flat);
+    expect(fields.address).toBe("1 Test Road, Dublin");
+    expect(fields.eircode).toBe("D02 X285");
+  });
+
+  it("never mistakes a count answer for a phone number", () => {
+    const flat = flattenTallyPayload(
+      body([
+        { key: "b1", label: "How many bedrooms?", value: "3" },
+        { key: "b2", label: "Number of radiators", value: "11-15" },
+        { key: "b3", label: "Your email", value: "a@b.ie" },
+      ]),
+    );
+    expect(extractContact(flat).phone).toBeNull();
   });
 });
 
