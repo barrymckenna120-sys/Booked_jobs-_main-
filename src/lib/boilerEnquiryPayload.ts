@@ -120,10 +120,29 @@ const pick = (flat: Record<string, unknown>, keys: string[]): string | null => {
 };
 
 /**
- * Live forms reword their questions ("Best number to reach you on?"), so an
- * exact alias list alone silently loses answers. `pickLoose` falls back to any
- * answer whose question name matches one of `patterns` AND whose value passes
- * `accept`, so a loose name match can never pull in an unrelated answer.
+ * Tally's own envelope keys. They are never customer answers, so loose matching
+ * must ignore them — otherwise "formName" satisfies a /name/ match and the form
+ * title gets saved as the customer's name.
+ */
+const TALLY_META_KEYS = new Set([
+  "eventid",
+  "eventtype",
+  "createdat",
+  "responseid",
+  "submissionid",
+  "respondentid",
+  "formid",
+  "formname",
+  "submissionpdfurl",
+  "submissionpreviewurl",
+]);
+
+/**
+ * Live forms reword (and misspell) their questions — the production "Find My
+ * Boiler" form asks "Moblie No" and "Priorty" — so an exact alias list alone
+ * silently loses answers. `pickLoose` falls back to any answer whose question
+ * name matches one of `patterns` AND whose value passes `accept`, so a loose
+ * name match can never pull in an unrelated answer.
  */
 const pickLoose = (
   flat: Record<string, unknown>,
@@ -134,12 +153,19 @@ const pickLoose = (
   const exact = pick(flat, keys);
   if (exact && accept(exact)) return exact;
   for (const [key, raw] of Object.entries(flat)) {
+    if (TALLY_META_KEYS.has(key)) continue;
     if (raw === null || raw === undefined) continue;
     const text = String(raw).trim();
     if (!text || !accept(text)) continue;
     if (patterns.some((pattern) => pattern.test(key))) return text;
   }
   return exact;
+};
+
+/** True when the multi-select extras answer mentions `patterns`. */
+const mentions = (value: string | null, patterns: RegExp[]): boolean | null => {
+  if (!value) return null;
+  return patterns.some((pattern) => pattern.test(value.toLowerCase()));
 };
 
 const digitCount = (value: string): number => value.replace(/\D/g, "").length;
