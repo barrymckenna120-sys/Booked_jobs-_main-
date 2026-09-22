@@ -379,3 +379,108 @@ describe("live Find My Boiler form (68qaMe)", () => {
     expect(extractContact(flat).name).not.toBe("Find My Boiler");
   });
 });
+
+/**
+ * The live form's labels were corrected to "Mobile Number" and "Priority" on
+ * 22/09/26. Both spellings must keep working, because a delayed Tally retry can
+ * still deliver a submission captured under the old wording.
+ */
+describe("corrected live form labels (both spellings)", () => {
+  const contactFields = (mobileLabel: string, priorityLabel: string) => [
+    { key: "question_nblrj0", label: "Contact details", value: "Test Boiler Customer" },
+    { key: "question_v1vay6", label: mobileLabel, value: "087 123 4567" },
+    { key: "question_exlmjx", label: "Email", value: "test.customer@example.com" },
+    { key: "question_j9lzrq", label: priorityLabel, value: "Long warranty" },
+  ];
+
+  for (const [mobileLabel, priorityLabel] of [
+    ["Mobile Number", "Priority"],
+    ["Moblie No", "Priorty"],
+  ]) {
+    it(`reads "${mobileLabel}" and "${priorityLabel}"`, () => {
+      const flat = flattenTallyPayload({ data: { fields: contactFields(mobileLabel, priorityLabel) } });
+      expect(extractContact(flat).phone).toBe("087 123 4567");
+      expect(extractContact(flat).name).toBe("Test Boiler Customer");
+      expect(validateEnquirySubmission(extractContact(flat)).ok).toBe(true);
+      expect(mapBoilerEnquiryFields(flat).purchase_priority).toBe("Long warranty");
+    });
+  }
+});
+
+/**
+ * Completeness guard: every question the live form asks must reach a column or
+ * flag. Uses the corrected labels.
+ */
+describe("live form completeness (corrected labels)", () => {
+  const flat = flattenTallyPayload({
+    data: {
+      formId: "68qaMe",
+      formName: "Find My Boiler",
+      submissionId: "completeness-1",
+      fields: [
+        { key: "q1", label: "Property", value: "Semi-detached" },
+        { key: "q2", label: "How many bedrooms", value: "3" },
+        { key: "q3", label: "Approx No of radiators used", value: "11-15" },
+        { key: "q4", label: "Boiler type", value: "Gas boiler" },
+        { key: "q5", label: "Age of boiler", value: "15-20 years" },
+        { key: "q6", label: "Current boiler location", value: "Kitchen" },
+        { key: "q7", label: "No of bathrooms", value: "1" },
+        { key: "q8", label: "Do you use 2 showers at the same time", value: "Sometimes" },
+        { key: "q9", label: "Do you have good water pressure", value: "Average" },
+        { key: "q10", label: "Existing hot water cylinder or pump", value: "Cylinder, no pump" },
+        { key: "q11", label: "Priority", value: "Long warranty" },
+        { key: "q12", label: "Interested in new radiators, smart controls or power flushing", value: "Smart controls" },
+        { key: "q13", label: "When would you like the work completed", value: "Within a month" },
+        { key: "q14", label: "Photos current boiler", value: [{ url: "https://storage.tally.so/a.png" }] },
+        { key: "q15", label: "Contact details", value: "Test Boiler Customer" },
+        { key: "q16", label: "Mobile Number", value: "087 123 4567" },
+        { key: "q17", label: "Eircode", value: "D02 X285" },
+        { key: "q18", label: "Address", value: "1 Test Road, Dublin" },
+        { key: "q19", label: "Email", value: "test.customer@example.com" },
+        { key: "q20", label: "Preferred contact phone, WhatsApp or email", value: "WhatsApp" },
+      ],
+    },
+  });
+
+  it("populates every column the live form supplies", () => {
+    const fields = mapBoilerEnquiryFields(flat);
+    for (const column of [
+      "property_type",
+      "bedrooms",
+      "radiator_count",
+      "current_heating",
+      "existing_boiler_age",
+      "existing_boiler_location",
+      "bathroom_count",
+      "simultaneous_hot_water_usage",
+      "water_pressure",
+      "hot_water_cylinder",
+      "purchase_priority",
+      "installation_timeframe",
+      "preferred_contact_method",
+      "address",
+      "eircode",
+    ]) {
+      expect(fields[column], column).toBeTruthy();
+    }
+    expect(fields.interested_smart_controls).toBe(true);
+    expect(fields.interested_radiators).toBe(false);
+  });
+
+  it("keeps the photo and the contact details", () => {
+    expect(enquiryPhotoUrls(flat)).toEqual(["https://storage.tally.so/a.png"]);
+    expect(extractContact(flat)).toEqual({
+      name: "Test Boiler Customer",
+      phone: "087 123 4567",
+      email: "test.customer@example.com",
+    });
+  });
+
+  it("leaves questions the form does not ask empty rather than guessing", () => {
+    const fields = mapBoilerEnquiryFields(flat);
+    expect(fields.heat_pump_interest).toBeNull();
+    expect(fields.ber).toBeNull();
+    expect(fields.floor_area).toBeNull();
+    expect(fields.radiator_age).toBeNull();
+  });
+});
