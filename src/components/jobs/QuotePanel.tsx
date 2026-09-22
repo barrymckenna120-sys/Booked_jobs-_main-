@@ -201,6 +201,15 @@ const QuotePanel = ({ jobId, customerId, customer, onQuoteChange }: Props) => {
       toast({ title: `Quote marked as ${newStatus}` });
     }
 
+    // Mark the linked sales enquiry WON when a quote originating from an
+    // enquiry is accepted (after existing job-creation logic).
+    if (newStatus === "Accepted" && (quote as any).boiler_enquiry_id) {
+      await supabase
+        .from("boiler_enquiries")
+        .update({ status: "WON" })
+        .eq("id", (quote as any).boiler_enquiry_id);
+    }
+
     await fetchQuote();
     onQuoteChange();
   };
