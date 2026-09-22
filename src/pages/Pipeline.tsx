@@ -28,7 +28,7 @@ const Pipeline = () => {
   const initialTab: TabKey = (filterParam === "overdue" || filterParam === "due-soon") ? "renewals" : "incoming";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const { user } = useAuth();
-  const { role, canAccessOffice } = useUserRole(user);
+  const { role, canAccessOffice, isAdmin, isOffice } = useUserRole(user);
   // Leads (Boiler Enquiries) uses the same office-access predicate as the
   // OfficeRoute guard on the standalone /boiler-enquiries page, so an account
   // that can open the page directly also sees the tab here. Owner/manager
