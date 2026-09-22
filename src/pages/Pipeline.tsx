@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Inbox, Receipt, RefreshCw, Shield, ChevronLeft } from "lucide-react";
+import { Inbox, Receipt, RefreshCw, Shield, Flame, ChevronLeft } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
+import BoilerEnquiries from "./BoilerEnquiries";
 import QuotesList from "./QuotesList";
 import Renewals from "./Renewals";
 import WarrantyTracker from "./WarrantyTracker";
@@ -14,9 +15,11 @@ const BASE_TABS: { key: string; label: string; icon: React.ComponentType<any> }[
   { key: "renewals", label: "Renewals", icon: RefreshCw },
 ];
 
+const LEADS_TAB = { key: "leads", label: "Leads", icon: Flame };
+
 const WARRANTY_TAB = { key: "warranty", label: "Warranty", icon: Shield };
 
-type TabKey = "incoming" | "quotes" | "renewals" | "warranty";
+type TabKey = "incoming" | "leads" | "quotes" | "renewals" | "warranty";
 
 const Pipeline = () => {
   const navigate = useNavigate();
@@ -29,6 +32,7 @@ const Pipeline = () => {
 
   const tabs = useMemo(() => {
     const t = [...BASE_TABS];
+    if (isAdmin || isOffice) t.splice(1, 0, LEADS_TAB);
     if (isAdmin || isOffice) t.push(WARRANTY_TAB);
     return t;
   }, [isAdmin, isOffice]);
