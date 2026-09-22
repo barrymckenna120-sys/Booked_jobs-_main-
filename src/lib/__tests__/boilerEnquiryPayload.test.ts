@@ -379,3 +379,30 @@ describe("live Find My Boiler form (68qaMe)", () => {
     expect(extractContact(flat).name).not.toBe("Find My Boiler");
   });
 });
+
+/**
+ * The live form's labels were corrected to "Mobile Number" and "Priority" on
+ * 22/09/26. Both spellings must keep working, because a delayed Tally retry can
+ * still deliver a submission captured under the old wording.
+ */
+describe("corrected live form labels (both spellings)", () => {
+  const contactFields = (mobileLabel: string, priorityLabel: string) => [
+    { key: "question_nblrj0", label: "Contact details", value: "Test Boiler Customer" },
+    { key: "question_v1vay6", label: mobileLabel, value: "087 123 4567" },
+    { key: "question_exlmjx", label: "Email", value: "test.customer@example.com" },
+    { key: "question_j9lzrq", label: priorityLabel, value: "Long warranty" },
+  ];
+
+  for (const [mobileLabel, priorityLabel] of [
+    ["Mobile Number", "Priority"],
+    ["Moblie No", "Priorty"],
+  ]) {
+    it(`reads "${mobileLabel}" and "${priorityLabel}"`, () => {
+      const flat = flattenTallyPayload({ data: { fields: contactFields(mobileLabel, priorityLabel) } });
+      expect(extractContact(flat).phone).toBe("087 123 4567");
+      expect(extractContact(flat).name).toBe("Test Boiler Customer");
+      expect(validateEnquirySubmission(extractContact(flat)).ok).toBe(true);
+      expect(mapBoilerEnquiryFields(flat).purchase_priority).toBe("Long warranty");
+    });
+  }
+});
