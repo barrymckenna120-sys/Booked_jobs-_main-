@@ -535,9 +535,17 @@ export const normaliseEnquiryPhotoUrls = (input: unknown, depth = 0): string[] =
   return PHOTO_URL_RE.test(raw) ? [raw] : [];
 };
 
+const PHOTO_QUESTION_RE = /photo|image|upload|attachment/;
+
 export const enquiryPhotoUrls = (flat: Record<string, unknown>): string[] => {
   const keys = ["photos", "photo", "photo_video_upload", "photo_upload", "uploads", "images", "boiler_photos"];
   const found = keys.flatMap((key) => normaliseEnquiryPhotoUrls(flat[key]));
+  // The live form asks "Photos Current Boiler", so any upload question counts.
+  // Tally's own submission links are excluded by TALLY_META_KEYS.
+  for (const [key, value] of Object.entries(flat)) {
+    if (TALLY_META_KEYS.has(key) || !PHOTO_QUESTION_RE.test(key)) continue;
+    found.push(...normaliseEnquiryPhotoUrls(value));
+  }
   return Array.from(new Set(found)).slice(0, MAX_ENQUIRY_PHOTOS);
 };
 
