@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Inbox, Receipt, RefreshCw, Shield, ChevronLeft } from "lucide-react";
+import { Inbox, Receipt, RefreshCw, Shield, Flame, ChevronLeft } from "lucide-react";
 import IncomingJobs from "./IncomingJobs";
+import BoilerEnquiries from "./BoilerEnquiries";
 import QuotesList from "./QuotesList";
 import Renewals from "./Renewals";
 import WarrantyTracker from "./WarrantyTracker";
@@ -14,9 +15,11 @@ const BASE_TABS: { key: string; label: string; icon: React.ComponentType<any> }[
   { key: "renewals", label: "Renewals", icon: RefreshCw },
 ];
 
+const LEADS_TAB = { key: "leads", label: "Leads", icon: Flame };
+
 const WARRANTY_TAB = { key: "warranty", label: "Warranty", icon: Shield };
 
-type TabKey = "incoming" | "quotes" | "renewals" | "warranty";
+type TabKey = "incoming" | "leads" | "quotes" | "renewals" | "warranty";
 
 const Pipeline = () => {
   const navigate = useNavigate();
@@ -25,13 +28,20 @@ const Pipeline = () => {
   const initialTab: TabKey = (filterParam === "overdue" || filterParam === "due-soon") ? "renewals" : "incoming";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const { user } = useAuth();
-  const { isAdmin, isOffice } = useUserRole(user);
+  const { role, canAccessOffice, isAdmin, isOffice } = useUserRole(user);
+  // Leads (Boiler Enquiries) uses the same office-access predicate as the
+  // OfficeRoute guard on the standalone /boiler-enquiries page, so an account
+  // that can open the page directly also sees the tab here. Owner/manager
+  // accounts resolve to neither isAdmin nor isOffice, so isAdmin || isOffice
+  // would hide the tab from them (it already hides Warranty).
+  const canSeeOfficeTabs = role !== "engineer" || canAccessOffice;
 
   const tabs = useMemo(() => {
     const t = [...BASE_TABS];
+    if (canSeeOfficeTabs) t.splice(1, 0, LEADS_TAB);
     if (isAdmin || isOffice) t.push(WARRANTY_TAB);
     return t;
-  }, [isAdmin, isOffice]);
+  }, [isAdmin, isOffice, canSeeOfficeTabs]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -68,6 +78,7 @@ const Pipeline = () => {
       {/* Content — each page renders its own layout */}
       <div className="-mx-4 sm:-mx-6 -mt-6">
         {activeTab === "incoming" && <IncomingJobs />}
+        {activeTab === "leads" && <BoilerEnquiries />}
         {activeTab === "quotes" && <QuotesList />}
         {activeTab === "renewals" && <Renewals />}
         {activeTab === "warranty" && <WarrantyTracker />}
