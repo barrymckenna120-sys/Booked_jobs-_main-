@@ -110,8 +110,12 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Post-auth events (sign_out, password_changed) are sometimes reported at the
+  // exact moment the session is being cleared, so the token can already be gone.
+  // Nothing is recorded without a session, but this is a normal race, not a
+  // client error — answer 200 so logging never surfaces as a failure.
   if (!sessionUserId && !PRE_AUTH_EVENTS.has(eventType)) {
-    return json({ success: false, error: "Unauthorized" }, 401);
+    return json({ success: true, skipped: "no_session" });
   }
 
   const ip = clientIp(req);
