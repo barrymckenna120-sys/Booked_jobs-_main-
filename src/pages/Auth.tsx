@@ -386,33 +386,33 @@ const Auth = () => {
     } catch (error: any) {
       const isNetworkError = isAuthNetworkError(error, navigator.onLine);
 
-        if (isNetworkError) {
-          Sentry.captureException(error, {
-            level: "warning",
-            tags: { failure_type: "network" },
-            extra: { attempt_duration_ms: Date.now() - attemptStartedAt },
-          });
-          // This branch used to return silently, so the one failure Karl keeps
-          // hitting on iOS Safari was the only sign-in failure with no
-          // diagnostics at all. Report it (never the email or password) so the
-          // Safari-vs-Chrome difference is visible. User-facing copy unchanged.
-          reportSignInNetworkFailure(error, signInStartedAt.current);
-          logAuthActivity({
-            event_type: "sign_in_failed",
-            email: email.trim(),
-            failure_reason: classifyFailureReason(error, true),
-          });
-          setFormError(
-            "No internet connection. Please check your signal and try again."
-          );
-          return;
-        }
-
-        // Report every non-network sign-in failure (bad credentials, banned
-        // user, server errors) before any user-facing message is chosen.
+      if (isNetworkError) {
         Sentry.captureException(error, {
+          level: "warning",
+          tags: { failure_type: "network" },
           extra: { attempt_duration_ms: Date.now() - attemptStartedAt },
         });
+        // This branch used to return silently, so the one failure Karl keeps
+        // hitting on iOS Safari was the only sign-in failure with no
+        // diagnostics at all. Report it (never the email or password) so the
+        // Safari-vs-Chrome difference is visible. User-facing copy unchanged.
+        reportSignInNetworkFailure(error, signInStartedAt.current);
+        logAuthActivity({
+          event_type: "sign_in_failed",
+          email: email.trim(),
+          failure_reason: classifyFailureReason(error, true),
+        });
+        setFormError(
+          "No internet connection. Please check your signal and try again."
+        );
+        return;
+      }
+
+      // Report every non-network sign-in failure (bad credentials, banned
+      // user, server errors) before any user-facing message is chosen.
+      Sentry.captureException(error, {
+        extra: { attempt_duration_ms: Date.now() - attemptStartedAt },
+      });
       logAuthActivity({
         event_type: "sign_in_failed",
         email: email.trim(),
