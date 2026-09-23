@@ -156,3 +156,6 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
     verify_jwt = false
   [functions.tally-boiler-enquiry]
     verify_jwt = false
+
+  [functions.log-auth-event]
+    verify_jwt = false
