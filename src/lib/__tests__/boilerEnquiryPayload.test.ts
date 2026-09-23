@@ -307,6 +307,7 @@ describe("live Find My Boiler form (68qaMe)", () => {
           value: "Average",
         },
         { key: "question_4nlq6r", label: "Existing hot water cylinder or pump", value: "Cylinder, no pump" },
+        { key: "question_wklz9r", label: "Is your current boiler working ?", value: "Yes" },
         { key: "question_j9lzrq", label: "Priorty", value: "Long warranty" },
         {
           key: "question_2xlxwe",
@@ -350,6 +351,7 @@ describe("live Find My Boiler form (68qaMe)", () => {
     expect(fields.radiator_count).toBe("11-15");
     expect(fields.current_heating).toBe("Gas boiler");
     expect(fields.existing_boiler_age).toBe("15-20 years");
+    expect(fields.existing_boiler_working).toBe("Yes");
     expect(fields.existing_boiler_location).toBe("Kitchen");
     expect(fields.bathroom_count).toBe("1");
     expect(fields.simultaneous_hot_water_usage).toBe("Sometimes");

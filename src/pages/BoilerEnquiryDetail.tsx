@@ -335,6 +335,7 @@ const BoilerEnquiryDetail = () => {
       <Section title="Heating system">
         <Field label="Current heating" value={enquiry.current_heating} />
         <Field label="Gas connection" value={enquiry.existing_gas_connection} />
+        <Field label="Boiler working" value={enquiry.existing_boiler_working} />
         <Field label="Boiler age" value={enquiry.existing_boiler_age} />
         <Field label="Boiler location" value={enquiry.existing_boiler_location} />
         <Field label="Relocation required" value={enquiry.boiler_relocation_required} />
