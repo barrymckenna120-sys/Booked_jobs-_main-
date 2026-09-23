@@ -106,7 +106,8 @@ const PrivacyPolicy = () => (
             <li>Supabase (EU-hosted database)</li>
             <li>Stripe (payment processing)</li>
             <li>WhatsApp Business API (customer communication)</li>
-            <li>Google Analytics (B2B website tracking only)</li>
+            <li>Sentry (error and crash diagnostics)</li>
+            <li>RB2B (B2B visitor identification on our own marketing pages only)</li>
           </ul>
           <p>All systems use secure authentication and encrypted connections. Access is restricted to authorised personnel only.</p>
         </section>
@@ -120,6 +121,13 @@ const PrivacyPolicy = () => (
           <p>Deleted 12 months after account closure unless legally required to retain.</p>
           <h3 className="text-lg font-medium text-foreground mt-4">Trial Accounts</h3>
           <p>Deleted after 90 days if not converted.</p>
+          <h3 className="text-lg font-medium text-foreground mt-4">Security and Login Logs</h3>
+          <p>
+            IP addresses are kept for 90 days, then shortened so they can no longer identify a
+            household. The remaining login record (event, account, browser and device) is deleted
+            after 12 months. Technical error logs are deleted after 30 days, and diagnostics
+            attached to a support report after 12 months. Deletion runs automatically every night.
+          </p>
           <p>Data may be deleted earlier upon request by the plumbing company (Data Controller).</p>
         </section>
 
