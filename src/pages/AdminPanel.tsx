@@ -42,6 +42,7 @@ import SupportReportsTab from "@/components/admin/SupportReportsTab";
 import MessagingCatalogueTab from "@/components/admin/MessagingCatalogueTab";
 import UserActivityOverview from "@/components/admin/UserActivityOverview";
 import LoginEventsTable from "@/components/admin/LoginEventsTable";
+import LoginActivityTable from "@/components/admin/LoginActivityTable";
 import UnblockUserCard from "@/components/admin/UnblockUserCard";
 import BlockedUsersCard from "@/components/admin/BlockedUsersCard";
 import { toast } from "sonner";
@@ -2577,13 +2578,21 @@ export default function AdminPanel() {
                 Overview
               </TabsTrigger>
 
+              <TabsTrigger value="login-activity">
+                Login Activity
+              </TabsTrigger>
+
               <TabsTrigger value="login-events">
-                Login Events
+                Lockouts
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
               <UserActivityOverview />
+            </TabsContent>
+
+            <TabsContent value="login-activity">
+              <LoginActivityTable />
             </TabsContent>
 
             <TabsContent value="login-events">
