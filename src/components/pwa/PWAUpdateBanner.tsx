@@ -7,7 +7,6 @@ import {
   BOOT_TIME,
   consumeColdActivationBudget,
   hasSpentColdActivation,
-  resetColdActivationBudget,
   shouldAutoActivateWaitingWorker,
 } from "@/lib/swColdStart";
 
@@ -32,18 +31,9 @@ const UpdateBanner = () => {
     // the browser's own update schedule. Without this an installed home-screen
     // app can keep launching an old cached shell for a long time.
     onRegisteredSW(_swUrl, registration) {
-      if (!registration) return;
-      registration
-        .update()
-        .then(() => {
-          // Once the previous activation has completed, release the persisted
-          // reload guard so a later deployment can also update on cold launch.
-          // Keep it spent while a worker is waiting to avoid reload loops.
-          if (!registration.waiting) resetColdActivationBudget();
-        })
-        .catch(() => {
-          /* offline or blocked — the cached shell keeps working */
-        });
+      registration?.update().catch(() => {
+        /* offline or blocked — the cached shell keeps working */
+      });
     },
     onRegisterError(err) {
       console.warn("App shell SW registration failed:", err);
