@@ -68,6 +68,21 @@ const PrivacyPolicy = () => (
             <li>Subscription payment data (processed through Stripe)</li>
           </ul>
           <p>We do not store full card details.</p>
+
+          <h3 className="text-lg font-medium text-foreground mt-4">C. Security and Login Logs</h3>
+          <p>When someone signs in to Booked Jobs, we record a security log entry containing:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>The event (sign-in, failed sign-in, sign-out, password reset, password change, account lockout)</li>
+            <li>The account email and the company it belongs to</li>
+            <li>The IP address the request came from</li>
+            <li>Browser, browser version, operating system and device type</li>
+          </ul>
+          <p>
+            We keep these logs to protect accounts against unauthorised access and to diagnose
+            faults such as sign-in failures on a particular browser or device. Our lawful basis is
+            legitimate interest (security of the service). These logs are never used for marketing,
+            advertising or profiling, and are visible only to our platform administrators.
+          </p>
         </section>
 
         <section>
