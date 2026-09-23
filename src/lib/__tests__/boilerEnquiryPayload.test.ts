@@ -351,6 +351,7 @@ describe("live Find My Boiler form (68qaMe)", () => {
     expect(fields.radiator_count).toBe("11-15");
     expect(fields.current_heating).toBe("Gas boiler");
     expect(fields.existing_boiler_age).toBe("15-20 years");
+    expect(fields.existing_boiler_working).toBe("Yes");
     expect(fields.existing_boiler_location).toBe("Kitchen");
     expect(fields.bathroom_count).toBe("1");
     expect(fields.simultaneous_hot_water_usage).toBe("Sometimes");
