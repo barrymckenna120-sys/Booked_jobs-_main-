@@ -235,6 +235,16 @@ export const mapBoilerEnquiryFields = (flat: Record<string, unknown>): BoilerEnq
       [/boiler_type/, /current_heating/],
     ),
     existing_gas_connection: pick(flat, ["existing_gas_connection", "gas_connection", "mains_gas"]),
+    existing_boiler_working: pickLoose(
+      flat,
+      [
+        "existing_boiler_working",
+        "boiler_working",
+        "is_your_current_boiler_working",
+        "is_your_boiler_currently_working",
+      ],
+      [/boiler_working/, /boiler_.*working/, /working.*boiler/],
+    ),
     existing_boiler_age: pickLoose(
       flat,
       ["existing_boiler_age", "boiler_age", "age_of_boiler", "how_old_is_your_boiler"],
