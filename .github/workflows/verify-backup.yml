@@ -33,13 +33,19 @@ jobs:
           # Match each COPY block. Column list can contain its own parentheses
           # (e.g. numeric(10,2)), so we don't try to balance them -- we just
           # search non-greedily for the fixed literal "FROM stdin;" instead.
+          # The newline before the closing "\." marker is only present when
+          # the table has data -- an empty table's block has no blank line
+          # before it, so that newline must be optional here.
           pattern = re.compile(
-              r'^COPY public\.(\w+) \(.*?\) FROM stdin;\n(.*?)\n\\\.$',
+              r'^COPY public\.(\w+) \(.*?\) FROM stdin;\n(.*?)\n?\\\.$',
               re.MULTILINE | re.DOTALL
           )
 
           matches = list(pattern.finditer(text))
-          print(f"=== Found {len(matches)} COPY blocks ===\n")
+          total_copy_statements = len(re.findall(r'^COPY public\.\w+ \(', text, re.MULTILINE))
+          print(f"=== Found {len(matches)} of {total_copy_statements} total COPY statements ===\n")
+          if len(matches) != total_copy_statements:
+              print("WARNING: parser did not match every COPY statement -- counts below may be incomplete\n")
 
           results = []
           for m in matches:
