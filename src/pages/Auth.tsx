@@ -42,6 +42,7 @@ import {
   lockedUntilModalCopy,
 } from "@/lib/authLockout";
 import { reportSignInNetworkFailure } from "@/lib/authFailureReport";
+import { classifyFailureReason, logAuthActivity } from "@/lib/authActivity";
 
 /** Only same-origin relative paths are honoured as a post-login redirect. */
 const safeNextPath = (
@@ -326,6 +327,12 @@ const Auth = () => {
 
       setFailedAttempts(0);
       setIsBlocked(false);
+
+      logAuthActivity({
+        event_type: "sign_in_success",
+        email: email.trim(),
+        user_id: signInData?.user?.id ?? null,
+      });
 
       try {
         localStorage.removeItem(
