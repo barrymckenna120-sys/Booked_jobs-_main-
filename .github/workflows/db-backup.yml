@@ -23,6 +23,18 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -euo pipefail
           FILENAME="backup-$(date +%F-%H%M).sql.gz"
+
           pg_dump "$SUPABASE_DB_URL" | gzip > "/tmp/$FILENAME"
+
+          # Sanity check: reject anything suspiciously small (a real dump should be at least a few KB)
+          SIZE=$(stat -c%s "/tmp/$FILENAME")
+          echo "Dump file size: $SIZE bytes"
+          if [ "$SIZE" -lt 2048 ]; then
+            echo "::error::Backup file is only $SIZE bytes -- pg_dump likely failed or returned no data. Aborting upload."
+            exit 1
+          fi
+
           aws s3 cp "/tmp/$FILENAME" "s3://bookjobs-backup-bucket/daily/$FILENAME"
+          echo "Backup complete: $FILENAME ($SIZE bytes)"
