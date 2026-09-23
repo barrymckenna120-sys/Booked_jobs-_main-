@@ -143,13 +143,10 @@ Deno.serve(async (req) => {
     organisationId = (profile?.organisation_id as string | null) ?? null;
   }
   if (!organisationId && email) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organisation_id")
-      .ilike("email", email)
-      .limit(1)
-      .maybeSingle();
-    organisationId = (profile?.organisation_id as string | null) ?? null;
+    // Pre-auth events (failed sign-in, reset request) have no session, so the
+    // tenant comes from a server-only lookup on the email address.
+    const { data: orgId } = await supabase.rpc("org_for_login_email", { _email: email });
+    organisationId = (orgId as string | null) ?? null;
   }
 
   const device = (body.device ?? {}) as Record<string, unknown>;
