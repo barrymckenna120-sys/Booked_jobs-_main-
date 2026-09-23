@@ -4340,6 +4340,7 @@ export type Database = {
       next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
       next_org_quote_number: { Args: { p_org_id: string }; Returns: string }
       normalise_phone_e164: { Args: { raw: string }; Returns: string }
+      org_for_login_email: { Args: { _email: string }; Returns: string }
       purge_activity_logs: { Args: never; Returns: Json }
       purge_old_read_notifications: { Args: never; Returns: number }
       read_email_batch: {
