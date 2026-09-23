@@ -30,9 +30,11 @@ jobs:
           with open('/tmp/latest.sql', 'r', errors='replace') as f:
               text = f.read()
 
-          # Match each COPY block: table name, column list, then data lines until the \. terminator
+          # Match each COPY block. Column list can contain its own parentheses
+          # (e.g. numeric(10,2)), so we don't try to balance them -- we just
+          # search non-greedily for the fixed literal "FROM stdin;" instead.
           pattern = re.compile(
-              r'^COPY public\.(\w+)\s*\([^)]*\)\s+FROM stdin;\n(.*?)\n\\\.$',
+              r'^COPY public\.(\w+) \(.*?\) FROM stdin;\n(.*?)\n\\\.$',
               re.MULTILINE | re.DOTALL
           )
 
