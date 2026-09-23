@@ -22,19 +22,34 @@ jobs:
           gunzip -k /tmp/latest.sql.gz
           echo "Decompressed size: $(stat -c%s /tmp/latest.sql)"
 
-      - name: List tables present in the dump
+      - name: Row counts per table (Python, reliable parsing)
         run: |
-          echo "=== Tables with data (COPY statements) ==="
-          grep -oP '(?<=COPY public\.)\w+' /tmp/latest.sql | sort -u
+          python3 << 'PYEOF'
+          import re
 
-      - name: Row counts per table
-        run: |
-          echo "=== Approx row counts per table ==="
-          awk '
-            /^COPY public\./ { match($0, /COPY public\.([a-zA-Z_]+)/, arr); table=arr[1]; count=0; counting=1; next }
-            counting && /^\\\.$/ { print table": "count" rows"; counting=0; next }
-            counting { count++ }
-          ' /tmp/latest.sql
+          with open('/tmp/latest.sql', 'r', errors='replace') as f:
+              text = f.read()
+
+          # Match each COPY block: table name, column list, then data lines until the \. terminator
+          pattern = re.compile(
+              r'^COPY public\.(\w+)\s*\([^)]*\)\s+FROM stdin;\n(.*?)\n\\\.$',
+              re.MULTILINE | re.DOTALL
+          )
+
+          matches = list(pattern.finditer(text))
+          print(f"=== Found {len(matches)} COPY blocks ===\n")
+
+          results = []
+          for m in matches:
+              table = m.group(1)
+              data = m.group(2)
+              row_count = 0 if data.strip() == '' else data.count('\n') + 1
+              results.append((table, row_count))
+
+          # Sort by row count descending so the tables with real data are obvious
+          for table, count in sorted(results, key=lambda x: -x[1]):
+              print(f"{table}: {count} rows")
+          PYEOF
 
       - name: Search for K&N Gas Services tenant data
         run: |
