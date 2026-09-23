@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { withRequestTimeout } from "@/lib/queryDefaults";
 import { setSentryUser } from "@/lib/sentryIdentity";
+import { logAuthActivity } from "@/lib/authActivity";
 
 
 

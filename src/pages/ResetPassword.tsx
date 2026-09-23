@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import { logAuthActivity } from "@/lib/authActivity";
 import AppLogo from "@/components/shared/AppLogo";
 
 const parseTokensFromUrl = () => {
