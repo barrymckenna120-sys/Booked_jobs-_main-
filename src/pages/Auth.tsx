@@ -42,6 +42,7 @@ import {
   lockedUntilModalCopy,
 } from "@/lib/authLockout";
 import { reportSignInNetworkFailure } from "@/lib/authFailureReport";
+import { classifyFailureReason, logAuthActivity } from "@/lib/authActivity";
 
 /** Only same-origin relative paths are honoured as a post-login redirect. */
 const safeNextPath = (
@@ -327,6 +328,12 @@ const Auth = () => {
       setFailedAttempts(0);
       setIsBlocked(false);
 
+      logAuthActivity({
+        event_type: "sign_in_success",
+        email: email.trim(),
+        user_id: signInData?.user?.id ?? null,
+      });
+
       try {
         localStorage.removeItem(
           prevBlockedKey(email)
@@ -378,6 +385,11 @@ const Auth = () => {
         // diagnostics at all. Report it (never the email or password) so the
         // Safari-vs-Chrome difference is visible. User-facing copy unchanged.
         reportSignInNetworkFailure(error, signInStartedAt.current);
+        logAuthActivity({
+          event_type: "sign_in_failed",
+          email: email.trim(),
+          failure_reason: classifyFailureReason(error, true),
+        });
         setFormError(
           "No internet connection. Please check your signal and try again."
         );
@@ -387,6 +399,11 @@ const Auth = () => {
       // Report every non-network sign-in failure (bad credentials, banned
       // user, server errors) before any user-facing message is chosen.
       Sentry.captureException(error);
+      logAuthActivity({
+        event_type: "sign_in_failed",
+        email: email.trim(),
+        failure_reason: classifyFailureReason(error),
+      });
 
       const msg =
         (
@@ -499,6 +516,13 @@ const Auth = () => {
           if (data?.locked) {
             setIsBlocked(true);
 
+            logAuthActivity({
+              event_type: "account_locked",
+              email: email.trim(),
+              failure_reason: "5_failed_attempts",
+            });
+
+
             setFormError(
               "Your account has been blocked due to too many failed attempts. Please contact your administrator."
             );
@@ -564,6 +588,12 @@ const Auth = () => {
         }
 
         setResetSent(true);
+
+        logAuthActivity({
+          event_type: "password_reset_requested",
+          email: email.trim(),
+        });
+
 
         logAudit({
           action_type:

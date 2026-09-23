@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { withRequestTimeout } from "@/lib/queryDefaults";
 import { setSentryUser } from "@/lib/sentryIdentity";
+import { logAuthActivity } from "@/lib/authActivity";
 
 
 
@@ -198,6 +199,12 @@ export const useAuth = (redirectTo = "/auth") => {
    * button look dead. Bound it, then always clear the local session and leave.
    */
   const signOut = async () => {
+    // Recorded before the session is cleared, so the event is attributable.
+    logAuthActivity({
+      event_type: "sign_out",
+      user_id: user?.id ?? null,
+      email: user?.email ?? null,
+    });
     try {
       await withRequestTimeout(supabase.auth.signOut(), 5000);
     } catch (error) {

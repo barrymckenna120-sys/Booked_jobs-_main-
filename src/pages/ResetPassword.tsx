@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/auditLog";
+import { logAuthActivity } from "@/lib/authActivity";
 import AppLogo from "@/components/shared/AppLogo";
 
 const parseTokensFromUrl = () => {
@@ -194,7 +195,13 @@ const ResetPassword = () => {
           detail: `Password reset completed by ${user.email}`,
           metadata: { target_email: user.email, triggered_by: "self" },
         });
+        logAuthActivity({
+          event_type: "password_changed",
+          user_id: user.id,
+          email: user.email ?? null,
+        });
       }
+
 
       await supabase.auth.signOut();
       toast({ title: "Password updated!", description: "Please log in." });

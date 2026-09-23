@@ -68,6 +68,21 @@ const PrivacyPolicy = () => (
             <li>Subscription payment data (processed through Stripe)</li>
           </ul>
           <p>We do not store full card details.</p>
+
+          <h3 className="text-lg font-medium text-foreground mt-4">C. Security and Login Logs</h3>
+          <p>When someone signs in to Booked Jobs, we record a security log entry containing:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>The event (sign-in, failed sign-in, sign-out, password reset, password change, account lockout)</li>
+            <li>The account email and the company it belongs to</li>
+            <li>The IP address the request came from</li>
+            <li>Browser, browser version, operating system and device type</li>
+          </ul>
+          <p>
+            We keep these logs to protect accounts against unauthorised access and to diagnose
+            faults such as sign-in failures on a particular browser or device. Our lawful basis is
+            legitimate interest (security of the service). These logs are never used for marketing,
+            advertising or profiling, and are visible only to our platform administrators.
+          </p>
         </section>
 
         <section>
@@ -91,7 +106,8 @@ const PrivacyPolicy = () => (
             <li>Supabase (EU-hosted database)</li>
             <li>Stripe (payment processing)</li>
             <li>WhatsApp Business API (customer communication)</li>
-            <li>Google Analytics (B2B website tracking only)</li>
+            <li>Sentry (error and crash diagnostics)</li>
+            <li>RB2B (B2B visitor identification on our own marketing pages only)</li>
           </ul>
           <p>All systems use secure authentication and encrypted connections. Access is restricted to authorised personnel only.</p>
         </section>
@@ -105,6 +121,13 @@ const PrivacyPolicy = () => (
           <p>Deleted 12 months after account closure unless legally required to retain.</p>
           <h3 className="text-lg font-medium text-foreground mt-4">Trial Accounts</h3>
           <p>Deleted after 90 days if not converted.</p>
+          <h3 className="text-lg font-medium text-foreground mt-4">Security and Login Logs</h3>
+          <p>
+            IP addresses are kept for 90 days, then shortened so they can no longer identify a
+            household. The remaining login record (event, account, browser and device) is deleted
+            after 12 months. Technical error logs are deleted after 30 days, and diagnostics
+            attached to a support report after 12 months. Deletion runs automatically every night.
+          </p>
           <p>Data may be deleted earlier upon request by the plumbing company (Data Controller).</p>
         </section>
 
@@ -130,8 +153,11 @@ const PrivacyPolicy = () => (
 
         <section>
           <h2 className="text-xl font-semibold text-foreground">9. Website Tracking</h2>
-          <p>Our website uses Google Analytics for business performance monitoring.</p>
-          <p>We do not use tracking for plumbing customer booking data.</p>
+          <p>
+            Our marketing pages use a B2B visitor identification service (RB2B) for business
+            performance monitoring. We do not use Google Analytics.
+          </p>
+          <p>We do not track or profile plumbing customer booking data.</p>
         </section>
 
         <section>

@@ -64,6 +64,96 @@ export type Database = {
           },
         ]
       }
+      auth_activity_access_log: {
+        Row: {
+          created_at: string
+          filter_organisation_id: string | null
+          filters: Json | null
+          id: string
+          viewer_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          filter_organisation_id?: string | null
+          filters?: Json | null
+          id?: string
+          viewer_user_id: string
+        }
+        Update: {
+          created_at?: string
+          filter_organisation_id?: string | null
+          filters?: Json | null
+          id?: string
+          viewer_user_id?: string
+        }
+        Relationships: []
+      }
+      auth_activity_events: {
+        Row: {
+          app: string | null
+          browser: string | null
+          browser_version: string | null
+          created_at: string
+          device_type: string | null
+          display_mode: string | null
+          email: string | null
+          event_type: string
+          failure_reason: string | null
+          id: string
+          ip: unknown
+          ip_truncated: boolean
+          metadata: Json | null
+          organisation_id: string | null
+          os: string | null
+          outcome: string
+          route: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app?: string | null
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string
+          device_type?: string | null
+          display_mode?: string | null
+          email?: string | null
+          event_type: string
+          failure_reason?: string | null
+          id?: string
+          ip?: unknown
+          ip_truncated?: boolean
+          metadata?: Json | null
+          organisation_id?: string | null
+          os?: string | null
+          outcome?: string
+          route?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app?: string | null
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string
+          device_type?: string | null
+          display_mode?: string | null
+          email?: string | null
+          event_type?: string
+          failure_reason?: string | null
+          id?: string
+          ip?: unknown
+          ip_truncated?: boolean
+          metadata?: Json | null
+          organisation_id?: string | null
+          os?: string | null
+          outcome?: string
+          route?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       boiler_brands: {
         Row: {
           brand_name: string
@@ -4230,6 +4320,7 @@ export type Database = {
         Args: { _organisation_id: string; _phone: string }
         Returns: boolean
       }
+      is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       job_alert_recipients: {
         Args: { _exclude_actor?: boolean; _org: string }
         Returns: {
@@ -4249,6 +4340,8 @@ export type Database = {
       next_org_invoice_number: { Args: { p_org_id: string }; Returns: string }
       next_org_quote_number: { Args: { p_org_id: string }; Returns: string }
       normalise_phone_e164: { Args: { raw: string }; Returns: string }
+      org_for_login_email: { Args: { _email: string }; Returns: string }
+      purge_activity_logs: { Args: never; Returns: Json }
       purge_old_read_notifications: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
