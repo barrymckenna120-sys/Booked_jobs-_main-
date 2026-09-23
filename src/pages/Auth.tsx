@@ -516,6 +516,13 @@ const Auth = () => {
           if (data?.locked) {
             setIsBlocked(true);
 
+            logAuthActivity({
+              event_type: "account_locked",
+              email: email.trim(),
+              failure_reason: "5_failed_attempts",
+            });
+
+
             setFormError(
               "Your account has been blocked due to too many failed attempts. Please contact your administrator."
             );
@@ -581,6 +588,12 @@ const Auth = () => {
         }
 
         setResetSent(true);
+
+        logAuthActivity({
+          event_type: "password_reset_requested",
+          email: email.trim(),
+        });
+
 
         logAudit({
           action_type:
