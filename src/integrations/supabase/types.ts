@@ -211,6 +211,7 @@ export type Database = {
           enquiry_type: string
           existing_boiler_age: string | null
           existing_boiler_location: string | null
+          existing_boiler_working: string | null
           existing_gas_connection: string | null
           existing_water_pump: string | null
           external_source: string | null
@@ -270,6 +271,7 @@ export type Database = {
           enquiry_type?: string
           existing_boiler_age?: string | null
           existing_boiler_location?: string | null
+          existing_boiler_working?: string | null
           existing_gas_connection?: string | null
           existing_water_pump?: string | null
           external_source?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           enquiry_type?: string
           existing_boiler_age?: string | null
           existing_boiler_location?: string | null
+          existing_boiler_working?: string | null
           existing_gas_connection?: string | null
           existing_water_pump?: string | null
           external_source?: string | null
