@@ -195,7 +195,13 @@ const ResetPassword = () => {
           detail: `Password reset completed by ${user.email}`,
           metadata: { target_email: user.email, triggered_by: "self" },
         });
+        logAuthActivity({
+          event_type: "password_changed",
+          user_id: user.id,
+          email: user.email ?? null,
+        });
       }
+
 
       await supabase.auth.signOut();
       toast({ title: "Password updated!", description: "Please log in." });
