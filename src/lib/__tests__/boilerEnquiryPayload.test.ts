@@ -307,6 +307,7 @@ describe("live Find My Boiler form (68qaMe)", () => {
           value: "Average",
         },
         { key: "question_4nlq6r", label: "Existing hot water cylinder or pump", value: "Cylinder, no pump" },
+        { key: "question_wklz9r", label: "Is your current boiler working ?", value: "Yes" },
         { key: "question_j9lzrq", label: "Priorty", value: "Long warranty" },
         {
           key: "question_2xlxwe",
