@@ -41,6 +41,7 @@ import {
   lockedUntilMessage,
   lockedUntilModalCopy,
 } from "@/lib/authLockout";
+import { reportSignInNetworkFailure } from "@/lib/authFailureReport";
 
 /** Only same-origin relative paths are honoured as a post-login redirect. */
 const safeNextPath = (
@@ -205,6 +206,9 @@ const Auth = () => {
    *  network handover (Wi-Fi -> cellular) may still settle later; its result
    *  must never drive the UI once the user has retried. */
   const attemptRef = useRef(0);
+
+  // Start time of the in-flight sign-in request, used only for diagnostics.
+  const signInStartedAt = useRef(0);
 
   const prevBlockedKey = (
     addr: string
