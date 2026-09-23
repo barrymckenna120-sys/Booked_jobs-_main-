@@ -223,6 +223,13 @@ const Auth = () => {
   ) => {
     e.preventDefault();
 
+    Sentry.captureMessage("Sign-in attempt started", {
+      level: "info",
+      tags: { route: "/auth" },
+    });
+
+    const attemptStartedAt = Date.now();
+
     // Never hard-disable submit from cached state — the server is source of truth.
     setLoading(true);
     setFormError(null);
@@ -380,6 +387,11 @@ const Auth = () => {
       const isNetworkError = isAuthNetworkError(error, navigator.onLine);
 
       if (isNetworkError) {
+        Sentry.captureException(error, {
+          level: "warning",
+          tags: { failure_type: "network" },
+          extra: { attempt_duration_ms: Date.now() - attemptStartedAt },
+        });
         // This branch used to return silently, so the one failure Karl keeps
         // hitting on iOS Safari was the only sign-in failure with no
         // diagnostics at all. Report it (never the email or password) so the
@@ -398,7 +410,9 @@ const Auth = () => {
 
       // Report every non-network sign-in failure (bad credentials, banned
       // user, server errors) before any user-facing message is chosen.
-      Sentry.captureException(error);
+      Sentry.captureException(error, {
+        extra: { attempt_duration_ms: Date.now() - attemptStartedAt },
+      });
       logAuthActivity({
         event_type: "sign_in_failed",
         email: email.trim(),
