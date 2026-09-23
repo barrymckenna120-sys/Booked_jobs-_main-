@@ -137,7 +137,14 @@
           return fetch(url, opts).then(
             function (res) {
               clearTimeout(timer);
-              return { ok: res.ok || res.type === "opaque", ms: Date.now() - started, detail: "HTTP " + res.status };
+              // Any HTTP response means the request reached the server, which is
+              // what we are testing. A 401 from an unauthorised endpoint is a
+              // reachable server, not a connection failure.
+              return {
+                ok: true,
+                ms: Date.now() - started,
+                detail: res.type === "opaque" ? "reached (opaque response)" : "HTTP " + res.status,
+              };
             },
             function (err) {
               clearTimeout(timer);
@@ -161,7 +168,9 @@
             return timedFetch(API + "/auth/v1/settings", { headers: { apikey: KEY } });
           }),
           probe("Database endpoint (cross-site request)", function () {
-            return timedFetch(API + "/rest/v1/", { headers: { apikey: KEY } });
+            return timedFetch(API + "/rest/v1/", {
+              headers: { apikey: KEY, authorization: "Bearer " + KEY },
+            });
           }),
           probe("Our own domain (control)", function () {
             return timedFetch("/manifest.json?t=" + Date.now());
