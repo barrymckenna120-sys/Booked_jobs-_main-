@@ -52,18 +52,42 @@ are not mentioned, so today we have no published basis for keeping them.
 
 ## 3. Proposed build (four phases, each separately approved)
 
-### Phase 1 — Login and session events
+Approved scope: Phases 1 and 2 ship together as one piece of work, and only
+after the Safari connection-check investigation is closed. Phases 3 and 4 are
+on hold.
+
+### Phase 1 — Login and session events, with a screen to read them
 One new table written only by the server, so the IP comes from the request
 itself and can never be spoofed by the browser. One row per event: type, time,
 user, tenant, IP, and device summary (browser, OS, device type, app vs browser).
-Readable by superadmin only — not by tenant owners, not by the person
-themselves through the app.
+
+Recorded events: successful sign-in, failed sign-in (with the reason — wrong
+password, network failure, locked out), sign-out, password reset requested,
+password changed, and account lockout.
+
+**Front-end deliverable — Login Activity screen (the point of Phase 1).**
+A proper table screen inside the admin area, not database access:
+
+- A tenant picker at the top: All tenants, or one company.
+- Columns: Time (DD/MM/YY HH:MM), User (name and email), Result (green
+  Success / red Failed badge with the reason), IP address, Device (browser,
+  OS, phone or desktop, installed app or browser).
+- Filters beside the tenant picker: result (all / success / failed only) and a
+  search box for email or IP.
+- Newest first, paged, with a refresh button; loading, empty and error states
+  matching the existing admin tables.
+- Mobile card layout so it is readable on a phone.
+
+Access is by superadmin role, checked both in the screen and in the database —
+no account email is hardcoded anywhere. Tenant owners and engineers cannot
+reach the data at all, by screen or by direct API call.
 
 ### Phase 2 — Retention, documentation, and the legal paperwork
 Scheduled nightly deletion for every log table, the retention table below
 published in the privacy policy, and an internal record of processing
 (what we log, why, how long, who can see it) written to `docs/privacy/`.
-This ships with or immediately after Phase 1 — never after it in practice.
+Also in this phase: correct the privacy policy's Google Analytics mention,
+since the app does not load Google Analytics.
 
 ### Phase 3 — Anonymous visitor tracking
 Recommended shape: server-side counting only — page, referrer, country,
