@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>BookedJobs connection check</title>
+    <!--
+      Deliberately a plain static page: no app bundle, no service worker reliance,
+      no login. It exists to tell apart the candidate causes of the iPhone
+      "No internet connection" sign-in failure that happens in Safari (including
+      Private Browsing and the home-screen app) but not in Chrome on the same
+      phone and network. Only public keys are used and nothing is written.
+    -->
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        padding: 20px 16px 48px;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      h1 { font-size: 19px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 16px; color: #64748b; font-size: 13px; line-height: 1.45; }
+      .card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+      .env div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0; }
+      .env span:first-child { color: #64748b; }
+      .env span:last-child { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; }
+      ul { list-style: none; margin: 0; padding: 0; }
+      li { padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
+      li:last-child { border-bottom: 0; }
+      .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+      .name { font-size: 14px; font-weight: 600; }
+      .ms { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: #64748b; }
+      .detail { font-size: 12px; color: #64748b; margin-top: 3px; word-break: break-word; }
+      .ok { color: #047857; }
+      .bad { color: #be123c; }
+      .pending { color: #94a3b8; }
+      button {
+        width: 100%;
+        padding: 13px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #fff;
+        background: #4a86e8;
+        border: 0;
+        border-radius: 11px;
+        margin-top: 4px;
+      }
+      button.secondary { background: #0f172a; }
+    </style>
+  </head>
+  <body>
+    <h1>Connection check</h1>
+    <p class="sub">
+      Open this page in Chrome, then in Safari (private), then from the home-screen
+      icon — on the same phone and signal. Send a screenshot of each.
+    </p>
+
+    <div class="card env" id="env"></div>
+    <div class="card"><ul id="results"></ul></div>
+    <button type="button" id="rerun">Run again</button>
+    <button type="button" class="secondary" id="copy">Copy results as text</button>
+
+    <script>
+      (function () {
+        // Public values only (the same publishable key the app ships to browsers).
+        var API = "https://ktkfuquqxbrmuqrmbmdj.supabase.co";
+        var KEY =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0a2Z1cXVxeGJybXVxcm1ibWRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMDk4MDYsImV4cCI6MjA4NzU4NTgwNn0.lYqZJcDkN4e2tiw-bZTUsnO7de4R-8meCYqQin_rS8Y";
+        var TIMEOUT = 15000;
+
+        var resultsEl = document.getElementById("results");
+        var envEl = document.getElementById("env");
+
+        function engine(ua) {
+          var s = ua.toLowerCase();
+          if (/crios|fxios|edgios|opios/.test(s)) return "Chrome/other on iOS";
+          if (/chrome|chromium|edg\//.test(s)) return "Chrome (Blink)";
+          if (/firefox/.test(s)) return "Firefox";
+          if (/iphone|ipad|ipod/.test(s)) return "Safari (iOS WebKit)";
+          if (/safari/.test(s)) return "Safari (WebKit)";
+          return "unknown";
+        }
+
+        function standalone() {
+          if (navigator.standalone === true) return true;
+          try {
+            return !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+          } catch (e) {
+            return false;
+          }
+        }
+
+        var hasSW = "serviceWorker" in navigator;
+        var webkit = engine(navigator.userAgent).indexOf("Safari") === 0;
+
+        function line(label, value) {
+          var row = document.createElement("div");
+          var a = document.createElement("span");
+          a.textContent = label;
+          var b = document.createElement("span");
+          b.textContent = value;
+          row.appendChild(a);
+          row.appendChild(b);
+          envEl.appendChild(row);
+        }
+
+        line("Browser", engine(navigator.userAgent));
+        line("Launched from", standalone() ? "home-screen icon" : "browser tab");
+        line("Service workers", hasSW ? "available" : "unavailable");
+        line("Private browsing", webkit ? (hasSW ? "unlikely" : "likely") : "n/a");
+        line("Reported online", navigator.onLine ? "yes" : "no");
+        line("Connection type", (navigator.connection && navigator.connection.effectiveType) || "unknown");
+        line("Page host", location.hostname);
+
+        function probe(name, run) {
+          return { name: name, run: run };
+        }
+
+        function timedFetch(url, options) {
+          var controller = new AbortController();
+          var timer = setTimeout(function () {
+            controller.abort();
+          }, TIMEOUT);
+          var opts = options || {};
+          opts.signal = controller.signal;
+          opts.cache = "no-store";
+          var started = Date.now();
+          return fetch(url, opts).then(
+            function (res) {
+              clearTimeout(timer);
+              return { ok: res.ok || res.type === "opaque", ms: Date.now() - started, detail: "HTTP " + res.status };
+            },
+            function (err) {
+              clearTimeout(timer);
+              return {
+                ok: false,
+                ms: Date.now() - started,
+                detail: (err && err.name ? err.name + ": " : "") + (err && err.message ? err.message : "failed"),
+              };
+            }
+          );
+        }
+
+        var probes = [
+          probe("Backend reachable (no login)", function () {
+            return timedFetch(API + "/auth/v1/health", { headers: { apikey: KEY } });
+          }),
+          probe("Backend again (reused connection)", function () {
+            return timedFetch(API + "/auth/v1/health", { headers: { apikey: KEY } });
+          }),
+          probe("Login endpoint reachable (no credentials)", function () {
+            return timedFetch(API + "/auth/v1/settings", { headers: { apikey: KEY } });
+          }),
+          probe("Database endpoint (cross-site request)", function () {
+            return timedFetch(API + "/rest/v1/", { headers: { apikey: KEY } });
+          }),
+          probe("Our own domain (control)", function () {
+            return timedFetch("/manifest.json?t=" + Date.now());
+          }),
+          probe("Error-reporting host", function () {
+            return timedFetch("https://o4511293795074048.ingest.de.sentry.io/api/0/envelope/", {
+              method: "HEAD",
+              mode: "no-cors",
+            });
+          }),
+          probe("Marketing script host", function () {
+            return timedFetch("https://ddwl4m2hdecbv.cloudfront.net/", { mode: "no-cors" });
+          }),
+        ];
+
+        var rows = [];
+
+        function render() {
+          resultsEl.textContent = "";
+          rows.forEach(function (r) {
+            var li = document.createElement("li");
+            var row = document.createElement("div");
+            row.className = "row";
+            var name = document.createElement("span");
+            name.className = "name " + (r.state === "pending" ? "pending" : r.ok ? "ok" : "bad");
+            name.textContent = (r.state === "pending" ? "… " : r.ok ? "PASS " : "FAIL ") + r.name;
+            var ms = document.createElement("span");
+            ms.className = "ms";
+            ms.textContent = r.state === "pending" ? "" : r.ms + " ms";
+            row.appendChild(name);
+            row.appendChild(ms);
+            li.appendChild(row);
+            if (r.detail) {
+              var d = document.createElement("div");
+              d.className = "detail";
+              d.textContent = r.detail;
+              li.appendChild(d);
+            }
+            resultsEl.appendChild(li);
+          });
+        }
+
+        function runAll() {
+          rows = probes.map(function (p) {
+            return { name: p.name, state: "pending", ok: false, ms: 0, detail: "" };
+          });
+          render();
+          // Sequential on purpose: parallel requests hide a reused-connection failure.
+          var i = 0;
+          function next() {
+            if (i >= probes.length) return;
+            var idx = i++;
+            probes[idx].run().then(function (res) {
+              rows[idx] = { name: probes[idx].name, state: "done", ok: res.ok, ms: res.ms, detail: res.detail };
+              render();
+              next();
+            });
+          }
+          next();
+        }
+
+        document.getElementById("rerun").onclick = runAll;
+        document.getElementById("copy").onclick = function () {
+          var text = [];
+          Array.prototype.forEach.call(envEl.children, function (row) {
+            text.push(row.children[0].textContent + ": " + row.children[1].textContent);
+          });
+          rows.forEach(function (r) {
+            text.push((r.ok ? "PASS" : "FAIL") + " " + r.name + " — " + r.ms + " ms — " + r.detail);
+          });
+          var joined = text.join("\n");
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(joined);
+            this.textContent = "Copied";
+          } else {
+            window.prompt("Copy these results", joined);
+          }
+        };
+
+        runAll();
+      })();
+    </script>
+  </body>
+</html>
