@@ -294,6 +294,8 @@ const Auth = () => {
       const myAttempt =
         ++attemptRef.current;
 
+      signInStartedAt.current = Date.now();
+
       const {
         data: signInData,
         error,
@@ -367,6 +369,11 @@ const Auth = () => {
       const isNetworkError = isAuthNetworkError(error, navigator.onLine);
 
       if (isNetworkError) {
+        // This branch used to return silently, so the one failure Karl keeps
+        // hitting on iOS Safari was the only sign-in failure with no
+        // diagnostics at all. Report it (never the email or password) so the
+        // Safari-vs-Chrome difference is visible. User-facing copy unchanged.
+        reportSignInNetworkFailure(error, signInStartedAt.current);
         setFormError(
           "No internet connection. Please check your signal and try again."
         );
