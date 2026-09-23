@@ -385,6 +385,11 @@ const Auth = () => {
         // diagnostics at all. Report it (never the email or password) so the
         // Safari-vs-Chrome difference is visible. User-facing copy unchanged.
         reportSignInNetworkFailure(error, signInStartedAt.current);
+        logAuthActivity({
+          event_type: "sign_in_failed",
+          email: email.trim(),
+          failure_reason: classifyFailureReason(error, true),
+        });
         setFormError(
           "No internet connection. Please check your signal and try again."
         );
@@ -394,6 +399,11 @@ const Auth = () => {
       // Report every non-network sign-in failure (bad credentials, banned
       // user, server errors) before any user-facing message is chosen.
       Sentry.captureException(error);
+      logAuthActivity({
+        event_type: "sign_in_failed",
+        email: email.trim(),
+        failure_reason: classifyFailureReason(error),
+      });
 
       const msg =
         (
