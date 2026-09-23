@@ -33,7 +33,10 @@ export function detectEngine(ua: string): BrowserEngine {
 
 /** True when the app is running from the home-screen icon rather than a tab. */
 export function isStandaloneDisplay(
-  win: Pick<Window, "matchMedia"> & { navigator?: { standalone?: boolean } } = window
+  win: {
+    matchMedia?: (q: string) => { matches: boolean };
+    navigator?: { standalone?: boolean };
+  } = window as unknown as { matchMedia?: (q: string) => { matches: boolean } }
 ): boolean {
   if (win.navigator?.standalone === true) return true;
   try {
