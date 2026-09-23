@@ -79,6 +79,13 @@ describe("shouldAutoActivateWaitingWorker", () => {
     ).toBe(false);
   });
 
+  it("allows a later deployment after the previous update has settled", () => {
+    expect(consumeColdActivationBudget(store)).toBe(true);
+    resetColdActivationBudget(store);
+    expect(hasSpentColdActivation(store)).toBe(false);
+    expect(consumeColdActivationBudget(store)).toBe(true);
+  });
+
   it("refuses auto-activation when no durable storage exists (loop safety)", () => {
     expect(hasSpentColdActivation(null)).toBe(true);
     expect(consumeColdActivationBudget(null)).toBe(false);
