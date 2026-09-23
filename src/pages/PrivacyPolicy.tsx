@@ -153,8 +153,11 @@ const PrivacyPolicy = () => (
 
         <section>
           <h2 className="text-xl font-semibold text-foreground">9. Website Tracking</h2>
-          <p>Our website uses Google Analytics for business performance monitoring.</p>
-          <p>We do not use tracking for plumbing customer booking data.</p>
+          <p>
+            Our marketing pages use a B2B visitor identification service (RB2B) for business
+            performance monitoring. We do not use Google Analytics.
+          </p>
+          <p>We do not track or profile plumbing customer booking data.</p>
         </section>
 
         <section>
