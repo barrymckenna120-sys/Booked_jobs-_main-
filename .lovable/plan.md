@@ -1,35 +1,53 @@
-# Boiler Fault Finder — Phase 1 only (mobile search screen)
+# Pre-launch QA audit — K&N Gas Services Ltd
 
-Per the brief, this plan covers the audit plus Phase 1. Phases 2–5 (shared library tables, admin import, parts, job history) each get their own plan later.
+Target tenant: K&N gas services Ltd (`c0aa41ac-…`), owner karl@bookedjobs.ie. Currently 1 user, 7 customers, 13 jobs, 8 integration rows.
 
-## Audit findings (read so far)
-- Engineer job screen: `EngineerJobCard` already has a `SecondaryActions` row (Note / Media / Video / Extra Work), plus `QuickActions` and `JobServiceHistory`. The new button goes in `SecondaryActions`, so it uses the same layout.
-- There is no engineer "Tools" area. The header overflow menu in `EngineerLayout` holds Order Parts, Back to Office and Log Out. The secondary entry goes in that menu. No new bottom tab.
-- Brand and model data: `boiler_brands` (brand_name, model_name, shared across all companies by design) and the customer's boiler brand and model fields. These are reused to prefill the form. No changes to them.
-- There is no fault-code data anywhere in the system yet.
+## Important constraint: there is no separate staging environment
 
-## What engineers will see
-- A "Fault Finder" button on the job card. It opens a full-height sheet with Brand and Model already filled in from the job.
-- Also available from the header menu, where it opens empty.
-- Three fields: Brand (searchable), Model (searchable, filtered by brand) and Fault Code. One "Find Fault" button. All touch targets are 44px or larger, in one column with no sideways scrolling.
-- The last brand and model used are remembered on the device.
-- The screen has loading, offline ("Needs a connection") and unknown-code states.
-- **Until Phase 2 adds verified data, every search shows the unknown-code message.** It says: "This code isn't in the verified library yet — check the official manufacturer manual," with a link to the manufacturer's official support page. It also includes a standing note that the work is for RGI or qualified engineers only. No diagnosis is shown that hasn't been verified.
-- There is no "Save to Job" yet. That comes in Phase 5.
+Preview and the published app share one backend and one database. "Staging" can only mean a separate **test company** in that same database. It keeps the data separate by company, but it still uses the live WhatsApp, SumUp and email accounts. So:
 
-## Risk
-Low. It's a new screen that only reads existing data. There are no database changes, no payments, and no data from other companies. Office views are unaffected.
+- **Staging tenant:** Sligo Test Gas (has an owner, 1 customer, 3 jobs). Cavan Gas can't be used as-is because it has no owner, so bookings fail.
+- **Configuration:** I'll mirror K&N Ltd's non-secret settings onto the staging tenant (services and prices, message templates, form links, review settings). Each copy is its own reviewed data step. I'll give a before/after read-back, and nothing gets written to K&N Ltd.
+- **Messages:** synthetic customers only, using the reserved scratch numbers (a fresh +3538799901xx range, each checked unused first). Any test where the sending path can't be pointed away from a real customer is marked BLOCKED.
+- **Payments:** there's no SumUp sandbox; the only merchants are live. Real-card checkout is **BLOCKED** unless you approve one small live charge (then refund). I'll check checkout creation and the webhook without a card.
+- **Scheduled automations (cron and Make):** I'll run them by calling the function directly for the staging tenant, with a simulated due date stored on the synthetic customer. I won't edit Make scenarios or schedules.
 
-## Technical details
-- New file `src/components/engineer/FaultFinderSheet.tsx`, built on the existing `EngineerSheet` and the shadcn Command/Input.
-- New file `src/lib/faultFinder.ts`:
-  - `lookupFault()` sits behind an interface. For now it always returns `{status:"unknown"}`, and Phase 2 will add a database lookup behind it.
-  - A small constant maps the 6 manufacturers to their official manual pages.
-- Brand and model options come from `boiler_brands` (a `select('*')` read-only query) together with the 6 starter brands.
-- Recent selections are stored in localStorage (brand and model only, no customer data).
-- Edits to existing files: `SecondaryActions.tsx` gets one button and an `onFaultFinder` prop, `EngineerJobCard.tsx` wires up the sheet, and `EngineerLayout.tsx` gets one menu item.
-- Tests in `faultFinder.test.ts` cover the unknown result, manual links for each brand, and recent-selection storage.
-- Checks: existing tests, a type check, the build, and a Playwright run at iPhone size (390px) for the sheet, the prefill and the unknown-code state.
+## Phase 1 — Read-only production inspection (K&N Ltd)
 
-## Next plan (Phase 2, not in this change)
-Shared reference tables (manufacturers, models, fault codes, manuals, verification status). Everyone can read published entries and only superadmins can write. A small set of verified sample codes follows, taken from official manuals, with page references and your sign-off.
+1. Account and users: organisation row, owner link, and the `profiles` / `engineers` / `auth` joins for Karl. Check the company ID is correct on all of them (bug pattern 6).
+2. Settings and branding: `settings`, `brand_settings`, business details, VAT, service prices, form links (new booking, rebooking, renewal), Google review link.
+3. Integrations: which `tenant_integrations` rows exist, secret names present (not values), WhatsApp key per tenant, SumUp merchant binding (should be M9GH65GY), Tally form IDs.
+4. Permissions: role gating for office vs engineer screens and financial data. Check the engineer DOM contains no margin or price data.
+5. Automations inventory: every renewal, quote follow-up, outstanding payment, warranty and review function. For each: tenant scoping, opted-out check, idempotency guard, and any fallback to another company's links or keys (known risk: Stripe fallback, K&N Tally URL fallback, broken pg_cron settings).
+6. Customer-facing URLs: kngasservices.bookedjobs.ie routes (`/b/…` short links, quote, receipt, cert, booking). Check with HTTP status and screenshots only, using existing public links and no writes.
+
+## Phase 2 — Staging end-to-end (Sligo Test Gas, synthetic data)
+
+- Tally new booking and rebooking, the duplicate-job guard, and customer matching.
+- Quote create → send → accept → deposit link creation (no charge).
+- Job lifecycle: assign → en route → complete (two-step modal) → invoice → payment recorded in `job_payments`. Check revenue isn't rewritten.
+- WhatsApp automations with simulated dates: 30-day and 14-day renewal, quote day-3 and day-6, outstanding invoice reminder, warranty, Google review. Each must produce exactly one message to the scratch number, logged in `message_log`, and an opted-out customer must be skipped.
+- Mobile at 390px: engineer Today, job card, bottom nav, Fault Finder entry, payment banner. Office at desktop.
+- Destructive scenarios: cancel, reschedule, duplicate submission, bad phone, opted-out customer.
+
+## Phase 3 — Fixes
+
+- Audit first: confirm the root cause with a read-back before any code.
+- One concern per fix, ideally 1–3 files, each with one regression test.
+- Tested in preview against the staging tenant plus one other tenant.
+- No production deploy, no Edge Function deploy that changes live behaviour, and no live data change without your explicit approval per item.
+
+## Phase 4 — Report
+
+A pre-launch report (XLSX plus a short summary) covering:
+- **Tests:** passed, failed and BLOCKED, each with evidence (read-back, HTTP status, screenshot or log line).
+- **Repairs:** fixes verified in preview.
+- **Defects and risks:** unresolved defects with severity, plus release risks. Known examples: Make scenario still sending "Dublin Gas" wording, SumUp key rotation, Tally forms not checking a signature.
+
+## Never touched without explicit approval
+Karl's password, K&N Ltd customers, jobs, payment settings, scheduled messages, Make scenarios, and publishing.
+
+## Decisions needed before I start
+1. Use **Sligo Test Gas** as staging (recommended), or set an owner on Cavan Gas instead?
+2. May I copy K&N Ltd's non-secret settings onto the staging tenant (a data write to the test company only)?
+3. Real-card payment test: keep it BLOCKED, or approve one small live charge plus refund?
