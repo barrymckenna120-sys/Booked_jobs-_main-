@@ -92,3 +92,5 @@
 - [ ] WhatsApp real test sends (needs consent confirmation)
 - [ ] Move plaintext connection passwords to secret store (needs approval)
 - [ ] Payment message uses tenant terms (needs approval)
+- [ ] Read-only WhatsApp config + template audit for K&N Ltd (Karl) — report, then await approval
+- [ ] Controlled test sends: McKenna first, then Philip Ward, john test (after approval)
