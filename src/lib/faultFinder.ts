@@ -65,7 +65,7 @@ export const findLibraryModel = (models: PublishedFaultModel[], brand: string, m
 export const lookupFault = async (
   brand: string,
   _model: string,
-  _code: string,
+  code: string,
   codes: PublishedFaultCode[] = [],
 ): Promise<FaultLookupResult> => {
   const hit = matchFaultCode(codes, code);
