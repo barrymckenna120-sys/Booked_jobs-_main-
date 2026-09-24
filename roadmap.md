@@ -80,9 +80,11 @@
 - [ ] Boiler Fault Finder Phase 2+ — verified fault-code library (needs data + approval).
 
 ## Pre-launch QA — K&N Gas Services Ltd (c0aa41ac)
-- [ ] Read-only inspection: account, users, settings, integrations, permissions
-- [ ] Automations audit (renewals 30/14, quote d3/d6, deposit, outstanding, warranty, review, confirmations) — isolation before trigger
-- [ ] URL checks (quote, deposit, payment, booking, renewal, warranty, review)
-- [ ] SumUp checkout creation only (settlement/refund BLOCKED)
-- [ ] Synthetic ZZ QA records only; fix + regression tests; no deploy
-- [ ] XLSX QA report + summary
+- [x] Read-only inspection: account, users, settings, integrations, permissions
+- [x] Automations audit (renewals 30/14, quote d3/d6, deposit, outstanding, warranty, review, confirmations) — isolation before trigger
+- [x] URL checks (quote, deposit, payment, booking, renewal, warranty, review)
+- [x] SumUp checkout creation only (settlement/refund BLOCKED)
+- [x] Synthetic ZZ QA records only; fix + regression tests; no deploy
+- [x] XLSX QA report + summary
+- [ ] Deploy orgAuth short-link fix (awaiting approval)
+- [ ] Owner: SumUp out of Test mode, Google review URL, company email/address, add team users
