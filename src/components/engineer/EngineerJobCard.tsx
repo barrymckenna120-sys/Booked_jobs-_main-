@@ -55,6 +55,7 @@ const stopProp = (e: React.MouseEvent) => e.stopPropagation();
 
 const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = [], isViewingAhead = false, onAdvanceView, onBackView }: EngineerJobCardProps) => {
   const navigate = useNavigate();
+  const openFaultFinder = useFaultFinder();
   const { toast } = useToast();
   const [showDetail, setShowDetail] = useState(false);
   const [showComplete, setShowComplete] = useState(false);

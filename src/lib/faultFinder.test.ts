@@ -1,6 +1,12 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { buildBrandModelIndex, filterOptions, getManualLink, loadRecent, lookupFault, saveRecent, STARTER_BRANDS } from "./faultFinder";
+
+const mem: Record<string,string> = {};
+(globalThis as any).localStorage = {
+  getItem: (k: string) => mem[k] ?? null,
+  setItem: (k: string, v: string) => { mem[k] = v; },
+  clear: () => { for (const k of Object.keys(mem)) delete mem[k]; },
+};
 
 describe("faultFinder", () => {
   beforeEach(() => localStorage.clear());
