@@ -88,3 +88,7 @@
 - [x] XLSX QA report + summary
 - [ ] Deploy orgAuth short-link fix (awaiting approval)
 - [ ] Owner: SumUp out of Test mode, Google review URL, company email/address, add team users
+- [ ] SumUp test-card run (needs new test job approval)
+- [ ] WhatsApp real test sends (needs consent confirmation)
+- [ ] Move plaintext connection passwords to secret store (needs approval)
+- [ ] Payment message uses tenant terms (needs approval)
