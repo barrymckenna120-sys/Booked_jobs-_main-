@@ -30,6 +30,7 @@ import JobMessageThread from "@/components/messages/JobMessageThread";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
+import { openExternalUrl } from "@/lib/openExternal";
 
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
@@ -54,6 +55,7 @@ type ServiceCall = {
   deposit_amount: number | null;
   balance_due: number | null;
   payment_status: string | null;
+  payment_link: string | null;
   boiler_brand: string | null;
   boiler_working: boolean | null;
   boiler_issue: string | null;
@@ -826,7 +828,37 @@ const JobDetail = () => {
               }`}>
                 {job.payment_status === "paid" ? "Fully Paid" : job.deposit_paid ? "Deposit Paid — Balance Due" : "Unpaid"}
               </span>
+              {(job as any).payment_link && job.payment_status !== "paid" && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                  SumUp Link Ready
+                </span>
+              )}
             </div>
+            {(job as any).payment_link && job.payment_status !== "paid" && (
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                <ExternalLink className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SumUp Payment Link</p>
+                  <p className="text-sm font-semibold truncate">Customer can pay the balance online by card</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard?.writeText((job as any).payment_link);
+                    toast({ title: "Payment link copied" });
+                  }}
+                >
+                  Copy
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => openExternalUrl((job as any).payment_link)}
+                >
+                  Open
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
