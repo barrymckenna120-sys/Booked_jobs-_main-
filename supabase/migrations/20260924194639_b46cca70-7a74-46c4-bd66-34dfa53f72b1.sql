@@ -1,0 +1,2 @@
+ALTER TABLE public.boiler_fault_codes DROP CONSTRAINT IF EXISTS boiler_fault_codes_category_check;
+ALTER TABLE public.boiler_fault_codes ADD CONSTRAINT boiler_fault_codes_category_check CHECK (category IN ('fault','status','message'));
