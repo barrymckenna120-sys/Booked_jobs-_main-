@@ -128,6 +128,19 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
       return data === true;
     },
   });
+  // Superadmin kill switch for each company's draft testing.
+  const { data: testOrgs = [], refetch: refetchTestOrgs } = useQuery({
+    queryKey: ["fault-draft-test-orgs"],
+    enabled: isSuperadmin,
+    queryFn: async (): Promise<{ organisation_id: string; enabled: boolean; organisations: { name: string } | null }[]> => {
+      const { data } = await (supabase as any).from("fault_draft_test_orgs").select("organisation_id, enabled, organisations(name)");
+      return data || [];
+    },
+  });
+  const setOrgTesting = async (orgId: string, enabled: boolean) => {
+    await (supabase as any).from("fault_draft_test_orgs").update({ enabled }).eq("organisation_id", orgId);
+    refetchTestOrgs();
+  };
   const drafts = (previewHost && isSuperadmin && draftMode) || isDraftTester;
   const statuses = drafts ? ["published", "draft"] : ["published"];
 
@@ -229,6 +242,19 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           <input type="checkbox" aria-label="Draft testing mode" className="w-5 h-5" checked={draftMode}
             onChange={(e) => { setDraftMode(e.target.checked); setSubmitted(false); }} />
         </label>
+      )}
+
+      {isSuperadmin && testOrgs.map((o) => (
+        <label key={o.organisation_id} className="mx-5 mt-2 flex items-center justify-between gap-3 rounded-xl border border-border px-3 min-h-[44px] text-sm font-semibold text-foreground">
+          <span>Draft testing for {o.organisations?.name ?? "company"} <span className="block text-[11px] font-normal text-muted-foreground">Named testers only · switch off when testing ends</span></span>
+          <input type="checkbox" aria-label={`Draft testing for ${o.organisations?.name ?? "company"}`} className="w-5 h-5" checked={o.enabled}
+            onChange={(e) => setOrgTesting(o.organisation_id, e.target.checked)} />
+        </label>
+      ))}
+      {isDraftTester && !isSuperadmin && (
+        <div className="mx-5 mt-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-bold text-foreground">
+          DRAFT TESTING — results are NOT technically verified. Always check the official manual.
+        </div>
       )}
 
       <form
