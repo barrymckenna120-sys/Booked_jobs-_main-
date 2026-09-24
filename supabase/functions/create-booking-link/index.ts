@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
+import { isAllowedTarget } from "./targetRule.ts";
 
 /**
  * Mints short links on tenants' own public domains.
@@ -77,12 +78,14 @@ Deno.serve(async (req) => {
       .eq("integration_type", "tally")
       .maybeSingle();
 
-    const tallyBase = (tallyIntegration?.config as Record<string, string> | null)?.new_booking_url;
-    if (!tallyBase) {
-      console.warn(`create-booking-link: missing tally new_booking_url for org ${organisation_id}`);
+    const tallyConfig = tallyIntegration?.config as Record<string, string> | null;
+    const tallyBase = tallyConfig?.new_booking_url;
+    const renewalBase = tallyConfig?.renewal_form_url;
+    if (!tallyBase && !renewalBase) {
+      console.warn(`create-booking-link: missing tally form urls for org ${organisation_id}`);
       return json({ error: "Tally new_booking_url not configured for this organisation" }, 400);
     }
-    if (!full_url.startsWith(tallyBase)) {
+    if (!isAllowedTarget(full_url, [tallyBase, renewalBase])) {
       return json({ error: "full_url does not match this organisation's booking form" }, 400);
     }
 
