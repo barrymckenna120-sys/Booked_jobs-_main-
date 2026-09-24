@@ -69,7 +69,7 @@ describe("faultFinder", () => {
   });
 });
 
-import { resolveFaultResult, isPreviewHost } from "./faultFinder";
+import { resolveFaultResult, isPreviewHost, mergeModelOptions } from "./faultFinder";
 describe("resolveFaultResult (live result)", () => {
   const codes = [
     { id: "1", code: "E133", explanation: "Ignition failure", possible_causes: ["Gas supply"], technical_details: null, manual_title: "M", manual_url: "https://m/manual.pdf", manual_revision: null, manual_page: "74", category: "fault" as const },
@@ -92,6 +92,11 @@ describe("resolveFaultResult (live result)", () => {
     expect(r).toEqual({ status: "unknown", manualUrl: "https://m/manual.pdf" });
     const r2 = resolveFaultResult([], "ZZ9", "Baxi", true);
     expect(r2.status).toBe("unknown");
+  });
+  it("model list drops a tenant short name only when an exact library model covers it", () => {
+    expect(mergeModelOptions(["Logic+ Combi2 C24 C30 C35", "600 Combi 2 (24 - 30 - 36)"], ["logic+ combi2", "600 Combi 2", "600 Combi", "Logic Max Combi"]))
+      .toEqual(["Logic+ Combi2 C24 C30 C35", "600 Combi 2 (24 - 30 - 36)", "600 Combi", "Logic Max Combi"]);
+    expect(mergeModelOptions([], ["600 Combi"])).toEqual(["600 Combi"]);
   });
   it("preview host detection excludes the published app and custom domains", () => {
     expect(isPreviewHost("id-preview--abc.lovable.app")).toBe(true);

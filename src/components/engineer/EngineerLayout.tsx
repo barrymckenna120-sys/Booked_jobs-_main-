@@ -108,6 +108,7 @@ const EngineerLayout = () => {
         completedCount={completedJobs.length}
         canSwitchToOffice={canSwitchToOffice}
         onSignOut={signOut}
+        onFaultFinder={openFaultFinder ?? undefined}
       />
       <div className="max-w-[430px] md:max-w-none mx-auto min-h-screen bg-secondary pb-20 md:pb-0">
       {/* Mobile header — same shared shell as the office workspace */}

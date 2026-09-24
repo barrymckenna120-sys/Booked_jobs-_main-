@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, LogOut, Package } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock, LogOut, Package, SearchCode } from "lucide-react";
 import AppLogo from "@/components/shared/AppLogo";
 import { Button } from "@/components/ui/button";
 import SidebarWorkspaceSwitch from "@/components/shared/SidebarWorkspaceSwitch";
@@ -11,6 +11,7 @@ interface EngineerDesktopNavProps {
   completedCount?: number;
   canSwitchToOffice: boolean;
   onSignOut: () => void;
+  onFaultFinder?: () => void;
 }
 
 export default function EngineerDesktopNav({
@@ -19,6 +20,7 @@ export default function EngineerDesktopNav({
   completedCount = 0,
   canSwitchToOffice,
   onSignOut,
+  onFaultFinder,
 }: EngineerDesktopNavProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -72,6 +74,16 @@ export default function EngineerDesktopNav({
             </div>
           </div>
         ))}
+        {onFaultFinder && (
+          <div>
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">Tools</div>
+            <Button variant="ghost" onClick={onFaultFinder}
+              className="w-full h-10 justify-start gap-3 px-3 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+              <SearchCode className="h-[19px] w-[19px] shrink-0" strokeWidth={2} />
+              <span className="flex-1 text-left">Fault Finder</span>
+            </Button>
+          </div>
+        )}
       </nav>
       <div className="px-3 py-3 border-t border-border">
         {canSwitchToOffice && (

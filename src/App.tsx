@@ -26,6 +26,7 @@ import AppLayout from "./components/layout/AppLayout";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import OfficeRoute from "./components/shared/OfficeRoute";
 import EngineerLayout from "./components/engineer/EngineerLayout";
+import { FaultFinderRoute } from "./components/engineer/FaultFinderContext";
 import InstallAppBanner from "./components/pwa/InstallAppBanner";
 import PWAUpdateBanner from "./components/pwa/PWAUpdateBanner";
 
@@ -518,6 +519,7 @@ function AppContent() {
             path="parts"
             element={<EngineerParts />}
           />
+          <Route path="fault-finder" element={<FaultFinderRoute />} />
         </Route>
 
         <Route

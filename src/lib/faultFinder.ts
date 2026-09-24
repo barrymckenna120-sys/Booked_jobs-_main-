@@ -103,6 +103,21 @@ export const modelsForBrand = (index: Map<string, string[]>, brand: string): str
   return key ? index.get(key)! : [];
 };
 
+/**
+ * Model list: exact shared-library models first; a tenant's short model name is
+ * dropped only when it is the same model minus a size/variant suffix
+ * (e.g. "Logic+ Combi2" vs "Logic+ Combi2 C24 C30 C35"). Different generations
+ * such as "600 Combi" vs "600 Combi 2" are kept.
+ */
+const libBaseKey = (s: string) =>
+  norm(s).replace(/\s*\([^)]*\)\s*$/, "").replace(/(\s+c\d{2})+$/, "").trim();
+export const mergeModelOptions = (libraryModels: string[], tenantModels: string[]): string[] => {
+  const seen = new Set<string>(); const out: string[] = [];
+  libraryModels.forEach((m) => { const k = norm(m); if (!seen.has(k)) { seen.add(k); seen.add(libBaseKey(m)); out.push(m); } });
+  tenantModels.forEach((m) => { const k = norm(m); if (!seen.has(k)) { seen.add(k); out.push(m); } });
+  return out;
+};
+
 export const filterOptions = (options: string[], query: string): string[] => {
   const q = query.trim().toLowerCase();
   return q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
