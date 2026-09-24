@@ -43,3 +43,41 @@ Deno.test({
     assertEquals(isDenied(r), true);
   },
 });
+
+const defaultOrg = Deno.env.get("QA_ORG_WITHOUT_TENANT_SECRET");
+const anon = Deno.env.get("SUPABASE_ANON_KEY");
+const userJwt = Deno.env.get("QA_USER_JWT");
+const otherOrg = Deno.env.get("QA_OTHER_ORG");
+
+Deno.test({
+  name: "service-role caller still works for a tenant on the platform default (no own secret)",
+  ignore: ignore || !defaultOrg,
+  async fn() {
+    const r = await requireBoundOrg(req({ Authorization: `Bearer ${key}` }), {
+      fnName: "test", cors, requestedOrgId: defaultOrg!,
+    });
+    assertEquals((r as { orgId?: string }).orgId, defaultOrg);
+  },
+});
+
+Deno.test({
+  name: "public (anon) key is not treated as service role",
+  ignore: ignore || !anon,
+  async fn() {
+    const r = await requireBoundOrg(req({ Authorization: `Bearer ${anon}` }), {
+      fnName: "test", cors, requestedOrgId: org!,
+    });
+    assertEquals(isDenied(r), true);
+  },
+});
+
+Deno.test({
+  name: "a signed-in user cannot act for another company",
+  ignore: ignore || !userJwt || !otherOrg,
+  async fn() {
+    const r = await requireBoundOrg(req({ Authorization: `Bearer ${userJwt}` }), {
+      fnName: "test", cors, requestedOrgId: otherOrg!,
+    });
+    assertEquals(isDenied(r) ? r.error.status : 0, 403);
+  },
+});
