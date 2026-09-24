@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { rebookMobileParam } from "../_shared/rebookPhone.ts";
 import { filterDueCustomers } from "../_shared/renewalDedup.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
@@ -147,19 +148,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      let digits = (c.phone || "").replace(/\D/g, "");
-      const ccLen = countryCode.length;
-      if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) {
-        // already full international
-      } else if (digits.startsWith("0") && digits.length === 10) {
-        digits = countryCode + digits.slice(1);
-      } else if (digits.length === 9) {
-        digits = countryCode + digits;
-      }
-      const localPhone = "0" + digits.slice(ccLen);
+      const mobileParam = rebookMobileParam(c.phone, countryCode);
       const full_tally_url = `${tallyUrl}` +
         `?Customer=${encodeURIComponent(c.name || "")}` +
-        `&Mobile=${localPhone}` +
+        `&Mobile=${encodeURIComponent(mobileParam)}` +
         `&Address=${encodeURIComponent((c as any).address || "")}` +
         `&Eircode=${encodeURIComponent((c as any).eircode || "")}` +
         `&Areacode=${encodeURIComponent((c as any).area_code || "")}` +
