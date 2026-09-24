@@ -1,0 +1,9 @@
+update public.boiler_fault_codes c set category='status',
+ technical_details = c.technical_details || E'\nREVIEW: No cause listed in manual; describes a reset in progress, so classified as a status message rather than a fault. Manual lists it in the temporary-faults table (p51).'
+from public.boiler_fault_models m where m.id=c.model_id and m.model_name='600 Combi 2 (24 - 30 - 36)' and c.code='H.02.00' and c.status='draft';
+update public.boiler_fault_codes c set technical_details = c.technical_details || E'\nREVIEW: Printed in manual as "E.04.254" (three-digit specific code, unlike every other code). Kept exactly as printed; may be a typo for E.04.25 - confirm on the boiler display or with Baxi technical.'
+from public.boiler_fault_models m where m.id=c.model_id and m.model_name='600 Combi 2 (24 - 30 - 36)' and c.code='E.04.254' and c.status='draft';
+update public.boiler_fault_codes c set technical_details = c.technical_details || E'\nREVIEW: Manual description runs two meanings together ("Temporary flame loss" / "Shutdown due to the power supply voltage being too low"). Kept verbatim; confirm which applies with Baxi.'
+from public.boiler_fault_models m where m.id=c.model_id and m.model_name='600 Combi 2 (24 - 30 - 36)' and c.code='H.03.54' and c.status='draft';
+update public.boiler_fault_codes c set technical_details = replace(c.technical_details,'section 4.4 Flame On Before Gas Valve On.','section 4.4 Flame On Before Gas Valve On, p56.')
+from public.boiler_fault_models m where m.id=c.model_id and m.model_name='Logic+ Combi2 C24 C30 C35' and c.code='Flame On Before Gas On' and c.status='draft';
