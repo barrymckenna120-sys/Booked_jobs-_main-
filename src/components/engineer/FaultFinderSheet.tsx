@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Loader2, Search, ShieldAlert, WifiOff, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, Search, ShieldAlert, WifiOff, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import EngineerSheet from "./EngineerSheet";
 import { openExternalUrl } from "@/lib/openExternal";
 import {
-  buildBrandModelIndex, filterOptions, loadRecent, lookupFault, modelsForBrand, saveRecent, type FaultLookupResult,
+  buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, lookupFault, modelsForBrand, saveRecent, type FaultLookupResult,
 } from "@/lib/faultFinder";
 
 export interface FaultFinderPrefill {
@@ -27,10 +27,10 @@ interface Props {
  * list stays above the iPhone keyboard.
  */
 const SearchField = ({
-  label, value, onChange, onSelect, options, placeholder, disabled, emptyText,
+  label, value, onChange, onSelect, options, placeholder, disabled, emptyText, hideWhenEmpty,
 }: {
   label: string; value: string; onChange: (v: string) => void; onSelect: (v: string) => void;
-  options: string[]; placeholder: string; disabled?: boolean; emptyText: string;
+  options: string[]; placeholder: string; disabled?: boolean; emptyText: string; hideWhenEmpty?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState(false);
@@ -55,7 +55,7 @@ const SearchField = ({
         aria-expanded={open}
         aria-label={label}
       />
-      {open && !disabled && (
+      {open && !disabled && !hideWhenEmpty && (
         <div className="mt-1 rounded-xl border border-border bg-card max-h-56 overflow-y-auto overscroll-contain" role="listbox">
           {matches.length === 0 ? (
             <div className="px-3 min-h-[44px] flex items-center text-sm text-muted-foreground">{emptyText}</div>
@@ -97,11 +97,41 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     },
   });
 
+  // Shared technical library — RLS returns published rows only (drafts: superadmins).
+  const { data: libModels = [] } = useQuery({
+    queryKey: ["fault-library-models"],
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<PublishedFaultModel[]> => {
+      const { data } = await (supabase as any).from("boiler_fault_models").select("id, brand, model_name").eq("status", "published");
+      return data || [];
+    },
+  });
+  const libModel = findLibraryModel(libModels, brand, model);
+  const { data: libCodes = [], isFetching: codesLoading } = useQuery({
+    queryKey: ["fault-library-codes", libModel?.id],
+    enabled: !!libModel,
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<PublishedFaultCode[]> => {
+      const { data } = await (supabase as any).from("boiler_fault_codes")
+        .select("id, code, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
+        .eq("model_id", libModel!.id).eq("status", "published").order("code");
+      return data || [];
+    },
+  });
+
   const brandOptions = useMemo(() => (index ? [...index.keys()] : []), [index]);
-  const modelOptions = useMemo(() => (index ? modelsForBrand(index, brand) : []), [index, brand]);
+  const modelOptions = useMemo(() => {
+    const base = index ? modelsForBrand(index, brand) : [];
+    const lib = libModels.filter((m) => m.brand.toLowerCase() === brand.trim().toLowerCase()).map((m) => m.model_name);
+    const seen = new Set<string>(); const out: string[] = [];
+    [...lib, ...base].forEach((m) => { const k = m.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(m); } });
+    return out;
+  }, [index, brand, libModels]);
+  const codeOptions = useMemo(() => libCodes.map((c) => c.code), [libCodes]);
+  const [showTech, setShowTech] = useState(false);
 
   const changeBrand = (v: string) => {
-    if (v.trim().toLowerCase() !== brand.trim().toLowerCase()) setModel("");
+    if (v.trim().toLowerCase() !== brand.trim().toLowerCase()) { setModel(""); setCode(""); }
     setBrand(v); setResult(null);
   };
 
@@ -115,7 +145,8 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     }
     setOffline(false); setSearching(true);
     saveRecent(brand.trim(), model.trim());
-    const r = await lookupFault(brand.trim(), model.trim(), code.trim());
+    const r = await lookupFault(brand.trim(), model.trim(), code.trim(), libCodes);
+    setShowTech(false);
     setResult({ ...r, code: code.trim().toUpperCase(), brand: brand.trim() });
     setSearching(false);
   };
@@ -144,22 +175,19 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           label="Model" value={model}
           placeholder={brand.trim() ? "Tap to choose a model (optional)" : "Choose a brand first"}
           disabled={!brand.trim()}
-          onChange={(v) => { setModel(v); setResult(null); }}
-          onSelect={(v) => { setModel(v); setResult(null); }}
+          onChange={(v) => { setModel(v); setCode(""); setResult(null); }}
+          onSelect={(v) => { setModel(v); setCode(""); setResult(null); }}
           options={modelOptions} emptyText="No models on file for this brand — type the model"
         />
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Fault code</label>
-          <Input
-            value={code}
-            onChange={(e) => { setCode(e.target.value); setResult(null); }}
-            placeholder="e.g. E133"
-            className="h-12 text-base uppercase"
-            autoCapitalize="characters"
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-        </div>
+        <SearchField
+          label="Fault code" value={code}
+          placeholder={codesLoading ? "Loading codes…" : codeOptions.length ? "Tap to choose or type a code" : "Type the code, e.g. E133"}
+          onChange={(v) => { setCode(v.toUpperCase()); setResult(null); }}
+          onSelect={(v) => { setCode(v); setResult(null); }}
+          options={codeOptions}
+          emptyText={libModel ? "No matching verified code — search to see the manual" : "No verified codes for this model yet — type the code"}
+          hideWhenEmpty={!codeOptions.length}
+        />
         <Button type="submit" className="w-full h-12 text-base font-extrabold gap-2" disabled={!canSearch}>
           {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
         </Button>
@@ -170,6 +198,41 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           <div className="rounded-xl border border-border bg-secondary p-4 flex gap-3">
             <WifiOff className="w-5 h-5 text-muted-foreground shrink-0" />
             <div className="text-sm text-foreground">You're offline. Connect to look up a fault code or open the manual.</div>
+          </div>
+        )}
+
+        {result?.status === "found" && (
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {model} · {result.fault.code}</div>
+              <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
+            </div>
+            {result.fault.possible_causes.length > 0 && (
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Possible causes</div>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
+                  {result.fault.possible_causes.map((c) => <li key={c}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+            <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.fault.manual_url)}>
+              <ExternalLink className="w-4 h-4" /> Open official manual
+            </Button>
+            <button type="button" aria-expanded={showTech} onClick={() => setShowTech((v) => !v)}
+              className="w-full min-h-[44px] flex items-center justify-between text-sm font-semibold text-foreground border-t border-border pt-2">
+              Technical details &amp; manual reference
+              <ChevronDown className={`w-4 h-4 transition-transform ${showTech ? "rotate-180" : ""}`} />
+            </button>
+            {showTech && (
+              <div className="text-sm text-foreground space-y-2">
+                {result.fault.technical_details && <p className="whitespace-pre-line">{result.fault.technical_details}</p>}
+                <p className="text-xs text-muted-foreground">
+                  {result.fault.manual_title}
+                  {result.fault.manual_revision && <> · {result.fault.manual_revision}</>}
+                  {result.fault.manual_page && <> · page {result.fault.manual_page}</>}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
