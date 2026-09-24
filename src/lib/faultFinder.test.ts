@@ -69,7 +69,7 @@ describe("faultFinder", () => {
   });
 });
 
-import { resolveFaultResult, isPreviewHost } from "./faultFinder";
+import { resolveFaultResult, isPreviewHost, mergeModelOptions } from "./faultFinder";
 describe("resolveFaultResult (live result)", () => {
   const codes = [
     { id: "1", code: "E133", explanation: "Ignition failure", possible_causes: ["Gas supply"], technical_details: null, manual_title: "M", manual_url: "https://m/manual.pdf", manual_revision: null, manual_page: "74", category: "fault" as const },
