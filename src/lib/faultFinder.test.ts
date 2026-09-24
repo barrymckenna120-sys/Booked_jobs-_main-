@@ -93,6 +93,11 @@ describe("resolveFaultResult (live result)", () => {
     const r2 = resolveFaultResult([], "ZZ9", "Baxi", true);
     expect(r2.status).toBe("unknown");
   });
+  it("model list drops a tenant short name only when an exact library model covers it", () => {
+    expect(mergeModelOptions(["Logic+ Combi2 C24 C30 C35", "600 Combi 2 (24 - 30 - 36)"], ["logic+ combi2", "600 Combi 2", "600 Combi", "Logic Max Combi"]))
+      .toEqual(["Logic+ Combi2 C24 C30 C35", "600 Combi 2 (24 - 30 - 36)", "600 Combi", "Logic Max Combi"]);
+    expect(mergeModelOptions([], ["600 Combi"])).toEqual(["600 Combi"]);
+  });
   it("preview host detection excludes the published app and custom domains", () => {
     expect(isPreviewHost("id-preview--abc.lovable.app")).toBe(true);
     expect(isPreviewHost("localhost")).toBe(true);

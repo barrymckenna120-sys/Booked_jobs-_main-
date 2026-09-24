@@ -8,7 +8,7 @@ import EngineerSheet from "./EngineerSheet";
 import { openExternalUrl } from "@/lib/openExternal";
 import {
   buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, modelsForBrand, saveRecent,
-  isPreviewHost, resolveFaultResult,
+  isPreviewHost, resolveFaultResult, mergeModelOptions,
 } from "@/lib/faultFinder";
 
 export interface FaultFinderPrefill {
@@ -182,9 +182,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const modelOptions = useMemo(() => {
     const base = index ? modelsForBrand(index, brand) : [];
     const lib = libModels.filter((m) => m.brand.toLowerCase() === brand.trim().toLowerCase()).map((m) => m.model_name);
-    const seen = new Set<string>(); const out: string[] = [];
-    [...lib, ...base].forEach((m) => { const k = m.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(m); } });
-    return out;
+    return mergeModelOptions(lib, base);
   }, [index, brand, libModels]);
   const codeOptions = useMemo(
     () => [...libCodes].sort((a, b) => Number(a.category === "status") - Number(b.category === "status")).map((c) => c.code),
