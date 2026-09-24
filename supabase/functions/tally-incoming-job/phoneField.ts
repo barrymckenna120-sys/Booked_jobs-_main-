@@ -39,7 +39,7 @@ export function pickPhoneField(body: Record<string, unknown>, maxLen: number): s
   return null;
 }
 
-import { parsePhoneNumberFromString } from "npm:libphonenumber-js@1.11.18/min";
+import { parsePhoneNumberFromString } from "npm:libphonenumber-js@1.13.14/min";
 
 const LEGACY_IRISH = /^(\+353|0)[0-9]{8,9}$/;
 
