@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
@@ -26,9 +26,19 @@ import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import ConnectionBanner from "@/components/shared/ConnectionBanner";
 
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
+import { FaultFinderProvider, useFaultFinder } from "@/components/engineer/FaultFinderContext";
+import { SearchCode } from "lucide-react";
 
+/** Hands the provider's opener up to the layout header menu (rendered inside the provider). */
+const FaultFinderMenuBridge = ({ onReady }: { onReady: (fn: (() => void) | null) => void }) => {
+  const open = useFaultFinder();
+  useEffect(() => { onReady(open ? () => open() : null); }, [open, onReady]);
+  return null;
+};
 
 const EngineerLayout = () => {
+  const [openFaultFinder, setOpenFaultFinderState] = useState<(() => void) | null>(null);
+  const setOpenFaultFinder = useCallback((fn: (() => void) | null) => setOpenFaultFinderState(() => fn), []);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth("/auth");
@@ -89,6 +99,8 @@ const EngineerLayout = () => {
   ];
 
   return (
+    <FaultFinderProvider>
+    <FaultFinderMenuBridge onReady={setOpenFaultFinder} />
     <div className="min-h-screen bg-background md:pl-[216px] lg:pl-[232px]">
       <EngineerDesktopNav
         todayCount={todayActive.length}
@@ -111,6 +123,7 @@ const EngineerLayout = () => {
           <HeaderOverflowMenu
             items={[
               { label: "Order Parts", icon: Package, onSelect: () => navigate("/engineer/parts") },
+              { label: "Fault Finder", icon: SearchCode, onSelect: () => openFaultFinder?.() },
               { label: "Report a Bug", icon: Bug, onSelect: () => setReportOpen(true) },
               { label: "Sign Out", icon: LogOut, separatorBefore: true, onSelect: () => signOut() },
             ]}
@@ -226,6 +239,7 @@ const EngineerLayout = () => {
       )}
       </div>
     </div>
+    </FaultFinderProvider>
   );
 };
 

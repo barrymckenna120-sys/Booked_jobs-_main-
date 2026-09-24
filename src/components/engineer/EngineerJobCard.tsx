@@ -33,6 +33,7 @@ import { Mail } from "lucide-react";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import { insertPartsRequest, priorityRank } from "@/lib/partsRequests";
 import { useJobLeadRole } from "@/hooks/useJobLeadRole";
+import { useFaultFinder } from "./FaultFinderContext";
 
 const getJobRef = (job: any) => job?.job_reference || `KN-${job?.id?.slice(0, 6).toUpperCase() || '???'}`;
 
@@ -335,6 +336,10 @@ const EngineerJobCard = ({ job, customer, onUpdate, isNextJob = false, photos = 
               onNote={() => setShowNote(true)}
               onPhotos={() => setShowPhotos(true)}
               onExtraWork={() => setShowExtraWork(true)}
+              onFaultFinder={openFaultFinder ? () => openFaultFinder({
+                brand: job.boiler_brand || customer?.boiler_brand,
+                model: customer?.boiler_model || customer?.boiler_make_model,
+              }) : undefined}
             />
           </div>
         )}
