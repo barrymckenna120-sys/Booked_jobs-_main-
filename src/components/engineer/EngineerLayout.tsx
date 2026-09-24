@@ -149,6 +149,15 @@ const EngineerLayout = () => {
               <Package />
             </HeaderIconButton>
             <HeaderIconButton
+              onClick={() => openFaultFinder?.()}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              label="Fault Finder"
+              title="Fault Finder"
+              aria-label="Fault Finder"
+            >
+              <SearchCode />
+            </HeaderIconButton>
+            <HeaderIconButton
               onClick={() => setReportOpen(true)}
               className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Report a Bug"

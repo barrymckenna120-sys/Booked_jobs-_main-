@@ -35,6 +35,8 @@ import { useJobLeadRole } from "@/hooks/useJobLeadRole";
 import { useUserRole } from "@/hooks/useUserRole";
 import EngineerDesktopNav from "@/components/engineer/EngineerDesktopNav";
 import { openAppUrl, openExternalUrl } from "@/lib/openExternal";
+import FaultFinderSheet from "@/components/engineer/FaultFinderSheet";
+import { SearchCode } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   Scheduled:     { color: "text-primary",     bg: "bg-primary/10",     label: "Scheduled" },
@@ -77,6 +79,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
   const [job, setJob] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
+  const [showFaultFinder, setShowFaultFinder] = useState(false);
   const [callNotes, setCallNotes] = useState<any[]>([]);
   const [jobTags, setJobTags] = useState<{ name: string; colour: string }[]>([]);
   const [certificate, setCertificate] = useState<{ id: string; pdf_url: string | null; cert_number: string | null } | null>(null);
@@ -1144,7 +1147,7 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
 
         {/* Secondary actions */}
         {!isDone && (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
             <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowNote(true)}>
               <StickyNote className="w-5 h-5" /> Add Note
             </Button>
@@ -1153,6 +1156,9 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
             </Button>
             <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" style={{ color: "#e8760a", backgroundColor: "#fff8f0", borderColor: "#f5c07a" }} onClick={() => setShowExtraWork(true)}>
               <Plus className="w-5 h-5" /> Extra Work
+            </Button>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3 text-xs font-bold" onClick={() => setShowFaultFinder(true)}>
+              <SearchCode className="w-5 h-5" /> Fault Finder
             </Button>
           </div>
         )}
@@ -1332,6 +1338,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           customer={customer}
           onClose={() => setShowPhotos(false)}
           onSave={() => setShowPhotos(false)}
+        />
+      )}
+      {showFaultFinder && (
+        <FaultFinderSheet
+          prefill={{ brand: job?.boiler_brand || customer?.boiler_brand, model: customer?.boiler_model || customer?.boiler_make_model }}
+          onClose={() => setShowFaultFinder(false)}
         />
       )}
       {showExtraWork && (
