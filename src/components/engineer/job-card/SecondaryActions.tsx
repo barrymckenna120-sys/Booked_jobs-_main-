@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { StickyNote, Camera, Video, Plus } from "lucide-react";
+import { StickyNote, Camera, Video, Plus, SearchCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VideoUploadSheet from "../VideoUploadSheet";
 
@@ -11,9 +11,10 @@ interface SecondaryActionsProps {
   onPhotos: () => void;
   onExtraWork: () => void;
   onMediaRefresh?: () => void;
+  onFaultFinder?: () => void;
 }
 
-const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWork, onMediaRefresh }: SecondaryActionsProps) => {
+const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWork, onMediaRefresh, onFaultFinder }: SecondaryActionsProps) => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -58,6 +59,11 @@ const SecondaryActions = ({ isActive, job, customer, onNote, onPhotos, onExtraWo
               onClick={onExtraWork}
             >
               <Plus className="w-3.5 h-3.5 shrink-0" /> Extra Work
+            </Button>
+          )}
+          {onFaultFinder && (
+            <Button variant="outline" size="sm" className="flex-1 min-w-0 basis-[calc(50%-0.3125rem)] sm:basis-0 gap-1.5 text-xs h-11 px-2" onClick={onFaultFinder}>
+              <SearchCode className="w-3.5 h-3.5 shrink-0" /> Fault Finder
             </Button>
           )}
         </div>

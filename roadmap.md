@@ -76,3 +76,5 @@
 - [x] Privacy policy corrected: Google Analytics is not used (the marketing pages load RB2B); Sentry listed as the diagnostics processor; new security/login log section with legal basis (legitimate interest).
 - [x] Verified live on two tenants: app-path failed sign-in (Cavan, invalid_credentials, browser/OS/device captured) and direct-probe events resolving to Cavan and New Gas Boilers Dublin from the email alone; unknown event type rejected 400. RLS policies confirmed superadmin-only.
 - [ ] Phase 3 (HELD): anonymous visitor counting. Phase 4 (HELD): failure-path reporting sweep.
+- [x] Boiler Fault Finder Phase 1 — read-only mobile sheet (single mount in engineer layout), job-card + header-menu entries, unknown-code → official manual link. Not deployed.
+- [ ] Boiler Fault Finder Phase 2+ — verified fault-code library (needs data + approval).
