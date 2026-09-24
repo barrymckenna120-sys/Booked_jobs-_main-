@@ -51,6 +51,7 @@ const otherOrg = Deno.env.get("QA_OTHER_ORG");
 
 Deno.test({
   name: "service-role caller still works for a tenant on the platform default (no own secret)",
+  sanitizeOps: false, sanitizeResources: false,
   ignore: ignore || !defaultOrg,
   async fn() {
     const r = await requireBoundOrg(req({ Authorization: `Bearer ${key}` }), {
@@ -62,6 +63,7 @@ Deno.test({
 
 Deno.test({
   name: "public (anon) key is not treated as service role",
+  sanitizeOps: false, sanitizeResources: false,
   ignore: ignore || !anon,
   async fn() {
     const r = await requireBoundOrg(req({ Authorization: `Bearer ${anon}` }), {
@@ -73,6 +75,7 @@ Deno.test({
 
 Deno.test({
   name: "a signed-in user cannot act for another company",
+  sanitizeOps: false, sanitizeResources: false,
   ignore: ignore || !userJwt || !otherOrg,
   async fn() {
     const r = await requireBoundOrg(req({ Authorization: `Bearer ${userJwt}` }), {
