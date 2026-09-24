@@ -28,10 +28,11 @@ interface Props {
  * list stays above the iPhone keyboard.
  */
 const SearchField = ({
-  label, value, onChange, onSelect, options, placeholder, disabled, emptyText, hideWhenEmpty, tagFor,
+  label, value, onChange, onSelect, options, placeholder, disabled, emptyText, hideWhenEmpty, tagFor, extraOption, onExtra,
 }: {
   label: string; value: string; onChange: (v: string) => void; onSelect: (v: string) => void;
   options: string[]; placeholder: string; disabled?: boolean; emptyText: string; hideWhenEmpty?: boolean; tagFor?: (o: string) => string | null;
+  extraOption?: string; onExtra?: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState(false);
@@ -78,6 +79,14 @@ const SearchField = ({
               </span>
             </button>
           ))}
+          {extraOption && (
+            <button type="button" role="option" aria-selected={false}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onExtra?.(); setOpen(false); }}
+              className="w-full text-left px-3 min-h-[44px] text-sm font-semibold text-primary border-t border-border active:bg-muted">
+              {extraOption}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -92,7 +101,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const [code, setCode] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [offline, setOffline] = useState(false);
-  const [draftMode, setDraftMode] = useState(false);
+  const [draftMode, setDraftMode] = useState(true);
 
   // Draft testing: superadmin + preview host only. Drafts are still protected by
   // database rules (superadmin-only reads), so this toggle cannot expose them.
@@ -157,9 +166,13 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     [libCodes],
   );
   const codeTag = (o: string) => {
-    const c = libCodes.find((x) => x.code === o)?.category;
-    return c === "status" ? "Status — not a fault" : c === "message" ? "Display message" : null;
+    const row = libCodes.find((x) => x.code === o);
+    const c = row?.category;
+    const kind = c === "status" ? "Status — not a fault" : c === "message" ? "Display message" : null;
+    const draft = row?.status === "draft" ? "DRAFT / NOT VERIFIED" : null;
+    return [draft, kind].filter(Boolean).join(" · ") || null;
   };
+  const noCodesForModel = !!model.trim() && !codesLoading && !codesError && codeOptions.length === 0;
   const [showTech, setShowTech] = useState(false);
 
   const result = useMemo(
@@ -227,9 +240,15 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           onChange={changeCode}
           onSelect={(v) => { setCode(v); setSubmitted(true); setShowTech(false); saveRecent(brand.trim(), model.trim()); }}
           options={codeOptions} tagFor={codeTag}
-          emptyText="No matching verified code"
-          hideWhenEmpty={!codeOptions.length}
+          emptyText={codeOptions.length ? "Code not listed — press Find Fault to check" : "No verified fault codes available for this model yet"}
+          extraOption="Other / code not listed"
+          onExtra={() => { setCode(""); setSubmitted(false); setTimeout(() => (document.querySelector('input[aria-label="Fault code"]') as HTMLInputElement | null)?.focus(), 0); }}
         />
+        {noCodesForModel && (
+          <div className="text-xs text-muted-foreground" data-testid="fault-no-codes">
+            No verified fault codes available for this model yet. Type the code shown on the boiler to check it.
+          </div>
+        )}
         <Button type="submit" className="w-full h-12 text-base font-extrabold gap-2" disabled={!canSearch}>
           {codesLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
         </Button>
