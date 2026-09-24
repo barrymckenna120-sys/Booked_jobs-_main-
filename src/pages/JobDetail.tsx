@@ -30,6 +30,7 @@ import JobMessageThread from "@/components/messages/JobMessageThread";
 import WhatsAppHistory from "@/components/whatsapp/WhatsAppHistory";
 import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
+import { openExternalUrl } from "@/lib/openExternal";
 
 import InlineOfficeReply from "@/components/messages/InlineOfficeReply";
 import PartsArrivedModal from "@/components/jobs/PartsArrivedModal";
@@ -829,7 +830,7 @@ const JobDetail = () => {
               </span>
               {(job as any).payment_link && job.payment_status !== "paid" && (
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                  SumUp Link Sent
+                  SumUp Link Ready
                 </span>
               )}
             </div>
