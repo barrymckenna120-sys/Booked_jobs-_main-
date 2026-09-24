@@ -337,6 +337,63 @@ Deno.serve(async (req) => {
     }
 
 
+    // Map preferred_time to time_block
+    const timeBlockMap: Record<string, string> = {
+      morning: "Morning",
+      midday: "Midday",
+      afternoon: "Afternoon",
+    };
+    const timeBlock = timeBlockMap[(preferredTime ?? "").toLowerCase()] ?? preferredTime ?? null;
+
+    // BJ-0132 — content-level de-duplication. The sender can deliver the same
+    // booking twice, milliseconds apart, with a DIFFERENT submission id each
+    // time, so the submission-id guard above cannot catch it. Claim the booking
+    // fingerprint atomically; the losing copy returns the existing job.
+    // Claimed BEFORE customer matching so a duplicate copy never creates a
+    // second customer record (the two copies race on matchCustomer otherwise).
+    const claim = await claimBookingIntake(
+      supabase,
+      orgData.id,
+      {
+        phone: mobileNumber ?? normalisedPhone,
+        jobType: "Boiler Service",
+        address: fullAddress ?? "",
+        scheduledDate: preferredDay ?? null,
+        timeBlock,
+      },
+      "tally-incoming-job",
+    );
+
+    if (claim.outcome === "duplicate") {
+      console.log("[tally-incoming-job] duplicate booking content:", claim.fingerprint);
+      let existingCustomerId: string | null = null;
+      if (claim.existingServiceCallId) {
+        const { data: existingJob } = await supabase
+          .from("service_calls")
+          .select("customer_id")
+          .eq("id", claim.existingServiceCallId)
+          .eq("organisation_id", orgData.id)
+          .maybeSingle();
+        existingCustomerId = (existingJob as { customer_id?: string } | null)?.customer_id ?? null;
+      }
+      await logSubmission("duplicate", {
+        duplicate_kind: "content_fingerprint",
+        job_id: claim.existingServiceCallId,
+      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          id: claim.existingServiceCallId,
+          customer_id: existingCustomerId,
+          duplicate: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     // Upsert customer (match by phone)
     let customerId: string;
 
@@ -404,50 +461,6 @@ Deno.serve(async (req) => {
     const boilerWorkingBool =
       boilerWorking === true || boilerWorking === "Yes" || boilerWorking === "yes" || boilerWorking === "true";
 
-    // Map preferred_time to time_block
-    const timeBlockMap: Record<string, string> = {
-      morning: "Morning",
-      midday: "Midday",
-      afternoon: "Afternoon",
-    };
-    const timeBlock = timeBlockMap[(preferredTime ?? "").toLowerCase()] ?? preferredTime ?? null;
-
-    // BJ-0132 — content-level de-duplication. The sender can deliver the same
-    // booking twice, milliseconds apart, with a DIFFERENT submission id each
-    // time, so the submission-id guard above cannot catch it. Claim the booking
-    // fingerprint atomically; the losing copy returns the existing job.
-    const claim = await claimBookingIntake(
-      supabase,
-      orgData.id,
-      {
-        phone: mobileNumber ?? normalisedPhone,
-        jobType: "Boiler Service",
-        address: fullAddress ?? "",
-        scheduledDate: preferredDay ?? null,
-        timeBlock,
-      },
-      "tally-incoming-job",
-    );
-
-    if (claim.outcome === "duplicate") {
-      console.log("[tally-incoming-job] duplicate booking content:", claim.fingerprint);
-      await logSubmission("duplicate", {
-        duplicate_kind: "content_fingerprint",
-        job_id: claim.existingServiceCallId,
-      });
-      return new Response(
-        JSON.stringify({
-          success: true,
-          id: claim.existingServiceCallId,
-          customer_id: customerId,
-          duplicate: true,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
 
     // Create service call
     const { data: job, error: jobErr } = await supabase
