@@ -2,8 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
-import { pickPhoneField } from "./phoneField.ts";
-import { normalisePhoneE164 } from "../_shared/phone.ts";
+import { isValidIntakePhone, normaliseIntakePhone, pickPhoneField } from "./phoneField.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
@@ -26,7 +25,6 @@ const sanitize = (val: unknown, maxLen: number): string | null => {
 
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-const isValidPhone = (phone: string): boolean => /^(\+353|0)[0-9]{8,9}$/.test(phone.replace(/[\s\-()]/g, ""));
 
 // Tolerant normalisation of `photo_video_upload` into string[] (see mediaUrls.ts)
 const collectMediaUrls = (input: unknown): string[] => normaliseMediaUrls(input);
@@ -150,7 +148,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isValidPhone(mobileNumber)) {
+    if (!isValidIntakePhone(mobileNumber)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid mobile number format" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -165,7 +163,7 @@ Deno.serve(async (req) => {
     }
 
     // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = normalisePhoneE164(mobileNumber);
+    const normalisedPhone = normaliseIntakePhone(mobileNumber);
 
     // Bind this webhook call to exactly one tenant, server-side.
     // Preferred: a per-tenant integration secret, or the Tally form id in the

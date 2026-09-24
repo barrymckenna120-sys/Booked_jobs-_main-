@@ -29,3 +29,32 @@ Deno.test("spaced number normalises to clean E.164", () => {
   const v = pickPhoneField({ moblie_no: "+353 87 235 4257" }, 100)!;
   assertEquals(normalisePhoneE164(v), "+353872354257");
 });
+
+import { isValidIntakePhone, normaliseIntakePhone } from "./phoneField.ts";
+
+Deno.test("accepts genuine international and Irish numbers", () => {
+  const cases: Record<string, string> = {
+    "+212656802656": "+212656802656",
+    "00212656802656": "+212656802656",
+    "+44 7911 123456": "+447911123456",
+    "087 235 4257": "+353872354257",
+    "+353872354257": "+353872354257",
+    "353872354257": "+353872354257",
+  };
+  for (const [raw, want] of Object.entries(cases)) {
+    assertEquals(isValidIntakePhone(raw), true, raw);
+    assertEquals(normaliseIntakePhone(raw), want, raw);
+  }
+});
+
+Deno.test("rejects implausible numbers", () => {
+  for (const raw of ["+212123", "+999123456789", "12345", "abc", "+3538723542571234567"]) {
+    assertEquals(isValidIntakePhone(raw), false, raw);
+  }
+});
+
+Deno.test("Irish formats keep today's stored value", () => {
+  for (const raw of ["0872354257", "+353 87 235 4257", "(087) 235-4257", "353872354257"]) {
+    assertEquals(normaliseIntakePhone(raw), normalisePhoneE164(raw), raw);
+  }
+});

@@ -38,3 +38,34 @@ export function pickPhoneField(body: Record<string, unknown>, maxLen: number): s
   if (typeof exact === "string" && exact.trim()) return exact.trim().substring(0, maxLen);
   return null;
 }
+
+import { parsePhoneNumberFromString } from "npm:libphonenumber-js@1.11.18/min";
+
+const LEGACY_IRISH = /^(\+353|0)[0-9]{8,9}$/;
+
+/**
+ * Clean an intake number to E.164. Local-only numbers are assumed Irish,
+ * matching today's behaviour; `00CC…` is treated as an international prefix.
+ */
+export function normaliseIntakePhone(raw: string): string {
+  const s = raw.replace(/[\s\-().]/g, "");
+  if (!s) return "";
+  if (s.startsWith("+")) return s;
+  if (s.startsWith("00")) return "+" + s.slice(2);
+  if (s.startsWith("353")) return "+" + s;
+  return "+353" + s.replace(/^0/, "");
+}
+
+/**
+ * True for a genuinely plausible number: a real country code and a correct
+ * digit count for that country. Every Irish format accepted before stays accepted.
+ */
+export function isValidIntakePhone(raw: string): boolean {
+  const cleaned = raw.replace(/[\s\-().]/g, "");
+  if (LEGACY_IRISH.test(cleaned)) return true;
+  if (!/^\+?[0-9]{6,17}$/.test(cleaned)) return false;
+  const e164 = normaliseIntakePhone(cleaned);
+  if (!/^\+[1-9][0-9]{6,14}$/.test(e164)) return false;
+  const parsed = parsePhoneNumberFromString(e164);
+  return Boolean(parsed && parsed.isPossible());
+}
