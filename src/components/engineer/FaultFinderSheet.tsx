@@ -198,6 +198,14 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
         </button>
       </div>
 
+      {previewHost && isSuperadmin && (
+        <label className="mx-5 mt-3 flex items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 min-h-[44px] text-sm font-semibold text-foreground">
+          <span>Draft testing mode <span className="block text-[11px] font-normal text-muted-foreground">Superadmin preview only — engineers never see drafts</span></span>
+          <input type="checkbox" aria-label="Draft testing mode" className="w-5 h-5" checked={draftMode}
+            onChange={(e) => { setDraftMode(e.target.checked); setSubmitted(false); }} />
+        </label>
+      )}
+
       <form
         className="px-5 pt-4 space-y-3"
         onSubmit={(e) => { e.preventDefault(); find(); }}
@@ -210,25 +218,37 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           label="Model" value={model}
           placeholder={brand.trim() ? "Tap to choose a model (optional)" : "Choose a brand first"}
           disabled={!brand.trim()}
-          onChange={(v) => { setModel(v); setCode(""); setResult(null); }}
-          onSelect={(v) => { setModel(v); setCode(""); setResult(null); }}
+          onChange={changeModel} onSelect={changeModel}
           options={modelOptions} emptyText="No models on file for this brand — type the model"
         />
         <SearchField
           label="Fault code" value={code}
           placeholder={codesLoading ? "Loading codes…" : codeOptions.length ? "Tap to choose or type a code" : "Type the code, e.g. E133"}
-          onChange={(v) => { setCode(v.toUpperCase()); setResult(null); }}
-          onSelect={(v) => { setCode(v); setResult(null); }}
+          onChange={changeCode}
+          onSelect={(v) => { setCode(v); setSubmitted(true); setShowTech(false); saveRecent(brand.trim(), model.trim()); }}
           options={codeOptions} tagFor={codeTag}
-          emptyText={libModel ? "No matching verified code — search to see the manual" : "No verified codes for this model yet — type the code"}
+          emptyText="No matching verified code"
           hideWhenEmpty={!codeOptions.length}
         />
         <Button type="submit" className="w-full h-12 text-base font-extrabold gap-2" disabled={!canSearch}>
-          {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
+          {codesLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
         </Button>
       </form>
 
       <div className="px-5 pt-4 space-y-3">
+        {codesLoading && code.trim() && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="fault-loading">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading fault codes…
+          </div>
+        )}
+
+        {(modelsError || codesError) && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-2" data-testid="fault-error">
+            <div className="text-sm text-foreground">Couldn't load the fault library. Check your connection and try again.</div>
+            <Button type="button" variant="outline" className="h-11" onClick={() => { refetchModels(); refetchCodes(); }}>Try again</Button>
+          </div>
+        )}
+
         {offline && (
           <div className="rounded-xl border border-border bg-secondary p-4 flex gap-3">
             <WifiOff className="w-5 h-5 text-muted-foreground shrink-0" />
@@ -236,10 +256,15 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           </div>
         )}
 
-        {result?.status === "found" && (
+        {result.status === "found" && (
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
+            {resultIsDraft && (
+              <div className="rounded-lg bg-warning/15 border border-warning/40 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground">
+                Draft — not verified · superadmin preview only
+              </div>
+            )}
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {model} · {result.fault.code}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {model} · {result.fault.code}</div>
               {result.fault.category === "status" && (
                 <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
               )}
@@ -248,7 +273,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
               )}
               <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
             </div>
-            {result.fault.possible_causes.length > 0 && (
+            {(result.fault.possible_causes?.length ?? 0) > 0 && (
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Possible causes</div>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
@@ -274,6 +299,28 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {result.status === "unknown" && (
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-unknown">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {code.trim().toUpperCase()}</div>
+              <div className="text-base font-extrabold text-foreground mt-0.5">No verified explanation available for this code yet</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Check this code in the official manual for the exact model.
+              </div>
+            </div>
+            {result.manualUrl ? (
+              <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.manualUrl!)}>
+                <ExternalLink className="w-4 h-4" /> Open official {brand} manual
+              </Button>
+            ) : (
+              <div className="text-sm text-foreground">No official manual link on file for this brand — check the manufacturer's website.</div>
+            )}
+          </div>
+        )}
+
           </div>
         )}
 
