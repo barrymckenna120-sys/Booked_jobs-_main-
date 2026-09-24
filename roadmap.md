@@ -94,3 +94,8 @@
 - [ ] Payment message uses tenant terms (needs approval)
 - [ ] Read-only WhatsApp config + template audit for K&N Ltd (Karl) — report, then await approval
 - [ ] Controlled test sends: McKenna first, then Philip Ward, john test (after approval)
+- [x] Deploy short-link fix (create-booking-link only) + live smoke
+- [ ] McKenna booking confirmation (approved)
+- [ ] SumUp sandbox test-card run
+- [ ] Credentials move plan
+- [ ] Payment terms wording fix
