@@ -245,6 +245,11 @@ export async function requireBoundOrg(
 
   if (secretOrg === requested) return { orgId: requested, kind: "machine" };
 
+  // Internal function-to-function calls (e.g. renewal reminders -> create-booking-link)
+  // present the platform service-role key, which already has full access. It must
+  // not be refused just because the tenant has a per-tenant Make secret.
+  if (await isServiceRoleToken(bearerToken(req))) return { orgId: requested, kind: "machine" };
+
   // Per-tenant secret binding when the tenant has one configured.
   const provided = providedSecret(req);
   const { data: integration } = await supabase
