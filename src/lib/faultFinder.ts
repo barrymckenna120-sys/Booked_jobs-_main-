@@ -126,3 +126,30 @@ export const saveRecent = (brand: string, model: string) => {
     /* storage unavailable — non-critical */
   }
 };
+
+/** Preview hosts only (Lovable preview / local dev) — never the published app or custom domains. */
+export const isPreviewHost = (hostname: string): boolean =>
+  hostname === "localhost" || hostname === "127.0.0.1" ||
+  hostname.startsWith("id-preview--") || hostname.endsWith(".lovableproject.com");
+
+export type LiveFaultResult =
+  | { status: "idle" }
+  | { status: "found"; fault: PublishedFaultCode }
+  | { status: "unknown"; manualUrl: string | null };
+
+/**
+ * Derive the result from current inputs (no stale state): exact match → found;
+ * no match and (submitted, or no code starts with what was typed) → unknown;
+ * otherwise idle while the engineer is still typing a possible prefix.
+ */
+export const resolveFaultResult = (
+  codes: PublishedFaultCode[], code: string, brand: string, submitted: boolean,
+): LiveFaultResult => {
+  const q = normCode(code);
+  if (!q || !brand.trim()) return { status: "idle" };
+  const hit = matchFaultCode(codes, code);
+  if (hit) return { status: "found", fault: hit };
+  const stillPrefix = codes.some((c) => normCode(c.code).startsWith(q));
+  if (!submitted && stillPrefix) return { status: "idle" };
+  return { status: "unknown", manualUrl: codes.find((c) => c.manual_url)?.manual_url ?? getManualLink(brand) };
+};

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import EngineerSheet from "./EngineerSheet";
 import { openExternalUrl } from "@/lib/openExternal";
 import {
-  buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, lookupFault, modelsForBrand, saveRecent, type FaultLookupResult,
+  buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, modelsForBrand, saveRecent,
+  isPreviewHost, resolveFaultResult,
 } from "@/lib/faultFinder";
 
 export interface FaultFinderPrefill {
@@ -89,9 +90,26 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const [brand, setBrand] = useState((hasPrefill ? prefill?.brand : recent?.brand)?.trim() ?? "");
   const [model, setModel] = useState((hasPrefill ? prefill?.model : recent?.model)?.trim() ?? "");
   const [code, setCode] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [result, setResult] = useState<(FaultLookupResult & { code: string; brand: string }) | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [draftMode, setDraftMode] = useState(false);
+
+  // Draft testing: superadmin + preview host only. Drafts are still protected by
+  // database rules (superadmin-only reads), so this toggle cannot expose them.
+  const previewHost = typeof window !== "undefined" && isPreviewHost(window.location.hostname);
+  const { data: isSuperadmin = false } = useQuery({
+    queryKey: ["fault-finder-superadmin"],
+    enabled: previewHost,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return false;
+      const { data } = await (supabase as any).rpc("is_superadmin", { _user_id: u.user.id });
+      return data === true;
+    },
+  });
+  const drafts = previewHost && isSuperadmin && draftMode;
+  const statuses = drafts ? ["published", "draft"] : ["published"];
 
   const { data: index, isLoading } = useQuery({
     queryKey: ["fault-finder-brands"],
@@ -102,24 +120,26 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     },
   });
 
-  // Shared technical library — RLS returns published rows only (drafts: superadmins).
-  const { data: libModels = [] } = useQuery({
-    queryKey: ["fault-library-models"],
+  // Shared technical library — ordinary engineers see published rows only.
+  const { data: libModels = [], isError: modelsError, refetch: refetchModels } = useQuery({
+    queryKey: ["fault-library-models", drafts],
     staleTime: 10 * 60_000,
     queryFn: async (): Promise<PublishedFaultModel[]> => {
-      const { data } = await (supabase as any).from("boiler_fault_models").select("id, brand, model_name").eq("status", "published");
+      const { data, error } = await (supabase as any).from("boiler_fault_models").select("id, brand, model_name").in("status", statuses);
+      if (error) throw error;
       return data || [];
     },
   });
   const libModel = findLibraryModel(libModels, brand, model);
-  const { data: libCodes = [], isFetching: codesLoading } = useQuery({
-    queryKey: ["fault-library-codes", libModel?.id],
+  const { data: libCodes = [], isFetching: codesLoading, isError: codesError, refetch: refetchCodes } = useQuery({
+    queryKey: ["fault-library-codes", libModel?.id, drafts],
     enabled: !!libModel,
     staleTime: 10 * 60_000,
-    queryFn: async (): Promise<PublishedFaultCode[]> => {
-      const { data } = await (supabase as any).from("boiler_fault_codes")
-        .select("id, code, category, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
-        .eq("model_id", libModel!.id).eq("status", "published").order("code");
+    queryFn: async (): Promise<(PublishedFaultCode & { status?: string })[]> => {
+      const { data, error } = await (supabase as any).from("boiler_fault_codes")
+        .select("id, code, category, status, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
+        .eq("model_id", libModel!.id).in("status", statuses).order("code");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -142,25 +162,28 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   };
   const [showTech, setShowTech] = useState(false);
 
+  const result = useMemo(
+    () => (offline || codesLoading ? { status: "idle" as const } : resolveFaultResult(libCodes, code, brand, submitted)),
+    [libCodes, code, brand, submitted, offline, codesLoading],
+  );
+  const resultIsDraft = result.status === "found" && (result.fault as { status?: string }).status === "draft";
+
   const changeBrand = (v: string) => {
     if (v.trim().toLowerCase() !== brand.trim().toLowerCase()) { setModel(""); setCode(""); }
-    setBrand(v); setResult(null);
+    setBrand(v); setSubmitted(false); setShowTech(false);
   };
+  const changeModel = (v: string) => { setModel(v); setCode(""); setSubmitted(false); setShowTech(false); };
+  const changeCode = (v: string) => { setCode(v.toUpperCase()); setSubmitted(false); setShowTech(false); setOffline(false); };
 
-  const canSearch = brand.trim() && code.trim() && !searching;
+  const canSearch = !!(brand.trim() && code.trim());
 
-  const find = async () => {
+  const find = () => {
     if (!canSearch) return;
     (document.activeElement as HTMLElement | null)?.blur();
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setOffline(true); setResult(null); return;
-    }
-    setOffline(false); setSearching(true);
+    if (typeof navigator !== "undefined" && navigator.onLine === false) { setOffline(true); return; }
+    setOffline(false);
     saveRecent(brand.trim(), model.trim());
-    const r = await lookupFault(brand.trim(), model.trim(), code.trim(), libCodes);
-    setShowTech(false);
-    setResult({ ...r, code: code.trim().toUpperCase(), brand: brand.trim() });
-    setSearching(false);
+    setSubmitted(true);
   };
 
   return (
@@ -175,6 +198,14 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
         </button>
       </div>
 
+      {previewHost && isSuperadmin && (
+        <label className="mx-5 mt-3 flex items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 min-h-[44px] text-sm font-semibold text-foreground">
+          <span>Draft testing mode <span className="block text-[11px] font-normal text-muted-foreground">Superadmin preview only — engineers never see drafts</span></span>
+          <input type="checkbox" aria-label="Draft testing mode" className="w-5 h-5" checked={draftMode}
+            onChange={(e) => { setDraftMode(e.target.checked); setSubmitted(false); }} />
+        </label>
+      )}
+
       <form
         className="px-5 pt-4 space-y-3"
         onSubmit={(e) => { e.preventDefault(); find(); }}
@@ -187,25 +218,37 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           label="Model" value={model}
           placeholder={brand.trim() ? "Tap to choose a model (optional)" : "Choose a brand first"}
           disabled={!brand.trim()}
-          onChange={(v) => { setModel(v); setCode(""); setResult(null); }}
-          onSelect={(v) => { setModel(v); setCode(""); setResult(null); }}
+          onChange={changeModel} onSelect={changeModel}
           options={modelOptions} emptyText="No models on file for this brand — type the model"
         />
         <SearchField
           label="Fault code" value={code}
           placeholder={codesLoading ? "Loading codes…" : codeOptions.length ? "Tap to choose or type a code" : "Type the code, e.g. E133"}
-          onChange={(v) => { setCode(v.toUpperCase()); setResult(null); }}
-          onSelect={(v) => { setCode(v); setResult(null); }}
+          onChange={changeCode}
+          onSelect={(v) => { setCode(v); setSubmitted(true); setShowTech(false); saveRecent(brand.trim(), model.trim()); }}
           options={codeOptions} tagFor={codeTag}
-          emptyText={libModel ? "No matching verified code — search to see the manual" : "No verified codes for this model yet — type the code"}
+          emptyText="No matching verified code"
           hideWhenEmpty={!codeOptions.length}
         />
         <Button type="submit" className="w-full h-12 text-base font-extrabold gap-2" disabled={!canSearch}>
-          {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
+          {codesLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Find Fault
         </Button>
       </form>
 
       <div className="px-5 pt-4 space-y-3">
+        {codesLoading && code.trim() && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="fault-loading">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading fault codes…
+          </div>
+        )}
+
+        {(modelsError || codesError) && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 space-y-2" data-testid="fault-error">
+            <div className="text-sm text-foreground">Couldn't load the fault library. Check your connection and try again.</div>
+            <Button type="button" variant="outline" className="h-11" onClick={() => { refetchModels(); refetchCodes(); }}>Try again</Button>
+          </div>
+        )}
+
         {offline && (
           <div className="rounded-xl border border-border bg-secondary p-4 flex gap-3">
             <WifiOff className="w-5 h-5 text-muted-foreground shrink-0" />
@@ -213,10 +256,15 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           </div>
         )}
 
-        {result?.status === "found" && (
+        {result.status === "found" && (
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
+            {resultIsDraft && (
+              <div className="rounded-lg bg-warning/15 border border-warning/40 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground">
+                Draft — not verified · superadmin preview only
+              </div>
+            )}
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {model} · {result.fault.code}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {model} · {result.fault.code}</div>
               {result.fault.category === "status" && (
                 <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
               )}
@@ -225,7 +273,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
               )}
               <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
             </div>
-            {result.fault.possible_causes.length > 0 && (
+            {(result.fault.possible_causes?.length ?? 0) > 0 && (
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Possible causes</div>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
@@ -254,25 +302,24 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           </div>
         )}
 
-        {result?.status === "unknown" && (
+        {result.status === "unknown" && (
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-unknown">
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {result.code}</div>
-              <div className="text-base font-extrabold text-foreground mt-0.5">Code not in the verified library yet</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {code.trim().toUpperCase()}</div>
+              <div className="text-base font-extrabold text-foreground mt-0.5">No verified explanation available for this code yet</div>
               <div className="text-sm text-muted-foreground mt-1">
-                We don't show diagnoses until they're checked against the manufacturer's manual. Look up this code in the official manual for the exact model.
+                Check this code in the official manual for the exact model.
               </div>
             </div>
             {result.manualUrl ? (
               <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.manualUrl!)}>
-                <ExternalLink className="w-4 h-4" /> Open official {result.brand} manuals
+                <ExternalLink className="w-4 h-4" /> Open official {brand} manual
               </Button>
             ) : (
               <div className="text-sm text-foreground">No official manual link on file for this brand — check the manufacturer's website.</div>
             )}
           </div>
         )}
-
         <div className="rounded-xl bg-warning/10 border border-warning/30 p-3 flex gap-2.5">
           <ShieldAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
           <div className="text-xs text-foreground leading-snug">
