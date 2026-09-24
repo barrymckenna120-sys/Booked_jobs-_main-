@@ -27,10 +27,10 @@ interface Props {
  * list stays above the iPhone keyboard.
  */
 const SearchField = ({
-  label, value, onChange, onSelect, options, placeholder, disabled, emptyText, hideWhenEmpty,
+  label, value, onChange, onSelect, options, placeholder, disabled, emptyText, hideWhenEmpty, tagFor,
 }: {
   label: string; value: string; onChange: (v: string) => void; onSelect: (v: string) => void;
-  options: string[]; placeholder: string; disabled?: boolean; emptyText: string; hideWhenEmpty?: boolean;
+  options: string[]; placeholder: string; disabled?: boolean; emptyText: string; hideWhenEmpty?: boolean; tagFor?: (o: string) => string | null;
 }) => {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState(false);
@@ -69,7 +69,12 @@ const SearchField = ({
               onClick={() => { onSelect(o); setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); }}
               className={`w-full text-left px-3 min-h-[44px] text-sm font-semibold border-b border-border last:border-b-0 active:bg-muted ${o === value ? "text-primary" : "text-foreground"}`}
             >
-              {o}
+              <span className="flex items-center justify-between gap-2">
+                <span>{o}</span>
+                {tagFor?.(o) && (
+                  <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{tagFor(o)}</span>
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -127,7 +132,14 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     [...lib, ...base].forEach((m) => { const k = m.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(m); } });
     return out;
   }, [index, brand, libModels]);
-  const codeOptions = useMemo(() => libCodes.map((c) => c.code), [libCodes]);
+  const codeOptions = useMemo(
+    () => [...libCodes].sort((a, b) => Number(a.category === "status") - Number(b.category === "status")).map((c) => c.code),
+    [libCodes],
+  );
+  const codeTag = (o: string) => {
+    const c = libCodes.find((x) => x.code === o)?.category;
+    return c === "status" ? "Status — not a fault" : c === "message" ? "Display message" : null;
+  };
   const [showTech, setShowTech] = useState(false);
 
   const changeBrand = (v: string) => {
@@ -184,7 +196,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           placeholder={codesLoading ? "Loading codes…" : codeOptions.length ? "Tap to choose or type a code" : "Type the code, e.g. E133"}
           onChange={(v) => { setCode(v.toUpperCase()); setResult(null); }}
           onSelect={(v) => { setCode(v); setResult(null); }}
-          options={codeOptions}
+          options={codeOptions} tagFor={codeTag}
           emptyText={libModel ? "No matching verified code — search to see the manual" : "No verified codes for this model yet — type the code"}
           hideWhenEmpty={!codeOptions.length}
         />
@@ -207,6 +219,9 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {model} · {result.fault.code}</div>
               {result.fault.category === "status" && (
                 <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
+              )}
+              {result.fault.category === "message" && (
+                <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Display message (no numbered code)</div>
               )}
               <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
             </div>

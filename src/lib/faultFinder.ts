@@ -44,7 +44,7 @@ export const getManualLink = (brand: string | null | undefined): string | null =
 export type PublishedFaultCode = {
   id: string; code: string; explanation: string; possible_causes: string[];
   technical_details: string | null; manual_title: string; manual_url: string;
-  manual_revision: string | null; manual_page: string | null; category?: "fault" | "status";
+  manual_revision: string | null; manual_page: string | null; category?: "fault" | "status" | "message";
 };
 export type PublishedFaultModel = { id: string; brand: string; model_name: string };
 
