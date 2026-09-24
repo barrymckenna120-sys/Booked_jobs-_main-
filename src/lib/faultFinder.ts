@@ -41,13 +41,36 @@ const norm = (s: string | null | undefined) =>
 export const getManualLink = (brand: string | null | undefined): string | null =>
   MANUAL_LINKS[norm(brand)] ?? null;
 
-export type FaultLookupResult = { status: "unknown"; manualUrl: string | null };
+export type PublishedFaultCode = {
+  id: string; code: string; explanation: string; possible_causes: string[];
+  technical_details: string | null; manual_title: string; manual_url: string;
+  manual_revision: string | null; manual_page: string | null;
+};
+export type PublishedFaultModel = { id: string; brand: string; model_name: string };
+
+export type FaultLookupResult =
+  | { status: "unknown"; manualUrl: string | null }
+  | { status: "found"; fault: PublishedFaultCode };
+
+const normCode = (c: string) => c.trim().toUpperCase().replace(/[\s.-]/g, "");
+
+/** Exact code match within one model's published codes (never across models). */
+export const matchFaultCode = (codes: PublishedFaultCode[], code: string): PublishedFaultCode | null =>
+  codes.find((c) => normCode(c.code) === normCode(code)) ?? null;
+
+/** Find the published library model for a brand/model pair (case-insensitive). */
+export const findLibraryModel = (models: PublishedFaultModel[], brand: string, model: string) =>
+  models.find((m) => norm(m.brand) === norm(brand) && norm(m.model_name) === norm(model)) ?? null;
 
 export const lookupFault = async (
   brand: string,
   _model: string,
   _code: string,
-): Promise<FaultLookupResult> => ({ status: "unknown", manualUrl: getManualLink(brand) });
+  codes: PublishedFaultCode[] = [],
+): Promise<FaultLookupResult> => {
+  const hit = matchFaultCode(codes, code);
+  return hit ? { status: "found", fault: hit } : { status: "unknown", manualUrl: getManualLink(brand) };
+};
 
 export type BrandModelRow = { brand_name: string | null; model_name: string | null };
 
