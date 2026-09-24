@@ -2,6 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
+import { pickPhoneField } from "./phoneField.ts";
+import { normalisePhoneE164 } from "../_shared/phone.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
@@ -103,7 +105,7 @@ Deno.serve(async (req) => {
 
     // Extract and sanitize fields
     const customerName = sanitize(body.customer_name, MAX_NAME_LEN);
-    const mobileNumber = sanitize(body.mobile_number, MAX_SHORT_LEN);
+    const mobileNumber = pickPhoneField(body, MAX_SHORT_LEN);
     const email = sanitize(body.email, MAX_NAME_LEN);
     const jobIssue = sanitize(body.job_issue, MAX_TEXT_LEN);
     const extraDetails = sanitize(body.extra_details, MAX_TEXT_LEN);
@@ -135,6 +137,10 @@ Deno.serve(async (req) => {
     if (!preferredTime) missingFields.push("preferred_time");
 
     if (missingFields.length > 0) {
+      if (!mobileNumber) {
+        // Field names only — never answers — so a renamed question is diagnosable.
+        console.warn("[tally-incoming-job] no phone field; received keys:", Object.keys(body).join(","));
+      }
       return new Response(
         JSON.stringify({ success: false, error: `Missing required fields: ${missingFields.join(", ")}` }),
         {
@@ -159,13 +165,7 @@ Deno.serve(async (req) => {
     }
 
     // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = mobileNumber
-      ? mobileNumber.startsWith("+")
-        ? mobileNumber
-        : mobileNumber.startsWith("353")
-        ? "+" + mobileNumber
-        : "+353" + mobileNumber.replace(/^0/, "")
-      : "";
+    const normalisedPhone = normalisePhoneE164(mobileNumber);
 
     // Bind this webhook call to exactly one tenant, server-side.
     // Preferred: a per-tenant integration secret, or the Tally form id in the
