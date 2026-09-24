@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { modelsForBrand, buildBrandModelIndex, filterOptions, getManualLink, loadRecent, lookupFault, saveRecent, STARTER_BRANDS } from "./faultFinder";
+import { findLibraryModel, modelsForBrand, buildBrandModelIndex, filterOptions, getManualLink, loadRecent, lookupFault, saveRecent, STARTER_BRANDS } from "./faultFinder";
 
 const mem: Record<string,string> = {};
 (globalThis as any).localStorage = {
@@ -11,10 +11,25 @@ const mem: Record<string,string> = {};
 describe("faultFinder", () => {
   beforeEach(() => localStorage.clear());
 
-  it("never returns a diagnosis in Phase 1", async () => {
+  it("returns unknown with the manual link when no published code matches", async () => {
     const r = await lookupFault("Baxi", "800 Combi", "E133");
     expect(r.status).toBe("unknown");
-    expect(r.manualUrl).toMatch(/^https:\/\/www\.baxi/);
+    expect(r.status === "unknown" && r.manualUrl).toMatch(/^https:\/\/www\.baxi/);
+  });
+
+  it("matches only codes for the selected model, ignoring case and spaces", async () => {
+    const codes = [{ id: "1", code: "E133", explanation: "x", possible_causes: [], technical_details: null,
+      manual_title: "t", manual_url: "https://m", manual_revision: null, manual_page: "5" }];
+    const r = await lookupFault("Baxi", "800 Combi", " e 133 ", codes);
+    expect(r.status).toBe("found");
+    expect((await lookupFault("Baxi", "800 Combi", "E13", codes)).status).toBe("unknown");
+    expect((await lookupFault("Baxi", "600 Combi", "E133", [])).status).toBe("unknown");
+  });
+
+  it("finds a library model case-insensitively, including Glow-worm spelling", () => {
+    const models = [{ id: "g", brand: "Glow-worm", model_name: "Energy Combi" }];
+    expect(findLibraryModel(models, "glowworm", "energy combi")?.id).toBe("g");
+    expect(findLibraryModel(models, "Baxi", "Energy Combi")).toBeNull();
   });
 
   it("has an official manual link for every starter brand", () => {

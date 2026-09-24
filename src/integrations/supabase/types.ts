@@ -383,6 +383,110 @@ export type Database = {
           },
         ]
       }
+      boiler_fault_codes: {
+        Row: {
+          code: string
+          created_at: string
+          explanation: string
+          id: string
+          manual_page: string | null
+          manual_revision: string | null
+          manual_title: string
+          manual_url: string
+          model_id: string
+          possible_causes: string[]
+          status: string
+          technical_details: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          explanation: string
+          id?: string
+          manual_page?: string | null
+          manual_revision?: string | null
+          manual_title: string
+          manual_url: string
+          model_id: string
+          possible_causes?: string[]
+          status?: string
+          technical_details?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          explanation?: string
+          id?: string
+          manual_page?: string | null
+          manual_revision?: string | null
+          manual_title?: string
+          manual_url?: string
+          model_id?: string
+          possible_causes?: string[]
+          status?: string
+          technical_details?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boiler_fault_codes_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "boiler_fault_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boiler_fault_models: {
+        Row: {
+          brand: string
+          created_at: string
+          gc_or_serial_range: string | null
+          id: string
+          model_family: string
+          model_name: string
+          notes: string | null
+          status: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          brand: string
+          created_at?: string
+          gc_or_serial_range?: string | null
+          id?: string
+          model_family: string
+          model_name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          brand?: string
+          created_at?: string
+          gc_or_serial_range?: string | null
+          id?: string
+          model_family?: string
+          model_name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       booking_intake_claims: {
         Row: {
           created_at: string
