@@ -15,6 +15,16 @@ export const STARTER_BRANDS = [
   "Glow-worm",
 ] as const;
 
+/** Starter model families (Phase 1 brief) — merged with boiler_brands rows. */
+export const STARTER_MODELS: Record<string, string[]> = {
+  Baxi: ["600 Combi", "800 Combi"],
+  Ideal: ["Logic Combi", "Logic Max Combi"],
+  "Worcester Bosch": ["Greenstar 4000"],
+  Viessmann: ["Vitodens 100-W"],
+  Vaillant: ["ecoTEC plus"],
+  "Glow-worm": ["Energy Combi"],
+};
+
 /** Official manufacturer technical-document pages (public, no redistribution). */
 const MANUAL_LINKS: Record<string, string> = {
   baxi: "https://www.baxi.co.uk/support/literature",
@@ -55,13 +65,19 @@ export const buildBrandModelIndex = (rows: BrandModelRow[]): Map<string, string[
       if (!entry.models.has(model.toLowerCase())) entry.models.set(model.toLowerCase(), model);
     }
   };
-  STARTER_BRANDS.forEach((b) => add(b));
+  STARTER_BRANDS.forEach((b) => (STARTER_MODELS[b] ?? [null]).forEach((m) => add(b, m)));
   rows.forEach((r) => add(r.brand_name, r.model_name));
   const out = new Map<string, string[]>();
   [...brands.values()]
     .sort((a, b) => a.label.localeCompare(b.label))
     .forEach((e) => out.set(e.label, [...e.models.values()].sort((a, b) => a.localeCompare(b))));
   return out;
+};
+
+/** Models for a brand, matched case-insensitively (e.g. "glowworm" → Glow-worm). */
+export const modelsForBrand = (index: Map<string, string[]>, brand: string): string[] => {
+  const key = [...index.keys()].find((k) => norm(k) === norm(brand));
+  return key ? index.get(key)! : [];
 };
 
 export const filterOptions = (options: string[], query: string): string[] => {
