@@ -113,7 +113,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     staleTime: 10 * 60_000,
     queryFn: async (): Promise<PublishedFaultCode[]> => {
       const { data } = await (supabase as any).from("boiler_fault_codes")
-        .select("id, code, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
+        .select("id, code, category, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
         .eq("model_id", libModel!.id).eq("status", "published").order("code");
       return data || [];
     },
@@ -205,6 +205,9 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{result.brand} · {model} · {result.fault.code}</div>
+              {result.fault.category === "status" && (
+                <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
+              )}
               <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
             </div>
             {result.fault.possible_causes.length > 0 && (
