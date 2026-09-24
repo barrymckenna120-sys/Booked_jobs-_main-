@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import EngineerSheet from "./EngineerSheet";
 import { openExternalUrl } from "@/lib/openExternal";
 import {
-  buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, lookupFault, modelsForBrand, saveRecent, type FaultLookupResult,
+  buildBrandModelIndex, filterOptions, findLibraryModel, type PublishedFaultCode, type PublishedFaultModel, loadRecent, modelsForBrand, saveRecent,
+  isPreviewHost, resolveFaultResult,
 } from "@/lib/faultFinder";
 
 export interface FaultFinderPrefill {
@@ -89,9 +90,26 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const [brand, setBrand] = useState((hasPrefill ? prefill?.brand : recent?.brand)?.trim() ?? "");
   const [model, setModel] = useState((hasPrefill ? prefill?.model : recent?.model)?.trim() ?? "");
   const [code, setCode] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [result, setResult] = useState<(FaultLookupResult & { code: string; brand: string }) | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [draftMode, setDraftMode] = useState(false);
+
+  // Draft testing: superadmin + preview host only. Drafts are still protected by
+  // database rules (superadmin-only reads), so this toggle cannot expose them.
+  const previewHost = typeof window !== "undefined" && isPreviewHost(window.location.hostname);
+  const { data: isSuperadmin = false } = useQuery({
+    queryKey: ["fault-finder-superadmin"],
+    enabled: previewHost,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return false;
+      const { data } = await (supabase as any).rpc("is_superadmin", { _user_id: u.user.id });
+      return data === true;
+    },
+  });
+  const drafts = previewHost && isSuperadmin && draftMode;
+  const statuses = drafts ? ["published", "draft"] : ["published"];
 
   const { data: index, isLoading } = useQuery({
     queryKey: ["fault-finder-brands"],
@@ -102,24 +120,26 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     },
   });
 
-  // Shared technical library — RLS returns published rows only (drafts: superadmins).
-  const { data: libModels = [] } = useQuery({
-    queryKey: ["fault-library-models"],
+  // Shared technical library — ordinary engineers see published rows only.
+  const { data: libModels = [], isError: modelsError, refetch: refetchModels } = useQuery({
+    queryKey: ["fault-library-models", drafts],
     staleTime: 10 * 60_000,
     queryFn: async (): Promise<PublishedFaultModel[]> => {
-      const { data } = await (supabase as any).from("boiler_fault_models").select("id, brand, model_name").eq("status", "published");
+      const { data, error } = await (supabase as any).from("boiler_fault_models").select("id, brand, model_name").in("status", statuses);
+      if (error) throw error;
       return data || [];
     },
   });
   const libModel = findLibraryModel(libModels, brand, model);
-  const { data: libCodes = [], isFetching: codesLoading } = useQuery({
-    queryKey: ["fault-library-codes", libModel?.id],
+  const { data: libCodes = [], isFetching: codesLoading, isError: codesError, refetch: refetchCodes } = useQuery({
+    queryKey: ["fault-library-codes", libModel?.id, drafts],
     enabled: !!libModel,
     staleTime: 10 * 60_000,
-    queryFn: async (): Promise<PublishedFaultCode[]> => {
-      const { data } = await (supabase as any).from("boiler_fault_codes")
-        .select("id, code, category, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
-        .eq("model_id", libModel!.id).eq("status", "published").order("code");
+    queryFn: async (): Promise<(PublishedFaultCode & { status?: string })[]> => {
+      const { data, error } = await (supabase as any).from("boiler_fault_codes")
+        .select("id, code, category, status, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
+        .eq("model_id", libModel!.id).in("status", statuses).order("code");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -142,25 +162,28 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   };
   const [showTech, setShowTech] = useState(false);
 
+  const result = useMemo(
+    () => (offline || codesLoading ? { status: "idle" as const } : resolveFaultResult(libCodes, code, brand, submitted)),
+    [libCodes, code, brand, submitted, offline, codesLoading],
+  );
+  const resultIsDraft = result.status === "found" && (result.fault as { status?: string }).status === "draft";
+
   const changeBrand = (v: string) => {
     if (v.trim().toLowerCase() !== brand.trim().toLowerCase()) { setModel(""); setCode(""); }
-    setBrand(v); setResult(null);
+    setBrand(v); setSubmitted(false); setShowTech(false);
   };
+  const changeModel = (v: string) => { setModel(v); setCode(""); setSubmitted(false); setShowTech(false); };
+  const changeCode = (v: string) => { setCode(v.toUpperCase()); setSubmitted(false); setShowTech(false); setOffline(false); };
 
-  const canSearch = brand.trim() && code.trim() && !searching;
+  const canSearch = !!(brand.trim() && code.trim());
 
-  const find = async () => {
+  const find = () => {
     if (!canSearch) return;
     (document.activeElement as HTMLElement | null)?.blur();
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setOffline(true); setResult(null); return;
-    }
-    setOffline(false); setSearching(true);
+    if (typeof navigator !== "undefined" && navigator.onLine === false) { setOffline(true); return; }
+    setOffline(false);
     saveRecent(brand.trim(), model.trim());
-    const r = await lookupFault(brand.trim(), model.trim(), code.trim(), libCodes);
-    setShowTech(false);
-    setResult({ ...r, code: code.trim().toUpperCase(), brand: brand.trim() });
-    setSearching(false);
+    setSubmitted(true);
   };
 
   return (
