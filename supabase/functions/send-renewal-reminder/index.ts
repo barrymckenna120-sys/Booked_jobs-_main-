@@ -213,8 +213,26 @@ Deno.serve(async (req) => {
     const hasRebookLink = typeof renewalFormUrl === "string" && renewalFormUrl.trim().length > 0;
 
     // Build message — link variant if configured, otherwise fall back to reply/call wording
+    let rebookUrl = hasRebookLink
+      ? `${renewalFormUrl}?customer_phone=${encodeURIComponent(cleanPhone)}`
+      : "";
+    if (hasRebookLink && orgId) {
+      try {
+        const shortRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-booking-link`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ customer_id: customer_id ?? null, full_url: rebookUrl, organisation_id: orgId }),
+        });
+        const shortJson = await shortRes.json().catch(() => null);
+        if (shortJson?.short_url) rebookUrl = shortJson.short_url;
+        else console.warn(`create-booking-link fallback status=${shortRes.status}`);
+      } catch (_e) { /* fall back to full url */ }
+    }
     const bookLine = hasRebookLink
-      ? `Book online: ${renewalFormUrl}?customer_phone=${encodeURIComponent(cleanPhone)}\n\nOr reply here or call us on ${companyPhone}.`
+      ? `Book online: ${rebookUrl}\n\nOr reply here or call us on ${companyPhone}.`
       : `Reply here to book your service or call us on ${companyPhone}.`;
     const message = `Hi ${first_name},\n\nThis is ${companyName}. Your annual boiler service is due on ${renewal_date}.\n\nIf your boiler is under manufacturer warranty, maintaining a yearly service is a condition of keeping that warranty valid.\n\n${bookLine}\n\nReply STOP to unsubscribe.\n${companyName}`;
     console.log("Message built for:", first_name, "with rebook link:", hasRebookLink);
