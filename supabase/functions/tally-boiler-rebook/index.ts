@@ -14,7 +14,7 @@ import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/booking
 // digits with an optional leading '+', spaces/dashes/brackets stripped.
 // Customer matching (matchCustomer) compares numbers internally without
 // modifying what is stored.
-function cleanSubmittedPhone(raw: unknown): string {
+export function cleanSubmittedPhone(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const cleaned = raw.trim().replace(/[\s\-().]/g, "");
   return /^\+?[0-9]{7,15}$/.test(cleaned) ? cleaned : "";
