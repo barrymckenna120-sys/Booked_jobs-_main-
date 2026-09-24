@@ -2,7 +2,7 @@
 // must not be refused when the tenant has a per-tenant Make webhook secret.
 // Read-only: resolves an organisation row; needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
 import { assertEquals } from "jsr:@std/assert@1";
-import { requireBoundOrg } from "./orgAuth.ts";
+import { isDenied, requireBoundOrg } from "./orgAuth.ts";
 
 const url = Deno.env.get("SUPABASE_URL");
 const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -29,7 +29,7 @@ Deno.test({
   ignore,
   async fn() {
     const r = await requireBoundOrg(req({}), { fnName: "test", cors, requestedOrgId: org! });
-    assertEquals(r instanceof Response ? r.status : 0, 401);
+    assertEquals(isDenied(r) ? r.error.status : 0, 401);
   },
 });
 
@@ -40,7 +40,6 @@ Deno.test({
     const r = await requireBoundOrg(req({ "x-webhook-secret": "wrong" }), {
       fnName: "test", cors, requestedOrgId: org!,
     });
-    assertEquals(r instanceof Response ? r.status : 0, r instanceof Response ? r.status : -1);
-    assertEquals(r instanceof Response, true);
+    assertEquals(isDenied(r), true);
   },
 });
