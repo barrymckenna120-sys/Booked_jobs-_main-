@@ -1340,6 +1340,12 @@ const EngineerJobDetail: React.FC<EngineerJobDetailProps> = () => {
           onSave={() => setShowPhotos(false)}
         />
       )}
+      {showFaultFinder && (
+        <FaultFinderSheet
+          prefill={{ brand: job?.boiler_brand || customer?.boiler_brand, model: customer?.boiler_model || customer?.boiler_make_model }}
+          onClose={() => setShowFaultFinder(false)}
+        />
+      )}
       {showExtraWork && (
         <ExtraWorkSheet
           job={job}

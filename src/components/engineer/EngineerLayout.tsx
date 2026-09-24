@@ -150,6 +150,7 @@ const EngineerLayout = () => {
             </HeaderIconButton>
             <HeaderIconButton
               onClick={() => setReportOpen(true)}
+              data-report-bug
               className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Report a Bug"
               title="Report a Bug"
