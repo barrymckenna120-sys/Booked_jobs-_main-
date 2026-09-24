@@ -1,7 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
-import { normalisePhoneE164 } from "../_shared/phone.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
@@ -9,9 +8,17 @@ import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
 import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
 
 
-// Phone helpers now live in ../_shared/phone.ts so other inbound handlers
-// (Telnyx missed calls, etc.) reuse one implementation.
-const normalisePhone = normalisePhoneE164;
+// The phone number is trusted as submitted: country-code formatting is done
+// upstream (Make) before the webhook fires, so this function must NOT assume
+// Irish or rewrite the prefix. Only a light shape check is applied — 7-15
+// digits with an optional leading '+', spaces/dashes/brackets stripped.
+// Customer matching (matchCustomer) compares numbers internally without
+// modifying what is stored.
+function cleanSubmittedPhone(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const cleaned = raw.trim().replace(/[\s\-().]/g, "");
+  return /^\+?[0-9]{7,15}$/.test(cleaned) ? cleaned : "";
+}
 
 
 async function logInvocation(
@@ -141,7 +148,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const normalisedPhone = normalisePhone(phone);
+    const normalisedPhone = cleanSubmittedPhone(phone);
     if (!normalisedPhone) {
       await logInvocation(supabase, body, organisation_id, "bad_request_invalid_phone");
       return new Response(JSON.stringify({ error: "Invalid phone" }), {
