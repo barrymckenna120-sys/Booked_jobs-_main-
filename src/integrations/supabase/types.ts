@@ -388,6 +388,7 @@ export type Database = {
           category: string
           code: string
           created_at: string
+          draft_test_excluded: boolean
           explanation: string
           id: string
           manual_page: string | null
@@ -406,6 +407,7 @@ export type Database = {
           category?: string
           code: string
           created_at?: string
+          draft_test_excluded?: boolean
           explanation: string
           id?: string
           manual_page?: string | null
@@ -424,6 +426,7 @@ export type Database = {
           category?: string
           code?: string
           created_at?: string
+          draft_test_excluded?: boolean
           explanation?: string
           id?: string
           manual_page?: string | null
@@ -1734,6 +1737,76 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engineers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fault_draft_test_orgs: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          organisation_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          organisation_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          organisation_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fault_draft_test_orgs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fault_draft_testers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          organisation_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          organisation_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          organisation_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fault_draft_testers_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -4351,6 +4424,7 @@ export type Database = {
         Args: { _secret: string }
         Returns: undefined
       }
+      can_view_draft_faults: { Args: { _user_id: string }; Returns: boolean }
       count_org_data: { Args: { _org_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
