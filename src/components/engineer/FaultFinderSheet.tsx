@@ -117,7 +117,18 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
       return data === true;
     },
   });
-  const drafts = previewHost && isSuperadmin && draftMode;
+  // Named K&N-style draft testers: enforced by database rules (per-user + per-company switch).
+  const { data: isDraftTester = false } = useQuery({
+    queryKey: ["fault-finder-draft-tester"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return false;
+      const { data } = await (supabase as any).rpc("can_view_draft_faults", { _user_id: u.user.id });
+      return data === true;
+    },
+  });
+  const drafts = (previewHost && isSuperadmin && draftMode) || isDraftTester;
   const statuses = drafts ? ["published", "draft"] : ["published"];
 
   const { data: index, isLoading } = useQuery({
@@ -146,10 +157,11 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
     staleTime: 10 * 60_000,
     queryFn: async (): Promise<(PublishedFaultCode & { status?: string })[]> => {
       const { data, error } = await (supabase as any).from("boiler_fault_codes")
-        .select("id, code, category, status, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
+        .select("id, code, category, status, draft_test_excluded, explanation, possible_causes, technical_details, manual_title, manual_url, manual_revision, manual_page")
         .eq("model_id", libModel!.id).in("status", statuses).order("code");
       if (error) throw error;
-      return data || [];
+      // Unresolved review entries are never part of draft testing results.
+      return (data || []).filter((c: { status?: string; draft_test_excluded?: boolean }) => !(c.status === "draft" && c.draft_test_excluded));
     },
   });
 
@@ -279,7 +291,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
             {resultIsDraft && (
               <div className="rounded-lg bg-warning/15 border border-warning/40 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground">
-                Draft — not verified · superadmin preview only
+                DRAFT — NOT TECHNICALLY VERIFIED
               </div>
             )}
             <div>
@@ -294,7 +306,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
             </div>
             {(result.fault.possible_causes?.length ?? 0) > 0 && (
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Possible causes</div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{resultIsDraft ? "Possible causes — unverified, not repair instructions" : "Possible causes"}</div>
                 <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
                   {result.fault.possible_causes.map((c) => <li key={c}>{c}</li>)}
                 </ul>
@@ -310,6 +322,7 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
             </button>
             {showTech && (
               <div className="text-sm text-foreground space-y-2">
+                {resultIsDraft && <p className="text-xs font-bold text-foreground">Unverified draft notes — confirm against the official manual before acting.</p>}
                 {result.fault.technical_details && <p className="whitespace-pre-line">{result.fault.technical_details}</p>}
                 <p className="text-xs text-muted-foreground">
                   {result.fault.manual_title}
