@@ -385,6 +385,7 @@ export type Database = {
       }
       boiler_fault_codes: {
         Row: {
+          category: string
           code: string
           created_at: string
           explanation: string
@@ -402,6 +403,7 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          category?: string
           code: string
           created_at?: string
           explanation: string
@@ -419,6 +421,7 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          category?: string
           code?: string
           created_at?: string
           explanation?: string
