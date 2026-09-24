@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import EngineerSheet from "./EngineerSheet";
 import { openExternalUrl } from "@/lib/openExternal";
 import {
-  buildBrandModelIndex, filterOptions, loadRecent, lookupFault, saveRecent, type FaultLookupResult,
+  buildBrandModelIndex, filterOptions, loadRecent, lookupFault, modelsForBrand, saveRecent, type FaultLookupResult,
 } from "@/lib/faultFinder";
 
 export interface FaultFinderPrefill {
@@ -20,14 +20,21 @@ interface Props {
   onClose: () => void;
 }
 
-/** Inline searchable list (no popover — iOS-safe). */
+/**
+ * Inline searchable list (no popover — iOS-safe).
+ * Tap shows ALL options; typing filters. The list sits directly under the
+ * field, scrolls independently, and the field is scrolled into view so the
+ * list stays above the iPhone keyboard.
+ */
 const SearchField = ({
-  label, value, onChange, options, placeholder, disabled,
+  label, value, onChange, onSelect, options, placeholder, disabled, emptyText,
 }: {
-  label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder: string; disabled?: boolean;
+  label: string; value: string; onChange: (v: string) => void; onSelect: (v: string) => void;
+  options: string[]; placeholder: string; disabled?: boolean; emptyText: string;
 }) => {
   const [open, setOpen] = useState(false);
-  const matches = filterOptions(options, value).slice(0, 8);
+  const [typed, setTyped] = useState(false);
+  const matches = typed ? filterOptions(options, value) : options;
   return (
     <div>
       <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
@@ -35,23 +42,32 @@ const SearchField = ({
         value={value}
         disabled={disabled}
         placeholder={placeholder}
-        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setTyped(true); setOpen(true); }}
+        onFocus={(e) => {
+          setTyped(false); setOpen(true);
+          const el = e.currentTarget;
+          setTimeout(() => el.scrollIntoView({ block: "start", behavior: "smooth" }), 250);
+        }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         className="h-12 text-base"
         autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        aria-label={label}
       />
-      {open && matches.length > 0 && !(matches.length === 1 && matches[0] === value) && (
-        <div className="mt-1 rounded-xl border border-border bg-card overflow-hidden" role="listbox">
-          {matches.map((o) => (
+      {open && !disabled && (
+        <div className="mt-1 rounded-xl border border-border bg-card max-h-56 overflow-y-auto overscroll-contain" role="listbox">
+          {matches.length === 0 ? (
+            <div className="px-3 min-h-[44px] flex items-center text-sm text-muted-foreground">{emptyText}</div>
+          ) : matches.map((o) => (
             <button
               key={o}
               type="button"
               role="option"
               aria-selected={o === value}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onChange(o); setOpen(false); }}
-              className="w-full text-left px-3 min-h-[44px] text-sm font-semibold text-foreground border-b border-border last:border-b-0 active:bg-muted"
+              onClick={() => { onSelect(o); setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); }}
+              className={`w-full text-left px-3 min-h-[44px] text-sm font-semibold border-b border-border last:border-b-0 active:bg-muted ${o === value ? "text-primary" : "text-foreground"}`}
             >
               {o}
             </button>
@@ -82,11 +98,12 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   });
 
   const brandOptions = useMemo(() => (index ? [...index.keys()] : []), [index]);
-  const modelOptions = useMemo(() => {
-    if (!index) return [];
-    const key = [...index.keys()].find((k) => k.toLowerCase() === brand.trim().toLowerCase());
-    return key ? index.get(key)! : [];
-  }, [index, brand]);
+  const modelOptions = useMemo(() => (index ? modelsForBrand(index, brand) : []), [index, brand]);
+
+  const changeBrand = (v: string) => {
+    if (v.trim().toLowerCase() !== brand.trim().toLowerCase()) setModel("");
+    setBrand(v); setResult(null);
+  };
 
   const canSearch = brand.trim() && code.trim() && !searching;
 
@@ -120,12 +137,16 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
         onSubmit={(e) => { e.preventDefault(); find(); }}
       >
         <SearchField
-          label="Brand" value={brand} placeholder={isLoading ? "Loading brands…" : "e.g. Baxi"}
-          onChange={(v) => { setBrand(v); setResult(null); }} options={brandOptions}
+          label="Brand" value={brand} placeholder={isLoading ? "Loading brands…" : "Tap to choose a brand"}
+          onChange={changeBrand} onSelect={changeBrand} options={brandOptions} emptyText="No matching brand"
         />
         <SearchField
-          label="Model" value={model} placeholder="e.g. 800 Combi (optional)"
-          onChange={(v) => { setModel(v); setResult(null); }} options={modelOptions}
+          label="Model" value={model}
+          placeholder={brand.trim() ? "Tap to choose a model (optional)" : "Choose a brand first"}
+          disabled={!brand.trim()}
+          onChange={(v) => { setModel(v); setResult(null); }}
+          onSelect={(v) => { setModel(v); setResult(null); }}
+          options={modelOptions} emptyText="No models on file for this brand — type the model"
         />
         <div>
           <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Fault code</label>

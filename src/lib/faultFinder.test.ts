@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildBrandModelIndex, filterOptions, getManualLink, loadRecent, lookupFault, saveRecent, STARTER_BRANDS } from "./faultFinder";
+import { modelsForBrand, buildBrandModelIndex, filterOptions, getManualLink, loadRecent, lookupFault, saveRecent, STARTER_BRANDS } from "./faultFinder";
 
 const mem: Record<string,string> = {};
 (globalThis as any).localStorage = {
@@ -30,9 +30,16 @@ describe("faultFinder", () => {
       { brand_name: "Alpha", model_name: null },
       { brand_name: "  ", model_name: "x" },
     ]);
-    expect(idx.get("Baxi")).toEqual(["800 Combi"]);
+    expect(idx.get("Baxi")).toEqual(["600 Combi", "800 Combi"]);
     expect(idx.has("Alpha")).toBe(true);
     expect([...idx.keys()].length).toBe(STARTER_BRANDS.length + 1);
+  });
+
+  it("every starter brand has models even with no database rows", () => {
+    const idx = buildBrandModelIndex([]);
+    STARTER_BRANDS.forEach((b) => expect(modelsForBrand(idx, b).length).toBeGreaterThan(0));
+    expect(modelsForBrand(idx, "glowworm")).toEqual(["Energy Combi"]);
+    expect(modelsForBrand(idx, "Nobody")).toEqual([]);
   });
 
   it("filters options", () => {
