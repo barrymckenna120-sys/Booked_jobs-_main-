@@ -208,33 +208,36 @@ Deno.serve(
       JSON.stringify(payload)
     );
 
+    const inbound = readInboundPayload(payload);
+
     // Only process inbound chat or file messages
     if (
-      payload?.dataType !==
+      inbound.eventType !==
       "message"
     ) {
       console.log(
         "Non-message event, ignoring:",
-        payload?.dataType
+        inbound.eventType
       );
 
       return earlyResponse;
     }
 
     const from =
-      payload?.From ?? "";
+      inbound.from;
 
     const messageText =
-      payload?.Chat ||
-      payload?.Caption ||
+      inbound.text ||
       "[non-text message]";
 
-    const createdAt =
-      payload?.createdAt
-        ? new Date(
-            payload.createdAt
-          ).toISOString()
-        : new Date().toISOString();
+    const createdAt = (() => {
+      const d = inbound.createdAt
+        ? new Date(inbound.createdAt)
+        : new Date();
+      return isNaN(d.getTime())
+        ? new Date().toISOString()
+        : d.toISOString();
+    })();
 
     console.log(
       `Inbound from ${from}: ${messageText}`
