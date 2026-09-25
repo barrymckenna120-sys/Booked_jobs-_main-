@@ -311,6 +311,8 @@ const Renewals = () => {
           title: `Already reminded ${customer.name}`,
           description: data.reason === "customer_opted_out"
             ? "This customer has opted out of reminders."
+            : data.reason === "already_booked"
+            ? "Already booked — this customer has an upcoming job, so no reminder was sent."
             : "A reminder was already sent recently — no duplicate message was sent.",
           duration: 4000,
         });

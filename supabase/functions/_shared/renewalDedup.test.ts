@@ -66,3 +66,14 @@ Deno.test("maps each cadence to the right columns", () => {
   assertEquals(JOB_REMINDER_COLUMN["2day"], "reminder_2day_sent");
   assertEquals(JOB_REMINDER_COLUMN["7day"], null);
 });
+
+import { hasOpenFutureJob } from "./renewalDedup.ts";
+
+Deno.test("manual renewal send: an open future job blocks the reminder", () => {
+  const today = "2026-09-25";
+  assertEquals(hasOpenFutureJob([{ status: "Booked", scheduled_date: "2026-10-01" }], today), true);
+  assertEquals(hasOpenFutureJob([{ status: "Pending", scheduled_date: "2026-09-25" }], today), true);
+  assertEquals(hasOpenFutureJob([{ status: "Pending", scheduled_date: "2026-09-20" }], today), false);
+  assertEquals(hasOpenFutureJob([{ status: "Cancelled", scheduled_date: "2026-10-09" }], today), false);
+  assertEquals(hasOpenFutureJob([], today), false);
+});
