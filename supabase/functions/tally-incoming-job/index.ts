@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { bindMachineOrganisation } from "../_shared/machineOrg.ts";
 import { matchCustomer } from "../_shared/matchCustomer.ts";
 import { normaliseMediaUrls } from "./mediaUrls.ts";
-import { isValidIntakePhone, normaliseIntakePhone, pickPhoneField } from "./phoneField.ts";
+import { isValidIntakePhone, pickPhoneField } from "./phoneField.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
@@ -162,8 +162,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Normalise phone to E.164 (+353XXXXXXXXX)
-    const normalisedPhone = normaliseIntakePhone(mobileNumber);
+    const normalisedPhone = mobileNumber;
 
     // Bind this webhook call to exactly one tenant, server-side.
     // Preferred: a per-tenant integration secret, or the Tally form id in the

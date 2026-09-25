@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     for (const c of filtered) {
       const latest = latestJobMap.get(c.id);
       const orgId = (c as any).organisation_id;
-      const { tallyUrl, countryCode } = await loadOrgConfig(orgId);
+      const { tallyUrl } = await loadOrgConfig(orgId);
 
       if (!tallyUrl) {
         console.warn(`Missing Tally renewal_form_url for org ${orgId}`);
@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const mobileParam = rebookMobileParam(c.phone, countryCode);
+      const mobileParam = rebookMobileParam(c.phone);
       const full_tally_url = `${tallyUrl}` +
         `?Customer=${encodeURIComponent(c.name || "")}` +
         `&Mobile=${encodeURIComponent(mobileParam)}` +
