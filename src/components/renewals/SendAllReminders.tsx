@@ -97,6 +97,12 @@ export function SendAllRemindersSheet({
       if (error) throw new Error(error.message || "Edge function error");
       if (data && !data.success) throw new Error(data.error || "Send failed");
 
+      if (data?.skipped) {
+        setSkipped((p) => [...p, current.id]);
+        if (!started) setStarted(true);
+        return;
+      }
+
       setSentIds((p) => [...p, current.id]);
       onReminderSent(current.id);
       if (!started) setStarted(true);
