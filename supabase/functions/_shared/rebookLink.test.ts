@@ -1,13 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildRebookTallyUrl, toLocalIrishPhone } from "./rebookLink.ts";
-
-Deno.test("toLocalIrishPhone normalises all inbound shapes", () => {
-  assertEquals(toLocalIrishPhone("+353871234567"), "0871234567");
-  assertEquals(toLocalIrishPhone("353871234567"), "0871234567");
-  assertEquals(toLocalIrishPhone("0871234567"), "0871234567");
-  assertEquals(toLocalIrishPhone("87 123 4567"), "0871234567");
-  assertEquals(toLocalIrishPhone(null), "");
-});
+import { buildRebookTallyUrl } from "./rebookLink.ts";
 
 Deno.test("buildRebookTallyUrl fills hidden fields and encodes values", () => {
   const url = buildRebookTallyUrl("https://rebook.kngasservices.ie/", {
@@ -23,9 +15,16 @@ Deno.test("buildRebookTallyUrl fills hidden fields and encodes values", () => {
   assertEquals(url.startsWith("https://rebook.kngasservices.ie/?"), true);
   const q = new URL(url).searchParams;
   assertEquals(q.get("Customer"), "Mary O'Brien");
-  assertEquals(q.get("Mobile"), "0871234567");
+  assertEquals(q.get("Mobile"), "+353871234567");
   assertEquals(q.get("Address"), "12 Main St, Dublin");
   assertEquals(q.get("Boiler_model"), "Logic 24");
+});
+
+Deno.test("buildRebookTallyUrl keeps the captured phone unchanged", () => {
+  for (const phone of ["0871234567", "+353871234567", "+212656802656", "00447911123456", " 087 123-4567 "]) {
+    const url = buildRebookTallyUrl("https://rebook.kngasservices.ie/", { id: "c1", phone });
+    assertEquals(new URL(url).searchParams.get("Mobile"), phone);
+  }
 });
 
 Deno.test("buildRebookTallyUrl respects an existing query string", () => {

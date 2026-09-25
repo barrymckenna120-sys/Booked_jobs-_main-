@@ -1,6 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { PHONE_FIELD_KEYS, pickPhoneField } from "./phoneField.ts";
-import { normalisePhoneE164 } from "../_shared/phone.ts";
 
 Deno.test("every alias resolves", () => {
   for (const key of PHONE_FIELD_KEYS) {
@@ -25,9 +24,9 @@ Deno.test("missing phone returns null", () => {
   assertEquals(pickPhoneField({ customer_name: "x" }, 100), null);
 });
 
-Deno.test("spaced number normalises to clean E.164", () => {
+Deno.test("spaced number is captured unchanged", () => {
   const v = pickPhoneField({ moblie_no: "+353 87 235 4257" }, 100)!;
-  assertEquals(normalisePhoneE164(v), "+353872354257");
+  assertEquals(v, "+353 87 235 4257");
 });
 
 import { isValidIntakePhone, normaliseIntakePhone } from "./phoneField.ts";
@@ -53,8 +52,3 @@ Deno.test("rejects implausible numbers", () => {
   }
 });
 
-Deno.test("Irish formats keep today's stored value", () => {
-  for (const raw of ["0872354257", "+353 87 235 4257", "(087) 235-4257", "353872354257"]) {
-    assertEquals(normaliseIntakePhone(raw), normalisePhoneE164(raw), raw);
-  }
-});

@@ -18,31 +18,14 @@ export type RebookCustomer = {
   boiler_model?: string | null;
 };
 
-/** Local Irish format (0871234567) used by the Tally `Mobile` hidden field. */
-export function toLocalIrishPhone(raw: unknown, countryCode = "353"): string {
-  if (!raw || typeof raw !== "string") return "";
-  let digits = raw.replace(/\D/g, "");
-  const ccLen = countryCode.length;
-  if (countryCode && digits.startsWith(countryCode) && digits.length === 9 + ccLen) {
-    // already full international
-  } else if (digits.startsWith("0") && digits.length === 10) {
-    digits = countryCode + digits.slice(1);
-  } else if (digits.length === 9) {
-    digits = countryCode + digits;
-  }
-  const local = digits.slice(ccLen);
-  return local ? "0" + local : "";
-}
-
 /** Build the pre-filled renewal/rebooking Tally URL for a customer. */
 export function buildRebookTallyUrl(
   baseUrl: string,
   customer: RebookCustomer,
-  countryCode = "353",
 ): string {
   const q = new URLSearchParams({
     Customer: customer.name ?? "",
-    Mobile: toLocalIrishPhone(customer.phone, countryCode),
+    Mobile: customer.phone ?? "",
     Address: customer.address ?? "",
     Eircode: customer.eircode ?? "",
     Areacode: customer.area_code ?? "",
