@@ -15,8 +15,15 @@ BookedJobs' booking intake last recorded a booking on 24/09 at 15:28. The messag
 ## Step 2: Branding (in Make; you do this)
 In the booking-confirmation message step, replace the fixed text "Thanks, Dublin Gas." with K&N's name. Better still, use the company name that our intake sends back, so this can't happen for other tenants. I'll check the next confirmation in the message log.
 
-## Step 3: STOP replies (in 360 Messenger; you do this)
-Set the incoming-message address to the BookedJobs inbound address with `?s=` and the inbound password on the end. Then send STOP from McKenna's test number, and I'll confirm the opt-out was recorded.
+## Step 3: STOP replies (new inbound password, then 360 Messenger)
+The inbound address is confirmed: `https://ktkfuquqxbrmuqrmbmdj.supabase.co/functions/v1/whatsapp-inbound`.
+The current password (14 characters) is held in encrypted storage. Nobody can read it back, including me and the app, so it can't be revealed. Instead, we replace it with one you choose:
+1. You create a new password of 24 or more characters, using letters and numbers only, since it goes in a web address. A password manager works well for this.
+2. I open a secure form here and you paste the password in. It replaces the old one straight away, and I never see it.
+3. In 360 Messenger, set the incoming-message address to the one above with `?s=<your password>` on the end.
+4. I check the inbound logs show calls being accepted. Then you send STOP from McKenna's test number, and I confirm the opt-out was recorded.
+
+This one password covers every company's incoming WhatsApp messages, not just K&N's. Nothing has got through since 26/08, so replacing it doesn't break anything that works today. Any other company's 360 Messenger address will need the new password added too.
 
 ## Step 4: Cleanup (needs separate approval)
 Close today's 5 open SumUp deposit links for abdenneur1 (they're sandbox, so no money involved) once the tests are finished.
