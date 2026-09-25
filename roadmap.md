@@ -99,3 +99,9 @@
 - [ ] SumUp sandbox test-card run
 - [ ] Credentials move plan
 - [ ] Payment terms wording fix
+
+## K&N booking routing / branding / STOP (25/09/26)
+- [ ] Make booking scenario calls BookedJobs intake before sending (user in Make; verify one test booking)
+- [ ] "Thanks, Dublin Gas" → K&N name in Make confirmation (user in Make; verify message log)
+- [ ] Rotate WHATSAPP_INBOUND_SECRET, set ?s= in 360 Messenger, verify STOP opt-out (McKenna test number)
+- [ ] Close abdenneur1's 5 sandbox SumUp deposit links (needs separate approval)
