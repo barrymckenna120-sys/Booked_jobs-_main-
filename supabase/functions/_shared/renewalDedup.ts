@@ -76,3 +76,19 @@ export function filterDueCustomers<T extends DedupCustomer>(
     .filter((c) => !bookedCustomerIds.has(c.id))
     .filter((c) => !alreadyReminded(c, latestJobByCustomer.get(c.id), kind));
 }
+
+/** Job statuses that count as "already booked" for every renewal tier. */
+export const OPEN_JOB_STATUSES = ["Pending", "pending", "Booked", "booked", "Confirmed", "confirmed", "Scheduled"];
+
+/**
+ * True when the customer has an open job dated today or later — the same
+ * rule the automatic 14/30-day tiers apply. Used by the office manual send.
+ */
+export function hasOpenFutureJob(
+  jobs: { status: string | null; scheduled_date: string | null }[],
+  todayStr: string,
+): boolean {
+  return jobs.some(
+    (j) => !!j.status && OPEN_JOB_STATUSES.includes(j.status) && !!j.scheduled_date && j.scheduled_date >= todayStr,
+  );
+}

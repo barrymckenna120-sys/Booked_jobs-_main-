@@ -11,6 +11,7 @@ import {
   consentSkipBody,
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
+import { hasOpenFutureJob, OPEN_JOB_STATUSES } from "../_shared/renewalDedup.ts";
 
 /**
  * Renewal reminder (WhatsApp).
@@ -103,6 +104,30 @@ Deno.serve(async (req) => {
       );
     }
     const phoneTail = last9Digits(consent.phone);
+
+    // Already booked: same rule as the automatic 14/30-day tiers — an open job
+    // dated today or later means no renewal reminder goes out.
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { data: openJobs, error: openErr } = await supabase
+      .from("service_calls")
+      .select("status, scheduled_date")
+      .eq("organisation_id", orgId)
+      .eq("customer_id", customer_id)
+      .in("status", OPEN_JOB_STATUSES)
+      .gte("scheduled_date", todayStr);
+    if (openErr) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Booked-job check failed: ${openErr.message}` }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (hasOpenFutureJob(openJobs ?? [], todayStr)) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "already_booked" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
 
 
 
