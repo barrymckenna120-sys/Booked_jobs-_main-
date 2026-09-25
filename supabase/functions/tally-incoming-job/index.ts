@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isValidIntakePhone(mobileNumber)) {
+    if (!isValidIntakePhone(mobileNumber ?? "")) {
       return new Response(JSON.stringify({ success: false, error: "Invalid mobile number format" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const normalisedPhone = mobileNumber;
+    const normalisedPhone = mobileNumber ?? "";
 
     // Bind this webhook call to exactly one tenant, server-side.
     // Preferred: a per-tenant integration secret, or the Tally form id in the
