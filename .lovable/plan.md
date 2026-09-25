@@ -1,34 +1,27 @@
-# Full report: review WhatsApp, STOP replies, and today's booking retry (read-only, nothing changed)
+# K&N booking routing, branding and STOP replies: fix plan
 
-## 1. Google review WhatsApp didn't arrive
+## Blast radius (confirmed, read-only)
+In the last 7 days, abdenneur1 (a test customer) is the only K&N customer who got a booking confirmation or deposit link with no job created: 5 times today, between 13:01 and 13:53 UTC. Every other message matches a job: KN-005, KN-011/012, KN-014 and KN-015. No real customers were affected.
 
-The review request was never triggered:
-- No K&N job was marked Completed today. KN-013 is still Pending, KN-014 and KN-015 are Scheduled, and none has a completion time.
-- The request is only sent when an engineer taps Complete on the engineer job screen. Office completion and SumUp payment don't send it.
-- K&N has no Google review link saved, so even a completed job would be skipped on purpose.
-- There are no review log entries today. Make never received anything, so its history will be empty for this test.
+## Why no job was created today
+BookedJobs' booking intake last recorded a booking on 24/09 at 15:28. The messages sent today have no customer link, recipient or delivery status in our records. They came from Make, not from our intake. So today's retries went down a Make path that sends the messages but never calls BookedJobs.
 
-## 2. STOP replies
+## Step 1: Routing fix (in Make; you do this, I verify)
+1. In the K&N booking scenario, the first step after the Tally trigger must send the booking to BookedJobs' booking intake (the same place the working 24/09 bookings used). It must include K&N's password and organisation.
+2. Only send the confirmation and deposit link once our intake replies that it worked, using the job details it sends back. If the intake refuses or reports a duplicate, send nothing.
+3. Remove or turn off the step that sends messages on its own.
+4. Test: send one labelled booking for abdenneur1. I'll confirm exactly one new job, one customer match, one confirmation and one deposit link, and that the phone is unchanged (`+212656802656`).
 
-- The app does handle STOP. A STOP reply opts the customer out, turns off reminders, sends a confirmation and logs it.
-- **Replies are still not getting in after your 360 Messenger key switch.** Since the switch, 360 Messenger has called our inbound connection about every 30 seconds (13:52, 13:53, 13:53, 13:54), and every call was turned away. The call arrives with no password at all.
-- Our inbound connection expects the password added to the end of the web address 360 Messenger calls, as `?s=...` (14 characters). The address saved in 360 Messenger for the new key doesn't include it. A new key usually means entering the incoming-message address again, and the password part was left off.
-- The last customer reply that got through was on 26/08. Until this is fixed, STOP, CONFIRM and CANCEL replies are all lost.
+## Step 2: Branding (in Make; you do this)
+In the booking-confirmation message step, replace the fixed text "Thanks, Dublin Gas." with K&N's name. Better still, use the company name that our intake sends back, so this can't happen for other tenants. I'll check the next confirmation in the message log.
 
-## 3. Booking retry at 13:53
+## Step 3: STOP replies (in 360 Messenger; you do this)
+Set the incoming-message address to the BookedJobs inbound address with `?s=` and the inbound password on the end. Then send STOP from McKenna's test number, and I'll confirm the opt-out was recorded.
 
-- A booking confirmation and a €120 deposit link were logged for abdenneur1 at 13:53. The same pair was also logged at 13:24 and 13:06.
-- **No new job was created** in BookedJobs for any of these retries. The newest K&N job is still KN-015, from yesterday. BookedJobs' own booking intake has recorded nothing new since 24/09.
-- The messages were logged with no customer link, no recipient number and no delivery status. That means they came from a Make scenario, not BookedJobs' booking intake.
-- **Branding problem:** the booking confirmation sent to this K&N customer ends with **"Thanks, Dublin Gas."** That wording isn't in BookedJobs, so it's fixed text in the Make scenario. K&N customers would be told they booked with Dublin Gas.
-- Each retry also creates a new SumUp deposit link (three today). Earlier ones are still open.
+## Step 4: Cleanup (needs separate approval)
+Close today's 5 open SumUp deposit links for abdenneur1 (they're sandbox, so no money involved) once the tests are finished.
 
-## Proposed fixes (each needs your approval, one at a time)
-
-1. **STOP replies:** in 360 Messenger, set the incoming-message address to the BookedJobs inbound address with `?s=` plus the inbound password on the end. I can give you the exact address format, but I can't see or reveal the password itself. Then send STOP from McKenna's test number and I'll check the opt-out was recorded.
-2. **Branding:** change the booking confirmation text in the K&N Make scenario so it uses K&N's name instead of "Dublin Gas."
-3. **Bookings not creating jobs:** check in Make which step the booking takes. It should send the booking to BookedJobs so a job is created, not just send the messages.
-4. **Review request:** you add K&N's Google review link, then an engineer completes a labelled test job on the engineer app.
-5. Optional: have office completion also send the review request.
-
-No code, data or settings have been changed.
+## Notes
+- I can't open or edit Make or 360 Messenger. Steps 1–3 happen in those accounts, and I verify each from BookedJobs' records afterwards.
+- No BookedJobs code changes are needed for Steps 1–3.
+- I'll add these items to the task list once you approve this plan.
