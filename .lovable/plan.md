@@ -1,53 +1,39 @@
-# Pre-launch QA audit — K&N Gas Services Ltd
+# Stop Irish-default phone rewriting
 
-Target tenant: K&N gas services Ltd (`c0aa41ac-…`), owner karl@bookedjobs.ie. Currently 1 user, 7 customers, 13 jobs, 8 integration rows.
+## Confirmed current behaviour
 
-## Important constraint: there is no separate staging environment
+- The first-booking intake rewrites a local-looking number to `+353…` before it is stored (`tally-incoming-job/phoneField.ts`).
+- Renewal rebooking links rewrite the stored customer number through `rebookMobileParam` (`renewal-reminder-14` and `renewal-reminder-30`).
+- Missed-call rebooking links separately rewrite the stored number through `toLocalIrishPhone` (`missed-call-lookup` → `_shared/rebookLink.ts`). For an international number, this can remove its real country code and produce a local-looking value; the returning rebook flow can then interpret that value as Irish.
+- `tally-boiler-rebook` itself no longer adds `353`; it currently receives the already-altered link value and uses it for matching.
 
-Preview and the published app share one backend and one database. "Staging" can only mean a separate **test company** in that same database. It keeps the data separate by company, but it still uses the live WhatsApp, SumUp and email accounts. So:
+## Required behaviour
 
-- **Staging tenant:** Sligo Test Gas (has an owner, 1 customer, 3 jobs). Cavan Gas can't be used as-is because it has no owner, so bookings fail.
-- **Configuration:** I'll mirror K&N Ltd's non-secret settings onto the staging tenant (services and prices, message templates, form links, review settings). Each copy is its own reviewed data step. I'll give a before/after read-back, and nothing gets written to K&N Ltd.
-- **Messages:** synthetic customers only, using the reserved scratch numbers (a fresh +3538799901xx range, each checked unused first). Any test where the sending path can't be pointed away from a real customer is marked BLOCKED.
-- **Payments:** there's no SumUp sandbox; the only merchants are live. Real-card checkout is **BLOCKED** unless you approve one small live charge (then refund). I'll check checkout creation and the webhook without a card.
-- **Scheduled automations (cron and Make):** I'll run them by calling the function directly for the staging tenant, with a simulated due date stored on the synthetic customer. I won't edit Make scenarios or schedules.
+The phone value captured by the original booking must pass through storage and every rebooking URL unchanged. No leading-zero removal, no `353` prefix, no replacement normalization, and no new validation.
 
-## Phase 1 — Read-only production inspection (K&N Ltd)
+## Changes
 
-1. Account and users: organisation row, owner link, and the `profiles` / `engineers` / `auth` joins for Karl. Check the company ID is correct on all of them (bug pattern 6).
-2. Settings and branding: `settings`, `brand_settings`, business details, VAT, service prices, form links (new booking, rebooking, renewal), Google review link.
-3. Integrations: which `tenant_integrations` rows exist, secret names present (not values), WhatsApp key per tenant, SumUp merchant binding (should be M9GH65GY), Tally form IDs.
-4. Permissions: role gating for office vs engineer screens and financial data. Check the engineer DOM contains no margin or price data.
-5. Automations inventory: every renewal, quote follow-up, outstanding payment, warranty and review function. For each: tenant scoping, opted-out check, idempotency guard, and any fallback to another company's links or keys (known risk: Stripe fallback, K&N Tally URL fallback, broken pg_cron settings).
-6. Customer-facing URLs: kngasservices.bookedjobs.ie routes (`/b/…` short links, quote, receipt, cert, booking). Check with HTTP status and screenshots only, using existing public links and no writes.
+1. Remove the Irish-default conversion from the first-booking phone preparation so the captured phone string is stored without country-code rewriting.
+2. Replace both rebooking URL conversions with direct pass-through of the stored customer phone:
+   - 14-day renewal links
+   - 30-day renewal links
+   - missed-call rebooking links
+3. Remove only parameters/imports that become unused because of that deletion. Do not alter authentication, tenant binding, matching, deduplication, reminder selection, message wording, or any other field.
+4. Update only the directly affected phone/rebooking tests so they assert byte-for-byte pass-through for Irish-local, `+353`, `+212`, `00…`, spaced and dashed captured values.
 
-## Phase 2 — Staging end-to-end (Sligo Test Gas, synthetic data)
+## Scope boundary
 
-- Tally new booking and rebooking, the duplicate-job guard, and customer matching.
-- Quote create → send → accept → deposit link creation (no charge).
-- Job lifecycle: assign → en route → complete (two-step modal) → invoice → payment recorded in `job_payments`. Check revenue isn't rewritten.
-- WhatsApp automations with simulated dates: 30-day and 14-day renewal, quote day-3 and day-6, outstanding invoice reminder, warranty, Google review. Each must produce exactly one message to the scratch number, logged in `message_log`, and an opted-out customer must be skipped.
-- Mobile at 390px: engineer Today, job card, bottom nav, Fault Finder entry, payment banner. Office at desktop.
-- Destructive scenarios: cancel, reschedule, duplicate submission, bad phone, opted-out customer.
+Outbound WhatsApp/API transport adapters that require digits-only recipient values, and comparison-only matching keys, will not be changed in this fix: they do not overwrite the captured customer number or the rebooking form value. Changing them would risk message delivery and duplicate matching, which is outside this reported defect.
 
-## Phase 3 — Fixes
+## Verification before deployment
 
-- Audit first: confirm the root cause with a read-back before any code.
-- One concern per fix, ideally 1–3 files, each with one regression test.
-- Tested in preview against the staging tenant plus one other tenant.
-- No production deploy, no Edge Function deploy that changes live behaviour, and no live data change without your explicit approval per item.
+- Run the focused intake and rebooking-link regression tests.
+- Confirm generated rebooking URLs decode `Mobile` to exactly the stored value for representative Irish and international numbers.
+- Confirm the booking/rebooking tenant-auth and duplicate guards are unchanged.
+- Run the relevant full test suite, TypeScript check and production build.
+- Present the complete source diff and the exact functions requiring deployment.
+- Stop for approval. Do not deploy any function or publish the app until the diff is approved.
 
-## Phase 4 — Report
+## Risk
 
-A pre-launch report (XLSX plus a short summary) covering:
-- **Tests:** passed, failed and BLOCKED, each with evidence (read-back, HTTP status, screenshot or log line).
-- **Repairs:** fixes verified in preview.
-- **Defects and risks:** unresolved defects with severity, plus release risks. Known examples: Make scenario still sending "Dublin Gas" wording, SumUp key rotation, Tally forms not checking a signature.
-
-## Never touched without explicit approval
-Karl's password, K&N Ltd customers, jobs, payment settings, scheduled messages, Make scenarios, and publishing.
-
-## Decisions needed before I start
-1. Use **Sligo Test Gas** as staging (recommended), or set an owner on Cavan Gas instead?
-2. May I copy K&N Ltd's non-secret settings onto the staging tenant (a data write to the test company only)?
-3. Real-card payment test: keep it BLOCKED, or approve one small live charge plus refund?
+High enough for focused regression coverage because this affects booking intake and renewal links. The edit remains removal-only and does not change database security, publication status, payments, messaging triggers, or unrelated workflows.
