@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { shouldSkipServiceWorker } from "@/lib/isPreviewHost";
+
 import type { Session, User } from "@supabase/supabase-js";
 import { withRequestTimeout } from "@/lib/queryDefaults";
 import { setSentryUser } from "@/lib/sentryIdentity";
@@ -46,7 +48,13 @@ const linkEngineerAndCaptureFcm = async (user: User) => {
       }
     }
 
+    // Lovable preview/iframe hosts must never register push tokens:
+    // engineers.fcm_token holds ONE token per engineer, so a preview login
+    // would replace the phone's token and stop real job notifications.
+    if (shouldSkipServiceWorker()) return;
+
     // Step 2: capture FCM token for the engineer (only if a row is linked to this user)
+
     const { data: engineer } = await supabase
       .from("engineers")
       .select("id")
