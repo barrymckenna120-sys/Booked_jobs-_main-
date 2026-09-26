@@ -192,6 +192,30 @@ export type Database = {
           },
         ]
       }
+      boiler_catalogue: {
+        Row: {
+          brand_name: string
+          created_at: string
+          id: string
+          model_name: string
+          warranty_years: number
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          id?: string
+          model_name: string
+          warranty_years?: number
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          id?: string
+          model_name?: string
+          warranty_years?: number
+        }
+        Relationships: []
+      }
       boiler_enquiries: {
         Row: {
           address: string | null
@@ -4548,6 +4572,7 @@ export type Database = {
         }
         Returns: Json
       }
+      seed_boiler_brands: { Args: { _org_id: string }; Returns: number }
       sweep_stale_accepted_deliveries: { Args: never; Returns: number }
       verify_impersonation_token: { Args: { _token: string }; Returns: Json }
     }
