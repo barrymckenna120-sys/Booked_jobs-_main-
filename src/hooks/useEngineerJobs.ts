@@ -269,6 +269,15 @@ export const useEngineerJobs = () => {
   };
 
   const updateJob = async (jobId: string, patch: Record<string, any>, options?: { jobTagDate?: string | null }) => {
+    // BJ-NEW-T: an empty patch is a caller asking for a refresh (e.g.
+    // EngineerJobCard's onUpdate(job.id, {}) after a payment). Sending it to
+    // updateServiceCallRow updates 0 rows, which the blocked-write guard
+    // reports as "Couldn't update this job" even though nothing failed.
+    // Refresh the list and stop — no write, no toast, no debug log, no queue.
+    if (Object.keys(patch).length === 0) {
+      await fetchAll();
+      return;
+    }
     // debug logging removed — debugLog helper kept for future use
     // Save scroll position before any state changes to prevent iOS jump
     const scrollY = window.scrollY;
