@@ -68,6 +68,8 @@ describe("useEngineerJobs.updateJob — empty patch (BJ-NEW-T)", () => {
   });
 
   it("still reaches the write path for a real patch", async () => {
+    // updateJob reads window.scrollY before writing; stub it for the node env.
+    (globalThis as any).window = { scrollY: 0 };
     const { updateJob } = captureHook();
     await updateJob("job-1", { status: "En Route" });
     expect(updateServiceCallRowMock).toHaveBeenCalledTimes(1);
