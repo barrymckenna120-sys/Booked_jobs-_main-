@@ -1149,6 +1149,8 @@ Deno.serve(async (req) => {
       branding: !existingBrand,
       categories:
         categoryRows.length,
+      boiler_brands_seeded:
+        seeded,
       integrations:
         integrationRows.map(
           (r) =>
