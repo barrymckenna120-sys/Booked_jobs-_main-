@@ -1081,6 +1081,27 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Step 5e: default boiler brands/models (shared catalogue seeding).
+  const { data: seeded, error: bbErr } =
+    await supabase.rpc("seed_boiler_brands", {
+      _org_id: newOrgId,
+    });
+
+  if (bbErr) {
+    await logFailure("step 5e", bbErr.message);
+
+    return json(
+      {
+        error:
+          "provision_failed",
+        step: "5e",
+        detail:
+          bbErr.message,
+      },
+      500
+    );
+  }
+
   // Step 6e: stamp the configuration version. Only newly provisioned tenants
   // reach this line; existing tenants are never backfilled.
   const {
