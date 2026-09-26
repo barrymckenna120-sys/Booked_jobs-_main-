@@ -1,33 +1,27 @@
-# Stop duplicate jobs from one quote
+# KN-020 card payment error + "Lovable" on desktop notifications
 
-## Confirmed root cause and scope
+## What the records already show (read-only, confirmed)
+- KN-020 (Philip Ward, K&N Ltd): job value EUR 2,460.
+  - 16:37 — EUR 1,230 deposit paid through SumUp (checkout PAID, transaction TAAA6L67Q9Y).
+  - 16:44 — EUR 1,230 "balance" recorded by the office payment screen as Card (receipt KN-2026-5212), no SumUp checkout attached.
+  - Job now shows Paid, balance EUR 0. The "12:30" is EUR 1,230.
+- So the payment was **recorded** despite the red error. Whether EUR 1,230 was actually charged on a card for the balance is not proven — there is no SumUp record for it. **Do not take another payment** until this is checked.
+- The app's installed name is already "BookedJobs"; the push handler shows whatever title the server sends. The cause of "Lovable" is not confirmed yet.
 
-- KN-018 and KN-020 were not created from the same quote: KN-018 belongs to Q-2026-0008 and KN-020 belongs to Q-2026-0010. Each has its own checkout and paid deposit. No payment callback created either job; payment callbacks only updated their existing job.
-- The same-quote path still has two genuine duplicate risks: `respond_to_quote` does not lock the quote row before checking `converted_job_id`, and the job-screen quote panel bypasses that function and inserts a job directly.
-- No existing quote currently has more than one job linked by `quote_id`, so this is a prevention fix. KN-018/KN-020 history, payments, customer data, and both distinct quotes will remain unchanged.
+## Step 1 — confirm causes (read-only)
+1. Payment: trace the office "Card → Pay" path, find the exact failing call (likely a later step after the payment row is saved, such as receipt/WhatsApp/invoice sync), and check logs at 16:44–16:45. Confirm with Barry/Karl whether a card terminal was actually charged EUR 1,230.
+2. Notifications: check where the "Lovable" label comes from — the site address the notification is sent from (lovable.app domain vs bookedjobs.ie), the notification title, or the browser's in-app notification path — and reproduce on desktop.
 
-## Change
+## Step 2 — smallest fix (after cause confirmed)
+- Payment: fix only the failing step so a successful record shows success, and a real failure shows a clear error without leaving a half-saved payment. No change to how money is charged, no rewriting existing payment rows.
+- Notifications: set the name to "BookedJobs" at the confirmed source (1–2 files) and bump the notification worker version so installed apps pick it up.
+- If more than 3 files are needed, stop and explain first.
 
-1. Add one focused database migration that:
-   - locks the quote row during acceptance so concurrent requests serialize;
-   - re-checks the locked row before creating a job;
-   - adds a unique partial index on `service_calls.quote_id` so the database permits only one job per quote;
-   - preserves the existing token, tenant, placeholder-reuse, notification, audit, deposit, and response behavior.
-2. Change only the job-screen “Mark as Accepted” action to use the existing `accept-quote` path instead of directly inserting a job. Keep its loading, error, refresh, and linked-job behavior aligned with the quote-detail screen.
-3. Add regression coverage for the acceptance decision/UI path if it can be isolated without widening the change. The database constraint and transactional simulation remain the authoritative concurrency checks.
+## Step 3 — verify
+- Test on a labelled scratch job (Cavan Gas/test data): success, genuine failure, retry — no duplicate payment rows, correct status and balance.
+- Desktop notification shows "BookedJobs", including after app update.
+- Other tenant cannot see/affect the payment; tests, typecheck, build.
+- No deploy without approval; KN-020 records left untouched.
 
-## Verification
-
-- Run a rolled-back database simulation proving concurrent/repeated acceptance of one quote results in one job.
-- Confirm a repeated request and later payment callback cannot insert another job.
-- Confirm two distinct quotes can still create separate jobs.
-- Confirm cross-tenant acceptance remains denied and the unique rule does not cross-link tenants.
-- Run focused regression tests, the full test suite, type checks, and build.
-- Check the job-screen acceptance flow at mobile width, including loading and error behavior, without making a live payment.
-- Read back KN-018/KN-020 unchanged and report any remaining directly related risk.
-
-## Files
-
-- One new migration under `supabase/migrations/`.
-- `src/components/jobs/QuotePanel.tsx`.
-- At most one focused test file if needed.
+## Technical notes
+- Payment rows: `job_payments` sources `sumup_webhook` (deposit) and `office_modal` (balance). Service worker: `public/firebase-messaging-sw.js`; push sender: `send-push-notification`.
