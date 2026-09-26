@@ -10,8 +10,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 
-const updateServiceCallRowMock = vi.fn(async () => ({ error: null, blocked: false }));
-const toastMock = vi.fn();
+const { updateServiceCallRowMock, toastMock } = vi.hoisted(() => ({
+  updateServiceCallRowMock: vi.fn(async () => ({ error: null, blocked: false })),
+  toastMock: vi.fn(),
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
