@@ -2288,56 +2288,6 @@ export default function AdminPanel() {
 
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  onClick={async () => {
-                                    const newPassword =
-                                      window.prompt(
-                                        "Enter new password for the user:"
-                                      );
-
-                                    if (
-                                      !newPassword
-                                    ) {
-                                      return;
-                                    }
-
-                                    try {
-                                      const {
-                                        error,
-                                      } =
-                                        await supabase.functions.invoke(
-                                          "admin-set-password",
-                                          {
-                                            body: {
-                                              userId:
-                                                "ed429061-7b76-4272-af4a-25249ee6d719",
-                                              newPassword,
-                                            },
-                                          }
-                                        );
-
-                                      if (error)
-                                        throw error;
-
-                                      toast.success(
-                                        "Password reset successfully"
-                                      );
-                                    } catch (
-                                      err: any
-                                    ) {
-                                      toast.error(
-                                        "Failed to reset password: " +
-                                          (err?.message ??
-                                            "unknown error")
-                                      );
-                                    }
-                                  }}
-                                >
-                                  Reset Password
-                                </Button>
-
-                                <Button
-                                  size="sm"
                                   variant={
                                     blocked
                                       ? "outline"
