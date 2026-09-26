@@ -197,21 +197,24 @@ export type Database = {
           brand_name: string
           created_at: string
           id: string
-          model_name: string
+          model_name: string | null
+          updated_at: string
           warranty_years: number
         }
         Insert: {
           brand_name: string
           created_at?: string
           id?: string
-          model_name: string
-          warranty_years?: number
+          model_name?: string | null
+          updated_at?: string
+          warranty_years: number
         }
         Update: {
           brand_name?: string
           created_at?: string
           id?: string
-          model_name?: string
+          model_name?: string | null
+          updated_at?: string
           warranty_years?: number
         }
         Relationships: []
