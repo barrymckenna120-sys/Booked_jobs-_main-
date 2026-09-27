@@ -1149,9 +1149,79 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Step 7a: send the branded invite email. Runs only after ALL steps have
+  // succeeded. Failure here never fails provisioning. The link/token is never
+  // logged or returned.
+  let inviteSent = false;
+  let inviteError: string | null = null;
+  try {
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured");
+    if (!inviteHashedToken) throw new Error("invite link could not be generated");
+
+    const { data: orgRow } = await supabase
+      .from("organisations")
+      .select("public_domain")
+      .eq("id", newOrgId)
+      .maybeSingle();
+    const rawHost =
+      [orgRow?.public_domain, Deno.env.get("APP_PUBLIC_URL"), "https://app.bookedjobs.ie"]
+        .map((v) => (v ?? "").toString().trim())
+        .find((v) => v.length > 0) as string;
+    const host = `https://${rawHost.replace(/^https?:\/\//i, "").replace(/\/+$/, "")}`;
+    const link = `${host}/reset-password?token_hash=${encodeURIComponent(inviteHashedToken)}&type=${inviteLinkType}`;
+
+    const esc = (s: unknown) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    const firstName = String(owner_name ?? "").trim().split(/\s+/)[0] || "there";
+    const company = esc(company_name);
+    const replyTo = (business_email ?? "").toString().trim();
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "BookedJobs <noreply@bookedjobs.ie>",
+        to: [owner_email],
+        ...(replyTo ? { reply_to: replyTo } : {}),
+        subject: `You've been invited to ${String(company_name)} on BookedJobs`,
+        html: `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
+<div style="max-width:560px;margin:0 auto;">
+<div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(37,99,235,0.08);">
+<div style="height:5px;background:linear-gradient(90deg,#2563EB,#60a5fa);"></div>
+<div style="padding:44px 48px 40px;">
+<p style="font-size:15px;color:#4b5563;line-height:1.65;margin-bottom:28px;">Hi ${esc(firstName)}, your BookedJobs account for ${company} is ready. Click below to choose your password and get started.</p>
+<div style="text-align:center;">
+<a href="${esc(link)}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Set up my account</a>
+</div>
+</div></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">Sent by BookedJobs on behalf of ${company}</p></div>
+</div></body></html>`,
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Resend ${res.status}: ${t.slice(0, 300)}`);
+    }
+    inviteSent = true;
+  } catch (e) {
+    inviteError = e instanceof Error ? e.message : String(e);
+    await logFailure("step 7a", inviteError);
+  }
+
   // Step 7: success
   return json({
     success: true,
+    invite_sent: inviteSent,
+    invite_error: inviteError,
     organisation_id:
       newOrgId,
     org_slug: finalSlug,

@@ -1664,7 +1664,9 @@ export default function AdminPanel() {
       }
 
       setSuccess(
-        `✅ ${companyName} provisioned. Invite sent to ${ownerEmail}. Org ID: ${json.organisation_id}`
+        json.invite_sent
+          ? `✅ ${companyName} provisioned. Invite emailed to ${ownerEmail}.`
+          : `⚠️ ${companyName} provisioned, but the invite email failed: ${json.invite_error}. Open the tenant and use Send Password Recovery.`
       );
 
       resetForm();
