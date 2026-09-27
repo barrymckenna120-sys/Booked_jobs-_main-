@@ -98,6 +98,45 @@ export async function requirePlatformAdmin(
 }
 
 /**
+ * Non-throwing variant of requirePlatformAdmin: returns the trusted identity
+ * when the caller is a platform admin, or null otherwise. Never returns a
+ * Response — for endpoints that stay public but shape their response
+ * differently for platform admins (e.g. send-reset-email).
+ */
+export async function checkPlatformAdmin(req: Request): Promise<PlatformAdmin | null> {
+  const token = bearerToken(req);
+  if (!token) return null;
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!url || !serviceKey) return null;
+
+  const supabase = serviceClient();
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  const user = userData?.user;
+  if (userErr || !user?.id) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, organisation_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const decision = decidePlatformAdmin(
+    { email: user.email, role: (profile?.role as string | null) ?? null },
+    parseOwnerAllowlist(Deno.env.get("PLATFORM_OWNER_EMAILS")),
+  );
+  if (!decision.allowed) return null;
+
+  return {
+    userId: user.id,
+    email: user.email ?? null,
+    role: (profile?.role as string | null) ?? null,
+    orgId: (profile?.organisation_id as string | null) ?? null,
+    via: decision.via!,
+  };
+}
+
+/**
  * Is this (already verified) email address in the single central platform-owner
  * allowlist? Use ONLY as an additive platform-authority check alongside
  * `profiles.role = 'superadmin'`; never as a substitute for tenant-role

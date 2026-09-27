@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { checkPlatformAdmin } from "../_shared/platformAdmin.ts";
 
 /**
  * Password-reset email.
@@ -48,16 +49,43 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Platform admins (superadmin UI) get the real send result; everyone else
+    // (public login page, tenant staff) gets the generic response so email
+    // addresses can't be probed. This check only shapes the response — it
+    // never blocks the flow.
+    const platformAdmin = await checkPlatformAdmin(req);
+    const respond = (sent: boolean, reason: string | null) =>
+      new Response(
+        JSON.stringify(
+          platformAdmin ? { success: true, sent, reason } : { success: true }
+        ),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     // Resolve the reset host from the user's OWN organisation:
     // organisations.public_domain is authoritative, with the tenant's WhatsApp
     // integration domain as a same-tenant secondary. Never another tenant's host.
-    const { data: usersList, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listUsersError) {
-      console.error("listUsers failed:", listUsersError.message);
+    // Page through ALL users — listUsers() defaults to the first 50 only.
+    let matchedUser: { id: string; email?: string } | null = null;
+    let page = 1;
+    for (;;) {
+      const { data: usersList, error: listUsersError } =
+        await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listUsersError) {
+        console.error("listUsers failed:", listUsersError.message);
+        break;
+      }
+      const users = usersList?.users ?? [];
+      const found = users.find(
+        (u) => u.email?.toLowerCase() === String(email).toLowerCase()
+      );
+      if (found) {
+        matchedUser = found;
+        break;
+      }
+      if (users.length < 1000) break;
+      page += 1;
     }
-    const matchedUser = usersList?.users?.find(
-      (u) => u.email?.toLowerCase() === String(email).toLowerCase()
-    );
 
     let tenantDomain: string | null = null;
     let orgName = "BookedJobs";
@@ -89,16 +117,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Platform fallback when the tenant has no domain of its own yet (new
+    // tenants): the configured public app URL, then the platform default.
+    // Never another tenant's host, never a hardcoded tenant host.
     if (!tenantDomain) {
-      // No same-tenant host: skip the send rather than point the user at another
-      // tenant's domain. The response stays generic so addresses aren't enumerable.
-      console.warn("send-reset-email: no tenant domain resolved — send skipped");
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      tenantDomain =
+        String(Deno.env.get("APP_PUBLIC_URL") ?? "").trim() ||
+        "https://app.bookedjobs.ie";
+    }
+    // Normalise to "https://<host>" with no trailing slash.
+    tenantDomain = tenantDomain
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    const host = `https://${tenantDomain}`;
+
+    if (!matchedUser) {
+      // Unknown address: nothing to send. Generic response for non-admins.
+      console.log(`Password reset: no matching user for ${email}`);
+      return respond(false, "user not found");
     }
 
-    const redirectUrl = `https://${tenantDomain}/reset-password`;
+    const redirectUrl = `${host}/reset-password`;
 
 
 
@@ -112,19 +151,18 @@ Deno.serve(async (req) => {
 
     if (linkError) {
       console.error("generateLink error:", linkError.message);
-      // Don't reveal if user exists — always return success
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Don't reveal if user exists — generic response for non-admins
+      return respond(false, `generateLink failed: ${linkError.message}`);
     }
 
-    const actionLink = (linkData as any)?.properties?.action_link;
-    if (!actionLink) {
-      console.error("No action_link returned from generateLink");
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Scanner-safe link: build from hashed_token, not the /verify action_link
+    // (mail scanners prefetch action_link and burn the one-time token).
+    const hashedToken = (linkData as any)?.properties?.hashed_token;
+    if (!hashedToken) {
+      console.error("No hashed_token returned from generateLink");
+      return respond(false, "no hashed_token from generateLink");
     }
+    const actionLink = `${host}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
 
     const html = `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
 <div style="max-width:560px;margin:0 auto;">
@@ -159,17 +197,12 @@ Deno.serve(async (req) => {
     if (!resendRes.ok) {
       const detail = await resendRes.text().catch(() => "");
       console.error("Resend send failed:", resendRes.status, detail);
-      return new Response(JSON.stringify({ error: `Email send failed (${resendRes.status})` }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return respond(false, `Resend error (${resendRes.status})`);
     }
 
     console.log(`Password reset email sent successfully for: ${email}`);
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return respond(true, null);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("send-reset-email error:", msg);

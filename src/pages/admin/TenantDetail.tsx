@@ -541,6 +541,10 @@ export default function TenantDetail() {
       if (error || (data as any)?.error) {
         throw new Error((data as any)?.error || error?.message || "Failed");
       }
+      if ((data as any)?.sent === false) {
+        toast.error(`Reset email NOT sent: ${(data as any)?.reason ?? "unknown reason"}`);
+        return;
+      }
       toast.success(`Password reset sent to ${ownerEmail}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send reset");
