@@ -1,13 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TourType } from "@/hooks/useOnboardingTour";
 import {
-  LayoutDashboard, Calendar, Inbox, Users, FileText, TrendingUp, Settings,
   Briefcase, MapPin, ClipboardList, Clock, Monitor, Smartphone,
   ArrowLeft, ArrowRight, Check
 } from "lucide-react";
 import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
+import { OFFICE_TOUR_STEPS } from "@/components/onboarding/officeTourSteps";
 
 // ─── Step definitions ───
 
@@ -20,16 +20,6 @@ interface TourStep {
   isSettings?: boolean;
   tab?: string;
 }
-
-const OFFICE_STEPS: TourStep[] = [
-  { id: "dashboard", title: "Dashboard", desc: "Your daily command centre. See today's schedule, revenue broken down by Cash and Card, and the Needs Attention section which flags new incoming jobs and renewals due soon.", icon: LayoutDashboard, route: "/dashboard" },
-  { id: "schedule", title: "Schedule", desc: "Weekly calendar across all engineers. Tap any job card to open the detail panel where you can mark it complete, move the slot, reassign the engineer or cancel.", icon: Calendar, route: "/schedule" },
-  { id: "incoming", title: "Incoming Jobs", desc: "New job requests land here automatically when a customer fills in the customer booking form. Colour-coded by wait time — accept a job to move it straight to the schedule.", icon: Inbox, route: "/incoming" },
-  { id: "customers", title: "Customer Profiles", desc: "Search by name, phone, eircode or area code. Every profile holds contact info, boiler details, service history and WhatsApp history — everything you need before a job or a call.", icon: Users, route: "/customers" },
-  { id: "quotes", title: "Quotes", desc: "Create a quote with job description, parts and price. Send it to the customer via WhatsApp. When they accept, convert it to a job in one tap.", icon: FileText, route: "/quotes" },
-  { id: "finance", title: "Finance", desc: "Switch between Day, Week and Month to see revenue, outstanding balance and jobs completed. Next Month Forecast shows scheduled jobs plus renewals due so you always know what's coming in.", icon: TrendingUp, route: "/finance" },
-  { id: "settings-overview", title: "Settings", desc: "Everything Karl needs to configure is here — business logo and details in General, engineer working days and holidays in Engineers, team access and login invites in Team, opening hours and job time blocks in Business, and customer message templates in WhatsApp.", icon: Settings, route: "/settings", isSettings: true, tab: "General" },
-];
 
 const ENGINEER_STEPS: TourStep[] = [
   { id: "eng-jobs", title: "Your Jobs for Today", desc: "All your jobs are listed here with customer name, address, time slot and job type. Amber flags mean the office has left you a note — check those before you set off.", icon: Briefcase, route: "/engineer/today" },
@@ -53,11 +43,11 @@ type Phase = "intro" | "steps" | "feedback";
 
 const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
   const navigate = useNavigate();
-  const steps = tourType === "office" ? OFFICE_STEPS : ENGINEER_STEPS;
+  const steps: { id: string }[] = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_STEPS;
   const [phase, setPhase] = useState<Phase>("intro");
   const [stepIndex, setStepIndex] = useState(0);
 
-  const currentStep = steps[stepIndex];
+  const currentStep = ENGINEER_STEPS[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
   const totalSteps = steps.length;
   const isOffice = tourType === "office";
@@ -74,12 +64,12 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
   }, []);
   const useDesktopDialog = isOffice && isDesktop;
 
-  // Navigate to the current step's route when step changes (sheet flow only)
+  // Engineer tour only: navigate to the step's route. The office tour never changes the page.
   useEffect(() => {
-    if (!useDesktopDialog && phase === "steps" && currentStep?.route) {
+    if (!isOffice && phase === "steps" && currentStep?.route) {
       navigate(currentStep.route);
     }
-  }, [useDesktopDialog, phase, stepIndex, currentStep?.route, navigate]);
+  }, [isOffice, phase, stepIndex, currentStep?.route, navigate]);
 
   const handleStartTour = useCallback(() => {
     setPhase("steps");
@@ -123,7 +113,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
   if (phase === "intro") {
     const IntroIcon = isOffice ? Monitor : Smartphone;
     return (
-      <Sheet maxHeight="56vh">
+      <Sheet maxHeight="56vh" backdrop={isOffice}>
         <div className="flex flex-col items-center text-center gap-3">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: isOffice ? "#4A86E8" : "#22c55e" }}>
             <IntroIcon className="w-8 h-8 text-white" />
@@ -154,9 +144,21 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
   // ─── Feedback (final screen) ───
   if (phase === "feedback") {
     return (
-      <Sheet maxHeight="56vh">
+      <Sheet maxHeight="56vh" backdrop={isOffice}>
         <TourFeedbackForm tourType={tourType} isReplay={isReplay} onDone={handleFinish} />
       </Sheet>
+    );
+  }
+
+  // ─── Office mobile step (shared content with desktop) ───
+  if (isOffice) {
+    return (
+      <OfficeMobileStep
+        index={stepIndex}
+        onNext={handleNext}
+        onBack={handleBack}
+        onSkip={handleSkip}
+      />
     );
   }
 
@@ -225,11 +227,100 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
   );
 };
 
+// ─── Office mobile step sheet ───
+const OfficeMobileStep = ({ index, onNext, onBack, onSkip }: { index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
+  const step = OFFICE_TOUR_STEPS[index];
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touch.current;
+    touch.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) onNext();
+    else if (index > 0) onBack();
+  };
+  return (
+    <>
+      <div className="fixed inset-0 z-[99]" style={{ backgroundColor: "rgba(15,23,42,0.5)" }} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="office-tour-m-title"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] w-full bg-card overflow-y-auto overscroll-contain motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-300"
+        style={{
+          borderRadius: "16px 16px 0 0",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
+          maxHeight: "88vh",
+          padding: "12px 20px calc(20px + env(safe-area-inset-bottom)) 20px",
+        }}
+      >
+        <div className="flex justify-center mb-3">
+          <div className="w-9 h-1 rounded-full bg-border" />
+        </div>
+        <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-border" style={{ backgroundColor: "#ffffff" }}>
+          {step.hasImage ? (
+            <img src={step.image} alt={step.alt} className="h-full w-full object-contain" />
+          ) : (
+            <div role="img" aria-label={step.alt} className="flex h-full w-full items-center justify-center bg-accent p-4 text-center text-sm font-medium text-primary">
+              Screenshot: {step.label} — to be added
+            </div>
+          )}
+        </div>
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.12em] text-primary">{step.number} · {step.label}</p>
+        <h3 id="office-tour-m-title" className="mt-1.5 text-lg font-extrabold leading-tight text-foreground">{step.title}</h3>
+        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{step.body}</p>
+        <ul className="mt-3 space-y-1.5">
+          {step.benefits.map((b) => (
+            <li key={b} className="flex items-center gap-2">
+              <Check className="h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+              <span className="text-[13px] font-semibold text-foreground">{b}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center justify-center gap-1.5 mt-4" aria-label={`Step ${index + 1} of ${OFFICE_TOUR_STEPS.length}`}>
+          {OFFICE_TOUR_STEPS.map((s, i) => (
+            <div
+              key={s.id}
+              className="h-1.5 rounded-full motion-safe:transition-all"
+              style={{ width: i === index ? 20 : 8, backgroundColor: i === index ? "#4A86E8" : i < index ? "#bfdbfe" : "#e2e8f0" }}
+            />
+          ))}
+          <Check className="w-3 h-3 text-muted-foreground" aria-label="Feedback" />
+        </div>
+        <div className="flex gap-2.5 mt-4">
+          {index > 0 && (
+            <button onClick={onBack} className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-[9px] border border-border bg-card text-[13px] font-semibold text-muted-foreground">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+          )}
+          <button onClick={onNext} className="flex-[2] min-h-[44px] flex items-center justify-center gap-1.5 rounded-[9px] bg-primary text-[13px] font-bold text-primary-foreground">
+            Next <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+        <button onClick={onSkip} className="block w-full min-h-[44px] text-xs text-center mt-1 text-muted-foreground">
+          Skip tour
+        </button>
+      </div>
+    </>
+  );
+};
+
 // ─── Bottom Sheet wrapper ───
-const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; maxHeight?: string }) => {
+const Sheet = ({ children, maxHeight = "44vh", backdrop = false }: { children: React.ReactNode; maxHeight?: string; backdrop?: boolean }) => {
   // On md+ screens, cap at 320px (or 56vh equivalent for intro/feedback)
   const desktopMax = maxHeight === "56vh" ? "400px" : "320px";
   return (
+    <>
+    {backdrop && <div className="fixed inset-0 z-[99]" style={{ backgroundColor: "rgba(15,23,42,0.5)" }} aria-hidden="true" />}
     <div
       className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
       style={{
@@ -247,6 +338,7 @@ const Sheet = ({ children, maxHeight = "44vh" }: { children: React.ReactNode; ma
       </div>
       {children}
     </div>
+    </>
   );
 };
 
