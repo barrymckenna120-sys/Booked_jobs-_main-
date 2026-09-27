@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
 import { normalisePublicDomain, publicDomainSaveError } from "@/lib/publicDomain";
+import BackupsRestoreCard from "@/components/admin/restore/BackupsRestoreCard";
 import {
   ArrowLeft,
   Copy,
@@ -1152,6 +1153,9 @@ export default function TenantDetail() {
           </Card>
         );
       })()}
+
+      {/* Backups & Restore (read + dry run only) */}
+      {orgId && <BackupsRestoreCard orgId={orgId} />}
 
       {/* Actions */}
 
