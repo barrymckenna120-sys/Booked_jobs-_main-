@@ -343,6 +343,50 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Record restore result (tenant_restores only)
+        if: ${{ always() && inputs.restore_id != '' }}
+        env:
+          LIVE_URL: ${{ env.DB_URL }}
+          COMPARE_OUTCOME: ${{ steps.compare.outcome }}
+        run: |
+          set -euo pipefail
+          [ -n "${LIVE_URL:-}" ] || { echo "::warning::DB_URL missing; cannot record result"; exit 0; }
+          python3 - << 'PYEOF'
+          import json, os, re, subprocess
+          PSQL = "/usr/lib/postgresql/17/bin/psql"
+          LIVE = os.environ["LIVE_URL"]
+          RID = os.environ["RESTORE_ID"]
+          ok = os.environ.get("COMPARE_OUTCOME") == "success"
+          status = "succeeded" if ok else "failed"
+          report = None
+          if os.path.exists("/tmp/report.json"):
+              with open("/tmp/report.json") as f:
+                  report = f.read()
+          err = None
+          if not ok:
+              err = f"workflow compare step outcome: {os.environ.get('COMPARE_OUTCOME', 'unknown')}"
+              err = re.sub(r"postgres(ql)?://\S+", "[redacted-url]", err)
+              err = re.sub(r"password=\S+", "password=[redacted]", err)[:300]
+          env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
+          env["PGCONNECT_TIMEOUT"] = "20"
+          sql = ("UPDATE public.tenant_restores\n"
+                 "SET status = :'status', finished_at = now(),\n"
+                 "    report = :'report'::jsonb, error = :'err'\n"
+                 "WHERE id = :'rid'::uuid;\n")
+          args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE,
+                  "-v", f"status={status}", "-v", f"rid={RID}",
+                  "-v", f"report={report or ''}", "-v", f"err={err or ''}"]
+          if report is None:
+              sql = sql.replace(":'report'::jsonb", "NULL")
+          if err is None:
+              sql = sql.replace(":'err'", "NULL")
+          r = subprocess.run(args, input=sql, capture_output=True, text=True, env=env)
+          if r.returncode != 0:
+              print("::warning::failed to record restore result (details redacted)")
+          else:
+              print(f"restore recorded as {status}")
+          PYEOF
+
       - name: Clean up
         if: always()
         run: |
