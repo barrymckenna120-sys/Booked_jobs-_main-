@@ -145,7 +145,7 @@ const AppLayoutInner = () => {
     refetchInterval: 30000,
   });
 
-  const { showTour, tourType, completeTour, skipTour, closeTour, startTour, isReplay: tourIsReplay } = useOnboardingTour(user);
+  const { showTour, tourType, completeTour, skipTour, closeTour, startTour, isReplay: tourIsReplay } = useOnboardingTour(user, "office");
 
   useEffect(() => {
     unlockAudio();
