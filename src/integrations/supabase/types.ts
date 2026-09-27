@@ -154,6 +154,69 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_run_tenants: {
+        Row: {
+          backup_run_id: string
+          counts: Json
+          organisation_id: string
+        }
+        Insert: {
+          backup_run_id: string
+          counts: Json
+          organisation_id: string
+        }
+        Update: {
+          backup_run_id?: string
+          counts?: Json
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_run_tenants_backup_run_id_fkey"
+            columns: ["backup_run_id"]
+            isOneToOne: false
+            referencedRelation: "backup_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backup_run_tenants_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backup_runs: {
+        Row: {
+          bytes: number
+          created_at: string
+          id: string
+          s3_key: string
+          sha256: string
+          stamp: string
+          table_counts: Json
+        }
+        Insert: {
+          bytes: number
+          created_at?: string
+          id?: string
+          s3_key: string
+          sha256: string
+          stamp: string
+          table_counts?: Json
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          id?: string
+          s3_key?: string
+          sha256?: string
+          stamp?: string
+          table_counts?: Json
+        }
+        Relationships: []
+      }
       boiler_brands: {
         Row: {
           brand_name: string
@@ -4219,6 +4282,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tenant_integrations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_restores: {
+        Row: {
+          backup_stamp: string
+          error: string | null
+          finished_at: string | null
+          github_run_id: number | null
+          id: string
+          mode: string
+          organisation_id: string
+          report: Json | null
+          requested_at: string
+          requested_by: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          backup_stamp: string
+          error?: string | null
+          finished_at?: string | null
+          github_run_id?: number | null
+          id?: string
+          mode: string
+          organisation_id: string
+          report?: Json | null
+          requested_at?: string
+          requested_by: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          backup_stamp?: string
+          error?: string | null
+          finished_at?: string | null
+          github_run_id?: number | null
+          id?: string
+          mode?: string
+          organisation_id?: string
+          report?: Json | null
+          requested_at?: string
+          requested_by?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_restores_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
