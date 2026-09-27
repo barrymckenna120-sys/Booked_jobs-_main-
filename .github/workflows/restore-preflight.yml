@@ -1,0 +1,72 @@
+name: Restore Preflight (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Normalise DB URL
+        env:
+          RAW: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          python3 - << 'EOF'
+          import os, urllib.parse as u
+          p = u.urlsplit(os.environ["RAW"])
+          ref = "ktkfuquqxbrmuqrmbmdj"
+          userinfo, host = p.netloc.rsplit("@", 1)
+          user, _, pw = userinfo.partition(":")
+          if "." not in u.unquote(user):
+              user = u.quote(u.unquote(user) + "." + ref, safe="")
+          q = dict(u.parse_qsl(p.query)); q.setdefault("sslmode", "require")
+          url = u.urlunsplit(("postgresql", f"{user}:{pw}@{host}", p.path or "/postgres", u.urlencode(q), ""))
+          print(f"::add-mask::{url}")
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"DB_URL={url}\n")
+          EOF
+
+      - name: Install postgresql-client 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates gnupg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Preflight checks (no changes, ROLLBACK)
+        run: |
+          set -uo pipefail
+          [ -n "${DB_URL:-}" ] || { echo "::error::DB_URL missing"; exit 1; }
+          OUT=$(/usr/lib/postgresql/17/bin/psql -qAtX -F ': ' -v ON_ERROR_STOP=1 -d "$DB_URL" <<'SQL' 2>&1
+          BEGIN;
+          SELECT 'user', current_user;
+          SELECT 'bypassrls', rolbypassrls FROM pg_roles WHERE rolname = current_user;
+          DO $$ BEGIN
+            BEGIN
+              SET LOCAL session_replication_role = replica;
+              RAISE NOTICE 'replica_mode: ALLOWED';
+            EXCEPTION WHEN others THEN
+              RAISE NOTICE 'replica_mode: DENIED (%)', SQLERRM;
+            END;
+          END $$;
+          SELECT 'owns_customers', pg_get_userbyid(relowner) = current_user
+            FROM pg_class WHERE oid = 'public.customers'::regclass;
+          SELECT 'owns_service_calls', pg_get_userbyid(relowner) = current_user
+            FROM pg_class WHERE oid = 'public.service_calls'::regclass;
+          ROLLBACK;
+          SQL
+          )
+          RC=$?
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            line=$(printf '%s' "$line" | sed -E 's#postgres(ql)?://[^[:space:]]+#[redacted-url]#g; s#password=[^[:space:]]+#password=[redacted]#g; s#^psql:[^ ]*: NOTICE: +##')
+            echo "::notice title=preflight::${line}"
+          done <<< "$OUT"
+          [ $RC -eq 0 ] || { echo "::error::preflight psql failed (exit $RC)"; exit 1; }
