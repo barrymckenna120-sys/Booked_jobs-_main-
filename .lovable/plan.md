@@ -1,36 +1,32 @@
-# Read-only diagnosis: barrytest2024+2@gmail.com — "Session expired" on Create password
+# BJ-NEW-M step 3 — Password recovery works for every tenant
 
-No code or data changed.
+Confirmed by code read: `send-reset-email` skips the send when no tenant domain resolves (the "test gas 3" case), uses the non-scanner-safe `action_link`, and `listUsers()` reads only the first page (default 50). `_shared/platformAdmin.ts` exists for the superadmin check. `TenantDetail.tsx` `handleSendReset` currently always shows a success toast.
 
-## 1. Auth logs (08:30–09:00 UTC, from auth logs)
-- 08:42:47 POST /admin/generate_link 200 — user_invited for barrytest2024+2@gmail.com (provision-tenant step 6)
-- 08:43:46 POST /verify 200 — user_signedup, login via otp (the invite token was consumed here, ~1 minute after issue)
-- 08:43:47 PUT /user 200 — user_modified (password set)
-- 08:43:47 POST /logout 204
-- 08:45:00 POST /token 400 — "Invalid login credentials" (password sign-in attempt failed)
-- 08:48:38 POST /verify 403 — error_code otp_expired, "One-time token not found"
-- 08:48:45 POST /verify 403 — error_code otp_expired, "One-time token not found"
-- Analytics log store returned no rows for the window, so the 08:49/08:51 (Dublin 09:49/09:51) presses are not yet visible; the two 08:48 403s match the same symptom (token already consumed).
+## Changes — `supabase/functions/send-reset-email/index.ts`
 
-## 2. auth.users (id 37eed0e6-a0b9-4eb8-9d32-5a8be0d340dd)
-- created_at 08:42:47.291 | invited_at 08:42:47.289 | email_confirmed_at 08:43:46.546
-- confirmation_sent_at: null | recovery_sent_at: null
-- last_sign_in_at 08:43:46.550 | updated_at 08:43:46.996
-- encrypted_password set: true
+1. **Host resolution, first non-blank wins:** `organisations.public_domain` → `tenant_integrations` whatsapp `config.domain` → `Deno.env.get("APP_PUBLIC_URL") || "https://app.bookedjobs.ie"`. The send is never skipped for a missing domain. Never another tenant's host, never `PLATFORM_PUBLIC_HOST_FALLBACK`, never a hardcoded karlsgas host. Normalise to `https://<host>` with no trailing slash (handles values already carrying a scheme).
+2. **Scanner-safe link:** from `generateLink({ type: "recovery", email })` take `properties.hashed_token` and build `<host>/reset-password?token_hash=<hashed_token>&type=recovery`. Stop using `properties.action_link`.
+3. **User lookup:** page through `listUsers({ page, perPage: 1000 })` until a page returns fewer than 1000, matching email case-insensitively.
+4. **Response shape:** if the request has an Authorization bearer token AND `_shared/platformAdmin.ts` confirms a platform admin, return `{ success: true, sent: true|false, reason: <text|null> }` with the real reason (user not found / Resend error). Everyone else keeps the generic `{ success: true }` so addresses can't be probed. The link and token are never returned or logged.
+5. **Unchanged:** Resend email design, From address, CORS handling, no template wording changes.
 
-## 3. generateLink / invite / recovery calls for this email today
-- Exactly one: provision-tenant generate_link (invite) at 08:42:47. No recovery or magic-link calls. I did not open or test any link myself.
+## Changes — `src/pages/admin/TenantDetail.tsx` (handleSendReset only)
 
-## 4. Configured OTP / link expiry
-- No `mailer_otp_exp` / `GOTRUE_MAILER_OTP_EXP` override exists in config.toml or any Edge Function — the platform default applies (1 hour / 3600s). Not confirmed from a live settings endpoint; reported as configured-state only.
+- If `data.sent === false`: error toast `Reset email NOT sent: <reason>`. Otherwise keep the current success toast.
 
-## 5. Tenant provisioning
-- Org: a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, name "test gas 3", public_domain null, subscription_status trial.
-- provision-tenant ran 08:42:46–08:42:47 (boot 08:42:46, generate_link 08:42:47). auth.users.created_at equals the run time → the email did not exist before this run.
+## Explicitly not touched
 
-## 6. profiles / engineers
-- profiles: organisation_id a7cfa53b-..., role admin, is_active true
-- engineers: organisation_id a7cfa53b-..., role admin, status active
+- provision-tenant, invite-team-member, ResetPassword.tsx, email template wording.
 
-## Key fact pattern
-The invite token was already consumed at 08:43:46 (the first successful open, which also set a password and signed the user in). Every later press of "Create password" re-verifies the same dead token → otp_expired → "Session expired". Separately: the 08:45 password login failed with invalid credentials despite the password update at 08:43:47, and no audit_log/auth_activity rows exist for the password change.
+## Verification
+
+- Deploy only `send-reset-email`; report deploy timestamp.
+- Live tests, reporting function log lines (no tokens):
+  1. /admin → "test gas 3" → Send Password Recovery for barrytest2024+2@gmail.com — email arrives; link host/path = `<APP_PUBLIC_URL host>/reset-password?token_hash=…&type=recovery` (host/path only reported).
+  2. Login page "Forgot password" for the same email — email arrives.
+  3. Login page "Forgot password" for a made-up email — generic success, no email sent.
+- Report: full diff of both files, commit hash, deploy timestamp.
+
+## Note on branch
+
+Recent work has been auto-committing to an edit branch, not `dev`. I will report the actual commit hash and branch; merging to `dev` may need a separate step.
