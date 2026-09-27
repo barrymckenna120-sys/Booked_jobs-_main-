@@ -398,12 +398,31 @@ Deno.serve(async (req) => {
 
     console.log("[tally-incoming-job] orgData.id:", orgData.id, "userId:", userId);
 
-    const { matched: customerMatched, customerId: matchedCustomerId } = await matchCustomer(
+    const { matched: phoneOrEmailMatched, customerId: matchedCustomerId } = await matchCustomer(
       supabase,
       orgData.id,
       normalisedPhone,
       email,
     );
+
+    // Shared-phone guard: if the matched customer has a DIFFERENT email on
+    // file, this is likely a different person using the same number. Never
+    // overwrite the existing customer; create a separate one and flag the job
+    // so the office decides whether they are the same person.
+    let identityConflictWith: string | null = null;
+    if (phoneOrEmailMatched && matchedCustomerId && email) {
+      const { data: existing } = await supabase
+        .from("customers")
+        .select("email")
+        .eq("id", matchedCustomerId)
+        .eq("organisation_id", orgData.id)
+        .maybeSingle();
+      const existingEmail = (existing?.email ?? "").trim().toLowerCase();
+      if (existingEmail && existingEmail !== String(email).trim().toLowerCase()) {
+        identityConflictWith = matchedCustomerId;
+      }
+    }
+    const customerMatched = phoneOrEmailMatched && !identityConflictWith;
 
     if (customerMatched && matchedCustomerId) {
       customerId = matchedCustomerId;
@@ -574,6 +593,19 @@ Deno.serve(async (req) => {
       "tally-incoming-job",
     );
 
+    // Shared-phone guard: surface for office review (existing duplicate flag).
+    if (identityConflictWith) {
+      await supabase
+        .from("service_calls")
+        .update({ possible_duplicate: true })
+        .eq("id", job.id)
+        .eq("organisation_id", orgData.id);
+      await logSubmission("shared_phone_new_customer", {
+        job_id: job.id,
+        customer_id: customerId,
+        shares_phone_with_customer_id: identityConflictWith,
+      });
+    }
 
 
 
