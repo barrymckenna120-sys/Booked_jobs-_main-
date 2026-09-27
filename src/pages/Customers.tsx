@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { addDays, isAfter, isBefore, isToday, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, ChevronLeft, ChevronRight, MapPin, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import AddCustomerSheet from "@/components/customer/AddCustomerSheet";
+import { Badge } from "@/components/ui/badge";
 import { extractRefDigits } from "@/lib/jobRefSearch";
 import NewCustomerBadge from "@/components/jobs/NewCustomerBadge";
 
@@ -40,10 +41,28 @@ const Customers = () => {
   const [addOpen, setAddOpen] = useState(false);
   // Derived (not stored): customers whose ONLY job was booked as a new customer
   const [newCustomerIds, setNewCustomerIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(searchParams.get("archived") === "1");
+  const [archivedCount, setArchivedCount] = useState<number | null>(null);
+  // Ref keeps the realtime INSERT handler in sync with the current view
+  const showArchivedRef = useRef(showArchived);
+  showArchivedRef.current = showArchived;
 
   useEffect(() => {
     if (user && ready) fetchCustomers();
-  }, [user, ready]);
+  }, [user, ready, showArchived]);
+
+  // Lightweight count of archived customers for the toggle chip
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("organisation_id", orgId)
+      .eq("is_archived", true)
+      .then(({ count }) => { if (!cancelled) setArchivedCount(count ?? 0); });
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   // Derive the "New Customer" badge from existing job rows: exactly one job total
   // and that job was booked with customer_status_at_booking = 'new'.
@@ -86,7 +105,7 @@ const Customers = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilters, selectedTags]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, areaFilters, selectedTags, showArchived]);
 
   // When search looks like a job ref, look up the linked customer
   useEffect(() => {
@@ -155,10 +174,11 @@ const Customers = () => {
     if (!orgId) return;
     setLoading(true);
     const CACHE_KEY = "bookedjobs_customers_cache";
+    const archived = showArchivedRef.current;
 
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
+      // Cached copy is only used for the normal (non-archived) list
+      if (cached && !archived) {
         const parsed = JSON.parse(cached);
         setCustomers((parsed || []).filter((c: any) => !c.is_archived));
         setLoading(false);
@@ -166,12 +186,13 @@ const Customers = () => {
     } catch (e) {}
 
     try {
-      const { data } = await supabase
+      const query = supabase
         .from("customers")
         .select("*")
         .eq("organisation_id", orgId)
-        .eq("is_archived", false)
+        .eq("is_archived", archived)
         .order("name");
+      const { data } = await query;
       if (data) {
         // Sort by surname (last word of name) A-Z
         data.sort((a: any, b: any) => {
@@ -180,15 +201,27 @@ const Customers = () => {
           return surnameA.localeCompare(surnameB);
         });
         setCustomers(data);
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify(data || []));
-        } catch (e) {}
+        // Archived results must never be written to the cache
+        if (!archived) {
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data || []));
+          } catch (e) {}
+        }
       }
     } catch (error) {
       setTimeout(() => fetchCustomers(), 5000);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleArchived = () => {
+    const next = !showArchived;
+    setShowArchived(next);
+    const p = new URLSearchParams(searchParams);
+    if (next) p.set("archived", "1");
+    else p.delete("archived");
+    setSearchParams(p);
   };
 
   const areaCounts = useMemo(() => {
