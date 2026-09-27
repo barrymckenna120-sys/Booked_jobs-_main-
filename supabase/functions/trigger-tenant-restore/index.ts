@@ -98,28 +98,36 @@ Deno.serve(async (req) => {
     const restoreId = restore.id as string;
 
     // Dispatch the GitHub Actions workflow
-    const pat = Deno.env.get("GITHUB_ACTIONS_PAT");
-    if (!pat) {
-      await supabase
-        .from("tenant_restores")
-        .update({ status: "failed", error: "GitHub dispatch failed (no PAT configured)" })
-        .eq("id", restoreId);
-      return json(cors, 502, { error: "GitHub dispatch failed (no PAT configured)" });
+    const failRestore = async (msg: string) => {
+      await supabase.from("tenant_restores").update({ status: "failed", error: msg }).eq("id", restoreId);
+      return json(cors, 502, { error: msg });
+    };
+    const pat = (Deno.env.get("GITHUB_ACTIONS_PAT") ?? "").trim();
+    if (!pat) return await failRestore("GitHub dispatch failed (no PAT configured)");
+    // A token pasted with hidden/non-ASCII characters makes fetch() throw
+    // "not a valid ByteString" — fail the row cleanly instead of leaving it queued.
+    if (!/^[\x21-\x7E]+$/.test(pat)) {
+      return await failRestore("GitHub dispatch failed (PAT contains invalid characters — re-enter the secret)");
     }
 
-    const gh = await fetch(DISPATCH_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${pat}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "User-Agent": "bookedjobs-tenant-restore",
-      },
-      body: JSON.stringify({
-        ref: "dev",
-        inputs: { org_id: organisationId, backup: backupStamp, mode, restore_id: restoreId },
-      }),
-    });
+    let gh: Response;
+    try {
+      gh = await fetch(DISPATCH_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "User-Agent": "bookedjobs-tenant-restore",
+        },
+        body: JSON.stringify({
+          ref: "dev",
+          inputs: { org_id: organisationId, backup: backupStamp, mode, restore_id: restoreId },
+        }),
+      });
+    } catch (_e) {
+      return await failRestore("GitHub dispatch failed (network error)");
+    }
 
     if (gh.status !== 204) {
       const msg = `GitHub dispatch failed (${gh.status})`;
