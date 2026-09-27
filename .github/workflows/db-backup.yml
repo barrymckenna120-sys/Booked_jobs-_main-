@@ -153,3 +153,43 @@ jobs:
           aws s3 cp "/tmp/$FILE" "s3://bookedjobs-db-backups-eu-west-1/daily/$FILE"
           aws s3 cp "/tmp/backup-$STAMP.manifest.json" "s3://bookedjobs-db-backups-eu-west-1/daily/backup-$STAMP.manifest.json"
           echo "Backup complete: $FILE"
+
+      - name: Record restore point
+        run: |
+          set -euo pipefail
+          MF="/tmp/backup-$STAMP.manifest.json"
+          BYTES=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['bytes'])" "$MF")
+          SHA=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['sha256'])" "$MF")
+          TABLES=$(python3 -c "import json,sys;print(json.dumps(json.load(open(sys.argv[1]))['tables']))" "$MF")
+          OUT=$(/usr/lib/postgresql/17/bin/psql "$DB_URL" -qAtX -v ON_ERROR_STOP=1 \
+            -v stamp="$STAMP" -v file="$FILE" -v bytes="$BYTES" -v sha="$SHA" -v tables="$TABLES" <<'SQL' 2>&1
+          BEGIN;
+          WITH ins AS (
+            INSERT INTO public.backup_runs (stamp, s3_key, bytes, sha256, table_counts)
+            VALUES (:'stamp', 'daily/' || :'file', :'bytes'::bigint, :'sha', :'tables'::jsonb)
+            ON CONFLICT (stamp) DO NOTHING
+            RETURNING id
+          )
+          SELECT coalesce((SELECT id FROM ins), (SELECT id FROM public.backup_runs WHERE stamp = :'stamp')) AS run_id \gset
+          INSERT INTO public.backup_run_tenants (backup_run_id, organisation_id, counts)
+          SELECT :'run_id'::uuid, o.id, jsonb_build_object(
+                   'customers',        (SELECT count(*) FROM public.customers        WHERE organisation_id = o.id),
+                   'service_calls',    (SELECT count(*) FROM public.service_calls    WHERE organisation_id = o.id),
+                   'quotes',           (SELECT count(*) FROM public.quotes           WHERE organisation_id = o.id),
+                   'invoices',         (SELECT count(*) FROM public.invoices         WHERE organisation_id = o.id),
+                   'job_payments',     (SELECT count(*) FROM public.job_payments     WHERE organisation_id = o.id),
+                   'certificates',     (SELECT count(*) FROM public.certificates     WHERE organisation_id = o.id),
+                   'job_media',        (SELECT count(*) FROM public.job_media        WHERE organisation_id = o.id),
+                   'job_messages',     (SELECT count(*) FROM public.job_messages     WHERE organisation_id = o.id),
+                   'engineers',        (SELECT count(*) FROM public.engineers        WHERE organisation_id = o.id),
+                   'boiler_enquiries', (SELECT count(*) FROM public.boiler_enquiries WHERE organisation_id = o.id),
+                   'parts_requests',   (SELECT count(*) FROM public.parts_requests   WHERE organisation_id = o.id)
+                 )
+          FROM public.organisations o
+          ON CONFLICT (backup_run_id, organisation_id) DO UPDATE SET counts = EXCLUDED.counts;
+          DELETE FROM public.backup_runs WHERE created_at < now() - interval '35 days';
+          COMMIT;
+          SELECT 'restore point recorded: ' || :'stamp';
+          SQL
+          ) || { echo "::error::restore point recording failed (details redacted)"; exit 1; }
+          echo "$OUT"
