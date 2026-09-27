@@ -10,7 +10,7 @@ import {
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2, Briefcase,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { LifeBuoy } from "lucide-react";
+import { LifeBuoy, HelpCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
