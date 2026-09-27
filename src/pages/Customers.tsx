@@ -160,7 +160,7 @@ const Customers = () => {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        setCustomers(parsed || []);
+        setCustomers((parsed || []).filter((c: any) => !c.is_archived));
         setLoading(false);
       }
     } catch (e) {}
@@ -170,6 +170,7 @@ const Customers = () => {
         .from("customers")
         .select("*")
         .eq("organisation_id", orgId)
+        .eq("is_archived", false)
         .order("name");
       if (data) {
         // Sort by surname (last word of name) A-Z
