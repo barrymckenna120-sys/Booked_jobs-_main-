@@ -75,7 +75,7 @@ const RenewalDetailSheet = ({ customer, status, daysUntil, reminderSent, open, o
             <div className="bg-card rounded-lg p-3 text-sm font-mono leading-relaxed">
               Hi {customer.name.split(" ")[0]},<br />
               Your annual boiler service is due on <strong>{formatDate(customer.next_service_due)}</strong>.<br />
-              Reply YES to confirm or call us. Karl's Gas 🔥
+              Reply YES to confirm or call us.{brandName ? ` ${brandName} 🔥` : ""}
             </div>
           </div>
 

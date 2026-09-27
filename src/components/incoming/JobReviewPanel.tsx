@@ -192,7 +192,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
 
   const handleContact = () => {
     const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
-    const msg = `Hi ${customer.name.split(" ")[0]}, thanks for booking with Karl's Gas.\nWe've received your boiler service request and will confirm your appointment shortly.\nKarl's Gas 🔥`;
+    const msg = `Hi ${customer.name.split(" ")[0]}, thanks for booking${brandName ? ` with ${brandName}` : ""}.\nWe've received your boiler service request and will confirm your appointment shortly.${brandName ? `\n${brandName} 🔥` : ""}`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 
     if (user) {
