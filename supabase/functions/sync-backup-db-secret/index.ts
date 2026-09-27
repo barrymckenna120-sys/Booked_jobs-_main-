@@ -138,6 +138,6 @@ Deno.serve(async (req: Request) => {
       orig_host: origHost,
     });
   } catch (_e) {
-    return json({ ok: false, error: "internal" }, 500);
+    return json({ ok: false, error: "internal", detail: String(_e).slice(0, 150) }, 500);
   }
 });
