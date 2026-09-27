@@ -5,7 +5,7 @@ export const generateImportTemplate = () => {
 
   // Title row, blank row, category headers, column headers, example row
   const data: any[][] = [
-    ["Karl's Gas — Customer Import Template"],
+    ["Customer Import Template"],
     [],
     [
       "CONTACT INFO", "", "", "", "", "", "",
@@ -32,7 +32,7 @@ export const generateImportTemplate = () => {
       "Mary O'Brien", "086 987 6543", "mary.obrien@gmail.com", "45 Oak Drive, Malahide", "D13 XY98", "01", "10007654321",
       "Ring doorbell, dog in garden",
       "Worcester", "Greenstar", "Oil", "22/08/2020", "Yes", "7",
-      "05/03/2024", "Karl", "Annual service done", "05/03/2025", "Due Soon", "Karl",
+      "05/03/2024", "Jane Smith", "Annual service done", "05/03/2025", "Due Soon", "Jane Smith",
       "", "15/01/2020",
     ],
     [
@@ -46,7 +46,7 @@ export const generateImportTemplate = () => {
       "Sarah Kelly", "083 222 9876", "sarah.k@hotmail.com", "3 Castle View, Trim", "C15 LM56", "046", "10009998888",
       "Enter through back door",
       "Ideal", "Logic+", "Gas", "30/06/2021", "Yes", "10",
-      "12/01/2025", "Karl", "All good", "12/01/2026", "Up to Date", "Karl",
+      "12/01/2025", "Jane Smith", "All good", "12/01/2026", "Up to Date", "Jane Smith",
       "Prefers morning appointments", "05/03/2021",
     ],
   ];
