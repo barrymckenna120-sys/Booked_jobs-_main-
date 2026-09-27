@@ -188,8 +188,8 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: Offic
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-center gap-1.5 mt-4" aria-label={`Step ${index + 1} of ${OFFICE_TOUR_STEPS.length}`}>
-          {OFFICE_TOUR_STEPS.map((s, i) => (
+        <div className="flex items-center justify-center gap-1.5 mt-4" aria-label={`Step ${index + 1} of ${steps.length}`}>
+          {steps.map((s, i) => (
             <div
               key={s.id}
               className="h-1.5 rounded-full motion-safe:transition-all"
