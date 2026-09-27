@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS customers_delete ON public.customers;
