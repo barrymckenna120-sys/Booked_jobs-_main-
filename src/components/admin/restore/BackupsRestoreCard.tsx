@@ -170,6 +170,30 @@ export default function BackupsRestoreCard({ orgId, orgName }: { orgId: string; 
     }
   };
 
+  const startRecover = async (row: RestoreRow) => {
+    setStarting(row.id);
+    try {
+      const { error } = await supabase.functions.invoke("trigger-tenant-restore", {
+        body: {
+          organisation_id: orgId,
+          backup_stamp: row.backup_stamp,
+          mode: "recover_missing",
+          dry_run_id: row.id,
+          confirm: true,
+        },
+      });
+      if (error) {
+        const { status, message } = await errorText(error);
+        toast.error(status === 409 ? "A restore is already running for this tenant" : message);
+      } else {
+        toast.success("Recovery started");
+      }
+    } finally {
+      setStarting(null);
+      loadHistory();
+    }
+  };
+
   const countsCells = (c: Record<string, number> | null) => [
     ["Customers", c?.customers],
     ["Jobs", c?.service_calls],
@@ -284,11 +308,19 @@ export default function BackupsRestoreCard({ orgId, orgName }: { orgId: string; 
                       </span>
                       <span className="font-mono text-xs text-muted-foreground">{r.backup_stamp}</span>
                       <span className="text-xs">{r.mode}</span>
-                      <Badge variant="outline" className={STATUS_CLASS[r.status] ?? ""}>{r.status}</Badge>
+                      <Badge variant="outline" className={STATUS_CLASS[r.status] ?? ""}>{statusLabel(r)}</Badge>
                       <span className="font-mono text-xs text-muted-foreground md:ml-auto">
                         {formatDuration(r.started_at, r.finished_at)}
                       </span>
                     </button>
+                    {canRecover(r) && (
+                      <div className="flex justify-end px-3 pb-2">
+                        <Button size="sm" variant="destructive" disabled={starting !== null}
+                          onClick={() => setRecoverTarget(r)}>
+                          Recover missing rows
+                        </Button>
+                      </div>
+                    )}
                     {open && <ReportView row={r} />}
                   </div>
                 );
