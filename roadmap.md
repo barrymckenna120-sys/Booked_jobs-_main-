@@ -107,3 +107,4 @@
 - [ ] Close abdenneur1's 5 sandbox SumUp deposit links (needs separate approval)
 - [ ] BJ-NEW-M step 1 — code done (verify on submit only, invite support). Open: live Test 1/2 need someone with a Cavan test inbox to open the reset email.
 - [x] Office onboarding tour desktop (≥1024px) dialog redesign + Help → Replay tour (local-only replay).
+- [ ] Tour type by layout: (c) engineer invite awaits scratch email from user

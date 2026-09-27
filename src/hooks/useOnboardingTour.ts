@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole, type AppRole } from "@/hooks/useUserRole";
 import type { User } from "@supabase/supabase-js";
 
 export type TourType = "office" | "engineer";
@@ -19,17 +18,17 @@ interface UseOnboardingTourReturn {
 
 const localKey = (userId: string) => `onboarding_tour_completed_${userId}`;
 
-export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn => {
-  const { role, loading: roleLoading } = useUserRole(user);
+export const useOnboardingTour = (user: User | null, layout: TourType): UseOnboardingTourReturn => {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [showTour, setShowTour] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const tourType: TourType = role === "engineer" ? "engineer" : "office";
+  // Tour type follows the app the user is in, never their role.
+  const tourType: TourType = layout;
 
   // Read onboarding_complete from localStorage first, then profiles
   useEffect(() => {
-    if (!user || roleLoading) return;
+    if (!user) return;
 
     // Check localStorage first — fast & reliable
     if (localStorage.getItem(localKey(user.id)) === "true") {
@@ -60,7 +59,7 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
     };
 
     fetchStatus();
-  }, [user, roleLoading]);
+  }, [user]);
 
   // A replay (from Help) is local-only: finishing/skipping it never writes again.
   const [isReplay, setIsReplay] = useState(false);
