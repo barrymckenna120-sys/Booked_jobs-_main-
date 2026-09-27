@@ -158,7 +158,7 @@ jobs:
 
           def run(side, sql):
               if side == "live":
-                  args = [PSQL, LIVE, "-qAtX", "-v", "ON_ERROR_STOP=1"]; env = LIVE_ENV
+                  args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE]; env = LIVE_ENV
                   sql = ("SET TIME ZONE 'UTC';\nSET default_transaction_read_only = on;\n"
                          "BEGIN TRANSACTION READ ONLY;\n" + sql + "\nCOMMIT;\n")
               else:
@@ -210,8 +210,8 @@ jobs:
 
           try:
               run("live", "SELECT 1;")
-          except RuntimeError:
-              print("::error::Could not connect to live database (details redacted)"); sys.exit(1)
+          except RuntimeError as e:
+              print(f"::error::Could not connect to live database: {e}"); sys.exit(1)
 
           results = []; errors = 0
           for table, parent, fk in [(t, None, None) for t in DIRECT] + CHILDREN:
