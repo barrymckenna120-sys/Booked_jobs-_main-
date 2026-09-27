@@ -12,6 +12,7 @@ import {
   MessageSquareText,
   ShieldAlert,
   UserRoundCheck,
+  Star,
 } from "lucide-react";
 import AppLogo from "@/components/shared/AppLogo";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,8 @@ export type AdminSection =
   | "user-activity"
   | "import-runs"
   | "delivery-issues"
-  | "support-reports";
+  | "support-reports"
+  | "tour-feedback";
 
 const groups = [
   {
@@ -45,6 +47,7 @@ const groups = [
     items: [
       { value: "delivery-issues" as const, label: "Delivery Issues", icon: ShieldAlert },
       { value: "support-reports" as const, label: "Support Reports", icon: LifeBuoy },
+      { value: "tour-feedback" as const, label: "Tour Feedback", icon: Star },
     ],
   },
 ];
@@ -65,6 +68,7 @@ export const ADMIN_SECTION_LABELS: Record<AdminSection, string> = {
   "import-runs": "Import Runs",
   "delivery-issues": "Delivery Issues",
   "support-reports": "Support Reports",
+  "tour-feedback": "Tour Feedback",
 };
 
 const AdminNavigation = ({

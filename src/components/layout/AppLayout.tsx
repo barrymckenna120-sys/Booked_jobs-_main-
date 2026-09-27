@@ -145,7 +145,7 @@ const AppLayoutInner = () => {
     refetchInterval: 30000,
   });
 
-  const { showTour, tourType, completeTour, skipTour, closeTour, startTour } = useOnboardingTour(user);
+  const { showTour, tourType, completeTour, skipTour, closeTour, startTour, isReplay: tourIsReplay } = useOnboardingTour(user);
 
   useEffect(() => {
     unlockAudio();
@@ -436,6 +436,7 @@ const AppLayoutInner = () => {
           open={showTour}
           tourType={tourType}
           userId={user.id}
+          isReplay={tourIsReplay}
           onComplete={completeTour}
           onSkip={skipTour}
           onClose={closeTour}

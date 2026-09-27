@@ -3,14 +3,19 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OFFICE_TOUR_STEPS } from "./officeTourSteps";
+import TourFeedbackForm from "./TourFeedbackForm";
+import type { TourType } from "@/hooks/useOnboardingTour";
 
 interface Props {
+  tourType: TourType;
+  isReplay: boolean;
   onFinish: () => void;
   onSkip: () => void;
 }
 
 /** Desktop (≥1024px) office tour: centred dialog over the live app. Never navigates. */
-const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
+const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
+  const [showFeedback, setShowFeedback] = useState(false);
   const steps = OFFICE_TOUR_STEPS;
   const [index, setIndex] = useState(0);
   const step = steps[index];
@@ -25,12 +30,12 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
     }
   }, [next]);
 
-  const goNext = () => (isLast ? onFinish() : setIndex((i) => i + 1));
+  const goNext = () => (isLast ? setShowFeedback(true) : setIndex((i) => i + 1));
   const goBack = () => setIndex((i) => Math.max(0, i - 1));
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;
-    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
+    if (showFeedback || t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
     if (e.key === "ArrowRight") { e.preventDefault(); if (!isLast) setIndex((i) => i + 1); }
     if (e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
   };
@@ -40,8 +45,8 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-[rgba(15,23,42,0.5)] motion-safe:animate-in motion-safe:fade-in-0" />
         <DialogPrimitive.Content
-          aria-labelledby="office-tour-title"
-          aria-describedby="office-tour-body"
+          aria-labelledby={showFeedback ? "office-tour-feedback-title" : "office-tour-title"}
+          aria-describedby={showFeedback ? undefined : "office-tour-body"}
           onKeyDown={onKeyDown}
           onPointerDownOutside={(e) => e.preventDefault()}
           className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-48px)] max-w-[960px] max-h-[calc(100vh-48px)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl focus:outline-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
@@ -49,13 +54,13 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
           <div className="flex items-start justify-between gap-4">
             <div role="tablist" aria-label="Tour steps" className="flex flex-wrap gap-2">
               {steps.map((s, i) => {
-                const active = i === index;
+                const active = !showFeedback && i === index;
                 return (
                   <button
                     key={s.id}
                     role="tab"
                     aria-selected={active}
-                    onClick={() => setIndex(i)}
+                    onClick={() => { setShowFeedback(false); setIndex(i); }}
                     className={cn(
                       "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors motion-reduce:transition-none",
                       active
@@ -67,6 +72,15 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
                   </button>
                 );
               })}
+              <span
+                aria-label="Feedback"
+                className={cn(
+                  "flex items-center rounded-lg border px-2 py-1.5",
+                  showFeedback ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground",
+                )}
+              >
+                <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </span>
             </div>
             <button
               onClick={onSkip}
@@ -76,6 +90,12 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
             </button>
           </div>
 
+          {showFeedback ? (
+            <div className="mx-auto mt-8 mb-2 w-full max-w-[420px]">
+              <DialogPrimitive.Title className="sr-only">Tour feedback</DialogPrimitive.Title>
+              <TourFeedbackForm tourType={tourType} isReplay={isReplay} onDone={onFinish} titleId="office-tour-feedback-title" />
+            </div>
+          ) : (<>
           <div className="mt-6 grid grid-cols-[55%_1fr] gap-8 items-center">
             <div className="aspect-[16/10] overflow-hidden rounded-xl shadow-md bg-accent">
               {step.hasImage ? (
@@ -122,9 +142,10 @@ const OfficeTourDesktop = ({ onFinish, onSkip }: Props) => {
               onClick={goNext}
               className="flex min-w-[140px] items-center justify-center gap-1.5 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90"
             >
-              {isLast ? "Finish" : <>Next <ArrowRight className="h-4 w-4" /></>}
+              Next <ArrowRight className="h-4 w-4" />
             </button>
           </div>
+          </>)}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

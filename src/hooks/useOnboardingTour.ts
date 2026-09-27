@@ -13,6 +13,7 @@ interface UseOnboardingTourReturn {
   completeTour: () => Promise<void>;
   skipTour: () => Promise<void>;
   closeTour: () => void;
+  isReplay: boolean;
   loading: boolean;
 }
 
@@ -106,6 +107,7 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
     completeTour,
     skipTour,
     closeTour,
+    isReplay,
     loading,
   };
 };
