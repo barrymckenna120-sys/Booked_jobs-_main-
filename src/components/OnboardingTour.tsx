@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Monitor, Smartphone, ArrowLeft, ArrowRight, Check } from "lucide-react";
+import type { TourType } from "@/hooks/useOnboardingTour";
 import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
-import { OFFICE_TOUR_STEPS } from "@/components/onboarding/officeTourSteps";
+import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "@/components/onboarding/officeTourSteps";
 import { ENGINEER_TOUR_STEPS } from "@/components/onboarding/engineerTourSteps";
 
 interface Props {
