@@ -1,0 +1,128 @@
+name: Database Restore Test
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'  # 1st of month, 03:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: db-restore-test
+      cancel-in-progress: false
+    steps:
+      - name: Start postgres 17 container with random password (never printed)
+        run: |
+          set -euo pipefail
+          PW=$(openssl rand -hex 32)
+          echo "::add-mask::$PW"
+          docker run -d --name pgrestore -e POSTGRES_PASSWORD="$PW" -p 5432:5432 postgres:17
+          for i in $(seq 1 30); do
+            if docker exec pgrestore pg_isready -U postgres >/dev/null 2>&1; then break; fi
+            if [ "$i" = "30" ]; then echo "::error::postgres did not become ready in 60s"; exit 1; fi
+            sleep 2
+          done
+          echo "PGPASSWORD=$PW" >> "$GITHUB_ENV"
+          echo "PGHOST=localhost" >> "$GITHUB_ENV"
+          echo "PGUSER=postgres" >> "$GITHUB_ENV"
+          echo "PGDATABASE=postgres" >> "$GITHUB_ENV"
+
+      - name: Install postgresql-client 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates gnupg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::417953280285:role/bookedjobs-github-restore-test
+          role-session-name: bookedjobs-db-restore-test-${{ github.run_id }}
+          aws-region: eu-west-1
+
+      - name: Download newest backup + manifest
+        run: |
+          set -euo pipefail
+          B=s3://bookedjobs-db-backups-eu-west-1/daily/
+          FILE=$(aws s3 ls "$B" | awk '{print $4}' | grep -E '^backup-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4}\.sql\.gz$' | sort | tail -1)
+          [ -n "$FILE" ] || { echo "::error::No backup found"; exit 1; }
+          STAMP=${FILE#backup-}; STAMP=${STAMP%.sql.gz}
+          MAN="backup-$STAMP.manifest.json"
+          aws s3 cp --only-show-errors "$B$FILE" "/tmp/$FILE"
+          if ! aws s3 cp --only-show-errors "$B$MAN" "/tmp/$MAN"; then
+            echo "::error::Manifest $MAN missing"; exit 1
+          fi
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          echo "MAN=$MAN" >> "$GITHUB_ENV"
+          echo "Using $FILE"
+
+      - name: Verify sha256
+        run: |
+          set -euo pipefail
+          ACT=$(sha256sum "/tmp/$FILE" | awk '{print $1}')
+          EXP=$(python3 -c "import json,os;print(json.load(open('/tmp/'+os.environ['MAN']))['sha256'])")
+          if [ "$ACT" != "$EXP" ]; then echo "::error::sha256 mismatch"; exit 1; fi
+          echo "sha256 OK"
+
+      - name: Create Supabase roles and restore
+        run: |
+          set -euo pipefail
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          for r in anon authenticated service_role supabase_admin supabase_auth_admin authenticator dashboard_user supabase_storage_admin; do
+            $PSQL -qAt -c "DO \$\$BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='$r') THEN CREATE ROLE $r; END IF; END\$\$;" >/dev/null
+          done
+          # Errors expected from missing platform extensions/schemas
+          # (pg_cron, pg_net, supabase_vault, pgmq). psql stdout is discarded
+          # and stderr goes to a file; only error COUNTS are printed, so row
+          # data never reaches the log.
+          set +e
+          zcat "/tmp/$FILE" | $PSQL -q -v ON_ERROR_STOP=0 >/dev/null 2>/tmp/restore.err
+          set -e
+          TOTAL=$(grep -c '^psql:.*ERROR' /tmp/restore.err || true)
+          OTHER=$(grep '^psql:.*ERROR' /tmp/restore.err | grep -viE 'pg_cron|pg_net|supabase_vault|pgmq|vault|cron|net\.|extensions?' | wc -l || true)
+          echo "restore errors: total=$TOTAL non_platform=$OTHER"
+
+      - name: Compare row counts
+        run: |
+          set -euo pipefail
+          python3 - << 'PYEOF'
+          import json, os, subprocess, sys
+          man = json.load(open(f"/tmp/{os.environ['MAN']}"))
+          psql = "/usr/lib/postgresql/17/bin/psql"
+          fails = 0; ok = 0; bad_lines = []
+          for key in sorted(man["tables"]):
+              exp = man["tables"][key].get("dump_count")
+              schema, table = key.split(".", 1)
+              q = 'SELECT count(*) FROM "%s"."%s"' % (schema.replace('"','""'), table.replace('"','""'))
+              r = subprocess.run([psql, "-qAt", "-c", q], capture_output=True, text=True)
+              got = r.stdout.strip() if r.returncode == 0 else "MISSING"
+              print(f"{key} restored={got} expected={exp if exp is not None else 'MISSING'}")
+              if exp is None or got == "MISSING" or int(got) != int(exp):
+                  fails += 1
+                  bad_lines.append(f"{key} restored={got} expected={exp if exp is not None else 'MISSING'}")
+              else:
+                  ok += 1
+          status = "PASS" if fails == 0 else "FAIL"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
+              s.write(f"## Restore test: {status}\n\nBackup: `{os.environ['FILE']}`\n\n")
+              s.write(f"Tables matched: {ok} / {ok + fails}; mismatched or missing: {fails}\n\n")
+              if bad_lines:
+                  s.write("```\n" + "\n".join(bad_lines) + "\n```\n")
+          sys.exit(1 if fails else 0)
+          PYEOF
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker rm -f pgrestore || true
+          rm -rf /tmp/backup-*.sql.gz /tmp/backup-*.manifest.json /tmp/restore.err
