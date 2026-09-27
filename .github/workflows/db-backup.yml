@@ -29,7 +29,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/bookedjobs-github-backup
+          role-to-assume: arn:aws:iam::417953280285:role/bookedjobs-github-backup
           role-session-name: bookedjobs-db-backup-${{ github.run_id }}
           aws-region: eu-west-1
 
