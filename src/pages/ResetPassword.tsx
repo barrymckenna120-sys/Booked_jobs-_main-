@@ -29,7 +29,19 @@ const parseTokensFromUrl = () => {
 const hasRecoveryIntent = () => {
   const hash = window.location.hash;
   const params = new URLSearchParams(window.location.search);
-  return hash.includes("type=recovery") || params.get("type") === "recovery";
+  return (
+    hash.includes("type=recovery") ||
+    hash.includes("type=invite") ||
+    params.get("type") === "recovery" ||
+    params.get("type") === "invite"
+  );
+};
+
+/** Resolves the one-time-token type: missing → recovery; anything other than invite/recovery → null (rejected). */
+export const resolveOtpType = (type: string | null): "invite" | "recovery" | null => {
+  if (!type) return "recovery";
+  if (type === "invite" || type === "recovery") return type;
+  return null;
 };
 
 const ResetPassword = () => {
@@ -43,6 +55,15 @@ const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isInvite] = useState(() => parseTokensFromUrl().type === "invite");
+
+  const stripTokenFromUrlNow = () => {
+    try {
+      window.history.replaceState({}, "", "/reset-password");
+    } catch {
+      /* noop */
+    }
+  };
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
@@ -65,19 +86,11 @@ const ResetPassword = () => {
     const establish = async () => {
       const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
 
-      // Method 1: OTP token + email
-      if (token && email) {
-        const { error: otpError } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
-        if (!otpError) { stripTokenFromUrl(); setSessionReady(true); setShowForm(true); return; }
-        if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
-        return;
-      }
-
-      // Method 2: PKCE token_hash
-      if (token_hash && type === "recovery") {
-        const { error: hashError } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
-        if (!hashError) { stripTokenFromUrl(); setSessionReady(true); setShowForm(true); return; }
-        if (!hasRecoveryIntent()) { setError("This link has expired or is invalid. Please request a new password reset."); }
+      // Methods 1 & 2: one-time token links (token + email, or token_hash).
+      // Never verify on page load — email link scanners would consume the token.
+      // Verification happens only on submit in establishSessionIfNeeded().
+      if (token || token_hash) {
+        setShowForm(true);
         return;
       }
 
@@ -126,15 +139,19 @@ const ResetPassword = () => {
     if (session?.user) return true;
 
     // Try to establish from URL tokens
-    const { access_token, refresh_token, token, token_hash, email } = parseTokensFromUrl();
+    const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
 
-    if (token && email) {
-      const { error } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
-      if (!error) return true;
-    }
-    if (token_hash) {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: "recovery" });
-      if (!error) return true;
+    if (token || token_hash) {
+      const otpType = resolveOtpType(type);
+      if (!otpType) return false;
+      if (token && email) {
+        const { error } = await supabase.auth.verifyOtp({ email, token, type: otpType });
+        if (!error) { stripTokenFromUrlNow(); return true; }
+      }
+      if (token_hash) {
+        const { error } = await supabase.auth.verifyOtp({ token_hash, type: otpType });
+        if (!error) { stripTokenFromUrlNow(); return true; }
+      }
     }
     if (access_token && refresh_token) {
       const { error } = await supabase.auth.setSession({ access_token, refresh_token });
@@ -193,7 +210,7 @@ const ResetPassword = () => {
           entity_type: "user",
           entity_id: user.id,
           detail: `Password reset completed by ${user.email}`,
-          metadata: { target_email: user.email, triggered_by: "self" },
+          metadata: { target_email: user.email, triggered_by: isInvite ? "invite" : "self" },
         });
         logAuthActivity({
           event_type: "password_changed",
@@ -255,8 +272,8 @@ const ResetPassword = () => {
         <CardHeader className="text-center space-y-3 pb-2">
           <AppLogo variant="mark" size="large" className="mx-auto" />
           <div>
-            <CardTitle className="text-xl text-foreground">Set New Password</CardTitle>
-            <CardDescription className="mt-1">Choose a secure password for your account</CardDescription>
+            <CardTitle className="text-xl text-foreground">{isInvite ? "Set up your account" : "Set New Password"}</CardTitle>
+            <CardDescription className="mt-1">{isInvite ? "Choose a password to finish setting up your account." : "Choose a secure password for your account"}</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="pt-4">
@@ -308,7 +325,7 @@ const ResetPassword = () => {
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading || !newPassword}>
-              {loading ? "Updating…" : "Update Password"}
+              {loading ? "Updating…" : isInvite ? "Create password" : "Update Password"}
             </Button>
           </form>
         </CardContent>

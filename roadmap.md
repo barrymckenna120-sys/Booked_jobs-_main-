@@ -105,3 +105,4 @@
 - [ ] "Thanks, Dublin Gas" → K&N name in Make confirmation (user in Make; verify message log)
 - [ ] Rotate WHATSAPP_INBOUND_SECRET, set ?s= in 360 Messenger, verify STOP opt-out (McKenna test number)
 - [ ] Close abdenneur1's 5 sandbox SumUp deposit links (needs separate approval)
+- [ ] BJ-NEW-M step 1 — scanner-safe Set Password page (verify only on submit, invite support); report reset link format + reuse behaviour.
