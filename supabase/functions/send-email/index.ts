@@ -7,8 +7,20 @@ const RESEND_FROM_NAME = Deno.env.get("RESEND_FROM_NAME") || "BookedJobs";
 const RESEND_FROM_EMAIL_OVERRIDE = Deno.env.get("RESEND_FROM_EMAIL") || null;
 
 
+// Tenant branding for email copy — resolved per request from the caller's org
+// via the shared resolver. Blank values are omitted, never replaced by another
+// tenant's details.
+interface EmailBrand { name: string; email: string; phone: string }
+function esc(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function brandFooterHtml(b: EmailBrand): string {
+  const help = b.email ? `<p>Need help? <a href="mailto:${esc(b.email)}">${esc(b.email)}</a></p>\n      ` : "";
+  return `${help}<p class="tagline">© 2026 BookedJobs${b.name ? ` · ${esc(b.name)}` : ""} · All rights reserved</p>`;
+}
+
 // ── Template: Welcome ─────────────────────────────────────
-function welcomeHtml(data: { name: string; email: string; role: string; loginUrl: string }): string {
+function welcomeHtml(data: { name: string; email: string; role: string; loginUrl: string }, brand: EmailBrand): string {
   const roleLabel = data.role === "admin" ? "Admin" : data.role === "office" ? "Office" : "Engineer";
   const loginUrl = data.loginUrl || APP_URL;
   return `<!DOCTYPE html>
@@ -102,8 +114,7 @@ function welcomeHtml(data: { name: string; email: string; role: string; loginUrl
     </div>
 
     <div class="footer">
-      <p>Need help? <a href="mailto:support@karlsgas.ie">support@karlsgas.ie</a></p>
-      <p class="tagline">© 2026 BookedJobs · Karl's Gas · All rights reserved</p>
+      ${brandFooterHtml(brand)}
     </div>
   </div>
 </body>
@@ -111,7 +122,7 @@ function welcomeHtml(data: { name: string; email: string; role: string; loginUrl
 }
 
 // ── Template: Job Assigned ────────────────────────────────
-function jobAssignedHtml(data: { engineerName: string; jobRef: string; date: string; time: string; customerName: string; address: string; phone: string; jobType: string }): string {
+function jobAssignedHtml(data: { engineerName: string; jobRef: string; date: string; time: string; customerName: string; address: string; phone: string; jobType: string }, brand: EmailBrand): string {
   const jobUrl = APP_URL;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -204,15 +215,14 @@ function jobAssignedHtml(data: { engineerName: string; jobRef: string; date: str
 
         <div class="notice">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-          <p>Please confirm you've seen this job by logging into BookedJobs. If you have any issues contact Karl directly.</p>
+          <p>Please confirm you've seen this job by logging into BookedJobs. If you have any issues contact ${brand.name ? esc(brand.name) : "the office"} directly.</p>
         </div>
 
       </div>
     </div>
 
     <div class="footer">
-      <p>Need help? <a href="mailto:support@karlsgas.ie">support@karlsgas.ie</a></p>
-      <p class="tagline">© 2026 BookedJobs · Karl's Gas · All rights reserved</p>
+      ${brandFooterHtml(brand)}
     </div>
   </div>
 </body>
@@ -220,13 +230,14 @@ function jobAssignedHtml(data: { engineerName: string; jobRef: string; date: str
 }
 
 // ── Template: Appointment Confirmation ────────────────────
-function appointmentConfirmationHtml(data: { customerName: string; date: string; time: string; engineerName: string; serviceType: string; jobRef: string; address?: string; phone?: string }): string {
+function appointmentConfirmationHtml(data: { customerName: string; date: string; time: string; engineerName: string; serviceType: string; jobRef: string; address?: string; phone?: string }, brand: EmailBrand): string {
+  const phone = data.phone || brand.phone;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Your Appointment is Confirmed – Karl's Gas</title>
+  <title>Your Appointment is Confirmed${brand.name ? ` – ${esc(brand.name)}` : ""}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -288,7 +299,7 @@ function appointmentConfirmationHtml(data: { customerName: string; date: string;
         <h1>Your appointment is booked! ✅</h1>
 
         <p class="intro">
-          Hi ${data.customerName.split(" ")[0]}, great news — your boiler service with Karl's Gas is confirmed. Here's everything you need to know.
+          Hi ${data.customerName.split(" ")[0]}, great news — your boiler service${brand.name ? ` with ${esc(brand.name)}` : ""} is confirmed. Here's everything you need to know.
         </p>
 
         <div class="appt-box">
@@ -334,15 +345,15 @@ function appointmentConfirmationHtml(data: { customerName: string; date: string;
         </div>
 
         <div class="contact-box">
-          Need to reschedule or have a question? Call us on <a href="tel:${data.phone || ""}">${data.phone || "our office"}</a> or email <a href="mailto:info@karlsgas.ie">info@karlsgas.ie</a>
+          Need to reschedule or have a question? ${phone ? `Call us on <a href="tel:${esc(phone)}">${esc(phone)}</a>` : "Contact our office"}${brand.email ? ` or email <a href="mailto:${esc(brand.email)}">${esc(brand.email)}</a>` : ""}.
         </div>
 
       </div>
     </div>
 
     <div class="footer">
-      <p>Karl's Gas · <a href="mailto:info@karlsgas.ie">info@karlsgas.ie</a></p>
-      <p class="tagline">© 2026 BookedJobs · Karl's Gas · All rights reserved</p>
+      ${brand.name || brand.email ? `<p>${[brand.name ? esc(brand.name) : "", brand.email ? `<a href="mailto:${esc(brand.email)}">${esc(brand.email)}</a>` : ""].filter(Boolean).join(" · ")}</p>` : ""}
+      <p class="tagline">© 2026 BookedJobs${brand.name ? ` · ${esc(brand.name)}` : ""} · All rights reserved</p>
     </div>
   </div>
 </body>
@@ -352,6 +363,7 @@ function appointmentConfirmationHtml(data: { customerName: string; date: string;
 // ── Main handler ───────────────────────────────────────────
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveOrgBranding } from "../_shared/orgBranding.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { assertSameOrganisation } from "../_shared/sameOrg.ts";
 
@@ -440,6 +452,24 @@ Deno.serve(async (req) => {
 
     const { type, data } = await req.json();
 
+    // Tenant name/phone via the shared resolver; business email from Settings.
+    const [{ data: brandSettings }, { data: brandIntegrations }, { data: brandOrg }] = await Promise.all([
+      adminClient.from("settings").select("business_name, company_name, business_phone, company_phone, business_address, message_footer, business_email").eq("organisation_id", callerOrgId).limit(1).maybeSingle(),
+      adminClient.from("tenant_integrations").select("integration_type, config").eq("organisation_id", callerOrgId),
+      adminClient.from("organisations").select("name").eq("id", callerOrgId).maybeSingle(),
+    ]);
+    const resolvedBrand = resolveOrgBranding({
+      organisationId: callerOrgId,
+      settings: brandSettings as any,
+      integrations: (brandIntegrations as any) || [],
+      organisation: brandOrg as any,
+    });
+    const brand: EmailBrand = {
+      name: resolvedBrand.org_name,
+      phone: resolvedBrand.org_phone,
+      email: String((brandSettings as any)?.business_email ?? "").trim(),
+    };
+
     let subject: string;
     let html: string;
     let to: string;
@@ -450,21 +480,21 @@ Deno.serve(async (req) => {
       case "welcome": {
         to = data.email;
         subject = `Welcome to BookedJobs — You're in, ${data.name.split(" ")[0]}!`;
-        html = welcomeHtml(data);
+        html = welcomeHtml(data, brand);
         recipientSource = "engineers";
         break;
       }
       case "job_assigned": {
         to = data.engineerEmail;
         subject = `New Job Assigned — ${data.jobRef}`;
-        html = jobAssignedHtml(data);
+        html = jobAssignedHtml(data, brand);
         recipientSource = "engineers";
         break;
       }
       case "appointment_confirmation": {
         to = data.customerEmail;
         subject = `Your Appointment is Confirmed — ${data.date}`;
-        html = appointmentConfirmationHtml(data);
+        html = appointmentConfirmationHtml(data, brand);
         recipientSource = "customers";
         break;
       }
