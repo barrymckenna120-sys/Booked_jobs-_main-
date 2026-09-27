@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/auditLog";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgId } from "@/hooks/useOrgId";
+import { useOrgBrandName } from "@/hooks/useOrgBrandName";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -75,6 +76,7 @@ const JobReviewPanel = ({ job, customer, open, onClose, onUpdated }: Props) => {
   const { user } = useAuth();
   const { orgId } = useOrgId();
   const { toast } = useToast();
+  const brandName = useOrgBrandName();
   const [engineers, setEngineers] = useState<any[]>([]);
   const [assignEngineer, setAssignEngineer] = useState("");
   const [assignDate, setAssignDate] = useState("");

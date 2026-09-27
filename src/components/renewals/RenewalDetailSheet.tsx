@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { RenewalStatusPill, DaysPill } from "./RenewalStatusPill";
+import { useOrgBrandName } from "@/hooks/useOrgBrandName";
 import DeliveryStatusBadge from "@/components/comms/DeliveryStatusBadge";
 
 
@@ -32,6 +33,7 @@ const formatDate = (d: string | null) => {
 };
 
 const RenewalDetailSheet = ({ customer, status, daysUntil, reminderSent, open, onClose, onSendReminder, onBook }: Props) => {
+  const brandName = useOrgBrandName();
   if (!customer) return null;
 
   const details = [
