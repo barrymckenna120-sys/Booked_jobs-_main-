@@ -3,7 +3,7 @@
 import sodium from "npm:libsodium-wrappers@0.7.13";
 
 const REPO_OWNER = "barrymckenna120";
-const REPO_NAME = "bookedjobs";
+let REPO_NAME = "bookedjobs";
 const SECRET_NAME = "SUPABASE_DB_URL";
 const POOLER_HOST = "aws-1-eu-west-2.pooler.supabase.com";
 const POOLER_PORT = 5432;
