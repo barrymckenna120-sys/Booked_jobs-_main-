@@ -47,6 +47,7 @@ import UnblockUserCard from "@/components/admin/UnblockUserCard";
 import BlockedUsersCard from "@/components/admin/BlockedUsersCard";
 import { toast } from "sonner";
 import { useAdminViewAs } from "@/hooks/useAdminViewAs";
+import TourFeedbackSection from "@/components/admin/TourFeedbackSection";
 import AdminWorkspaceShell, { ADMIN_SECTION_LABELS, type AdminSection } from "@/components/admin/AdminWorkspaceShell";
 import {
   Loader2,
@@ -2427,6 +2428,10 @@ export default function AdminPanel() {
 
         <TabsContent value="support-reports">
           <SupportReportsTab />
+        </TabsContent>
+
+        <TabsContent value="tour-feedback">
+          <TourFeedbackSection />
         </TabsContent>
 
         <TabsContent value="delivery-issues">
