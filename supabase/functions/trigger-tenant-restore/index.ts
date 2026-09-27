@@ -200,7 +200,12 @@ Deno.serve(async (req) => {
       entity_id: restoreId,
       organisation_id: organisationId,
       detail: `Tenant restore requested (mode=${mode}, stamp=${backupStamp})`,
-      metadata: { restore_id: restoreId, mode, backup_stamp: backupStamp },
+      metadata: {
+        restore_id: restoreId,
+        mode,
+        backup_stamp: backupStamp,
+        ...(mode === "recover_missing" ? { dry_run_id: dryRunId } : {}),
+      },
     });
     if (auditErr) console.error(`${FN}: audit_log insert failed:`, auditErr.message);
 
