@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
     await sodium.ready;
     const encrypted = sodium.crypto_box_seal(
       sodium.from_string(rebuilt),
-      sodium.from_hex(key, "base64"),
+      sodium.from_base64(key, sodium.base64_variants.ORIGINAL),
     );
     const encrypted_value = sodium.to_base64(
       encrypted,
