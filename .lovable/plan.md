@@ -1,32 +1,38 @@
-# BJ-NEW-M step 3 — Password recovery works for every tenant
+# BJ-NEW-L — Capture pg_dump errors as a readable run annotation
 
-Confirmed by code read: `send-reset-email` skips the send when no tenant domain resolves (the "test gas 3" case), uses the non-scanner-safe `action_link`, and `listUsers()` reads only the first page (default 50). `_shared/platformAdmin.ts` exists for the superadmin check. `TenantDetail.tsx` `handleSendReset` currently always shows a success toast.
+## Scope
+- One file: `.github/workflows/db-backup.yml`.
+- One step: "Run backup". No other steps, triggers, permissions or role ARN change.
+- Diagnostics only — no behavior change on success.
 
-## Changes — `supabase/functions/send-reset-email/index.ts`
+## Current state (verified)
+- Current checkout is edit branch `edit/edt-de4f84b2-...`, which is even with `origin/dev` (the role-ARN fix `969e8d217` is on dev). The change will be committed on dev as requested.
 
-1. **Host resolution, first non-blank wins:** `organisations.public_domain` → `tenant_integrations` whatsapp `config.domain` → `Deno.env.get("APP_PUBLIC_URL") || "https://app.bookedjobs.ie"`. The send is never skipped for a missing domain. Never another tenant's host, never `PLATFORM_PUBLIC_HOST_FALLBACK`, never a hardcoded karlsgas host. Normalise to `https://<host>` with no trailing slash (handles values already carrying a scheme).
-2. **Scanner-safe link:** from `generateLink({ type: "recovery", email })` take `properties.hashed_token` and build `<host>/reset-password?token_hash=<hashed_token>&type=recovery`. Stop using `properties.action_link`.
-3. **User lookup:** page through `listUsers({ page, perPage: 1000 })` until a page returns fewer than 1000, matching email case-insensitively.
-4. **Response shape:** if the request has an Authorization bearer token AND `_shared/platformAdmin.ts` confirms a platform admin, return `{ success: true, sent: true|false, reason: <text|null> }` with the real reason (user not found / Resend error). Everyone else keeps the generic `{ success: true }` so addresses can't be probed. The link and token are never returned or logged.
-5. **Unchanged:** Resend email design, From address, CORS handling, no template wording changes.
+## Change
+The "Run backup" step currently pipes pg_dump straight into gzip. If pg_dump fails, the error is buried in the runner log. Change it to:
 
-## Changes — `src/pages/admin/TenantDetail.tsx` (handleSendReset only)
+```yaml
+      - name: Run backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%F-%H%M)
+          FILE="backup-$STAMP.sql.gz"
+          if ! /usr/lib/postgresql/17/bin/pg_dump --no-owner --no-privileges "$SUPABASE_DB_URL" 2>/tmp/pg_dump.err | gzip > "/tmp/$FILE"; then
+            sed -E -e 's#(postgres(ql)?://)[^[:space:]]*#(postgres URL REDACTED)#g' -e 's#(password=)[^&[:space:]]*#\1[REDACTED]#g' /tmp/pg_dump.err > /tmp/pg_dump.redacted
+            echo "::error title=pg_dump failed::$(head -10 /tmp/pg_dump.redacted | tr '\n' ' ' | sed 's/|/\\|/g; s/  */ | /g; s/^ //; s/ $//')"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "/tmp/$FILE")
+          ... (rest unchanged)
+```
 
-- If `data.sent === false`: error toast `Reset email NOT sent: <reason>`. Otherwise keep the current success toast.
+Rules honoured:
+1. pg_dump stderr → `/tmp/pg_dump.err`; gzip pipe, `set -euo pipefail`, size check and all later steps untouched.
+2. On failure: redact any `postgres://` / `postgresql://` URL (whole URL, not just credentials) and any `password=...` value, print the first 10 redacted lines joined with ` | ` as ONE `::error title=pg_dump failed::` annotation, then exit 1. `|` in the message is escaped so GitHub's annotation parser doesn't break it.
+3. `SUPABASE_DB_URL` is never echoed; only the redacted error file is read. If pg_dump fails before producing a dump file, no upload happens (later steps don't run).
 
-## Explicitly not touched
-
-- provision-tenant, invite-team-member, ResetPassword.tsx, email template wording.
-
-## Verification
-
-- Deploy only `send-reset-email`; report deploy timestamp.
-- Live tests, reporting function log lines (no tokens):
-  1. /admin → "test gas 3" → Send Password Recovery for barrytest2024+2@gmail.com — email arrives; link host/path = `<APP_PUBLIC_URL host>/reset-password?token_hash=…&type=recovery` (host/path only reported).
-  2. Login page "Forgot password" for the same email — email arrives.
-  3. Login page "Forgot password" for a made-up email — generic success, no email sent.
-- Report: full diff of both files, commit hash, deploy timestamp.
-
-## Note on branch
-
-Recent work has been auto-committing to an edit branch, not `dev`. I will report the actual commit hash and branch; merging to `dev` may need a separate step.
+## Report after build
+- Diff of the file.
+- Commit hash on dev.
