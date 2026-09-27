@@ -151,19 +151,18 @@ Deno.serve(async (req) => {
 
     if (linkError) {
       console.error("generateLink error:", linkError.message);
-      // Don't reveal if user exists — always return success
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Don't reveal if user exists — generic response for non-admins
+      return respond(false, `generateLink failed: ${linkError.message}`);
     }
 
-    const actionLink = (linkData as any)?.properties?.action_link;
-    if (!actionLink) {
-      console.error("No action_link returned from generateLink");
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Scanner-safe link: build from hashed_token, not the /verify action_link
+    // (mail scanners prefetch action_link and burn the one-time token).
+    const hashedToken = (linkData as any)?.properties?.hashed_token;
+    if (!hashedToken) {
+      console.error("No hashed_token returned from generateLink");
+      return respond(false, "no hashed_token from generateLink");
     }
+    const actionLink = `${host}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
 
     const html = `<!DOCTYPE html><html><body style="font-family:'DM Sans',Arial,sans-serif;background:#F0F4FF;padding:40px 16px;">
 <div style="max-width:560px;margin:0 auto;">
@@ -198,17 +197,12 @@ Deno.serve(async (req) => {
     if (!resendRes.ok) {
       const detail = await resendRes.text().catch(() => "");
       console.error("Resend send failed:", resendRes.status, detail);
-      return new Response(JSON.stringify({ error: `Email send failed (${resendRes.status})` }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return respond(false, `Resend error (${resendRes.status})`);
     }
 
     console.log(`Password reset email sent successfully for: ${email}`);
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return respond(true, null);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("send-reset-email error:", msg);
