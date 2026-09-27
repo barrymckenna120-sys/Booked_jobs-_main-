@@ -49,17 +49,45 @@ Deno.serve(async (req: Request) => {
       `postgres://${encodeURIComponent(origUser)}:${encodeURIComponent(password)}` +
       `@${POOLER_HOST}:${POOLER_PORT}/postgres`;
 
-    // Fetch repo public key
-    const keyResp = await fetch(
+    const ghHeaders = {
+      Authorization: `Bearer ${pat}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "bookedjobs-secret-sync",
+    };
+
+    // Fetch repo public key; on 404, auto-discover the repo that already
+    // has the SUPABASE_DB_URL Actions secret (name only, never the value).
+    let keyResp = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/secrets/public-key`,
-      {
-        headers: {
-          Authorization: `Bearer ${pat}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": "bookedjobs-secret-sync",
-        },
-      },
+      { headers: ghHeaders },
     );
+    if (keyResp.status === 404) {
+      const reposResp = await fetch(
+        "https://api.github.com/user/repos?per_page=100",
+        { headers: ghHeaders },
+      );
+      if (!reposResp.ok) {
+        return json(
+          { ok: false, error: "github_repo_list_failed", github_status: reposResp.status },
+          502,
+        );
+      }
+      const repos = await reposResp.json();
+      for (const r of repos) {
+        const sResp = await fetch(
+          `https://api.github.com/repos/${r.full_name}/actions/secrets/${SECRET_NAME}`,
+          { headers: ghHeaders },
+        );
+        if (sResp.ok) {
+          REPO_NAME = r.name;
+          keyResp = await fetch(
+            `https://api.github.com/repos/${r.full_name}/actions/secrets/public-key`,
+            { headers: ghHeaders },
+          );
+          break;
+        }
+      }
+    }
     if (!keyResp.ok) {
       return json(
         { ok: false, error: "github_key_fetch_failed", github_status: keyResp.status },
