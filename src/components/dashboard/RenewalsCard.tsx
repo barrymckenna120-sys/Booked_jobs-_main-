@@ -201,7 +201,7 @@ const RenewalsCard = () => {
     const dueDate = format(new Date(customer.next_service_due), "d MMM yyyy");
     const cleanPhone = customer.phone.replace(/\s+/g, "").replace(/^0/, "353");
     const bizPhone = settings?.business_phone || "087 100 0000";
-    const bizName = settings?.business_name || "Karl's Gas";
+    const bizName = (settings?.business_name || "").trim();
 
     const message =
       settings?.template_renewal_reminder
@@ -209,7 +209,7 @@ const RenewalsCard = () => {
         ?.replace(/\{\{date\}\}/g, dueDate)
         ?.replace(/\{\{due_date\}\}/g, dueDate)
         ?.replace(/\{\{phone\}\}/g, bizPhone) ||
-      `Hi ${firstName}, it's ${bizName}\n\nYour annual boiler service is due on ${dueDate}.\n\nReply YES to book or call us on ${bizPhone}.\n\n${bizName}`;
+      `Hi ${firstName}${bizName ? `, it's ${bizName}` : ""}\n\nYour annual boiler service is due on ${dueDate}.\n\nReply YES to book or call us on ${bizPhone}.${bizName ? `\n\n${bizName}` : ""}`;
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
 

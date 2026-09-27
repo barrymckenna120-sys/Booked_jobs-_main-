@@ -47,7 +47,7 @@ const MESSAGE_TYPES = [
 ] as const;
 
 const DEFAULT_TEMPLATE =
-  "Hi {customer_name},\n\nYour annual boiler service is due on {date}.\n\nTo book your service, reply YES or call us on {phone}.\n\nKarl's Gas 🔥";
+  "Hi {customer_name},\n\nYour annual boiler service is due on {date}.\n\nTo book your service, reply YES or call us on {phone}.\n\n{business_name} 🔥";
 
 const fillTemplate = (
   template: string,
@@ -73,8 +73,10 @@ const fillTemplate = (
     )
     .replace(
       /{business_name}/g,
-      settings?.business_name || "Karl's Gas"
-    );
+      (settings?.business_name || "").trim()
+    )
+    // No business name → drop the empty sign-off line rather than show a blank.
+    .replace(/\n+[ \t]*🔥?[ \t]*$/, "");
 
 const SendReminderModal = ({
   customer,
