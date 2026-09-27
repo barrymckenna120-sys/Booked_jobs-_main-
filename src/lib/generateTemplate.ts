@@ -83,5 +83,5 @@ export const generateImportTemplate = () => {
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 21 } }];
 
   XLSX.utils.book_append_sheet(wb, ws, "Customer Import");
-  XLSX.writeFile(wb, "karls_gas_customer_import.xlsx");
+  XLSX.writeFile(wb, "customer_import_template.xlsx");
 };
