@@ -40,7 +40,7 @@ type ReportRow = {
   skipped_orphan?: number;
 };
 
-type RestoreRow = {
+export type RestoreRow = {
   id: string;
   backup_stamp: string;
   mode: string;
