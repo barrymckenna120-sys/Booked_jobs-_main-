@@ -122,10 +122,11 @@ jobs:
             AND status = 'queued'
             AND organisation_id = :'org'::uuid
             AND mode = :'mode'
-            AND backup_stamp = :'stamp';
+            AND backup_stamp = :'stamp'
+          RETURNING id;
           SQL
           ) || { echo "::error::restore status update failed (details redacted)"; exit 1; }
-          [ "$OUT" = "UPDATE 1" ] || { echo "::error::restore request mismatch"; exit 1; }
+          [ "$OUT" = "$RESTORE_ID" ] || { echo "::error::restore request mismatch"; exit 1; }
           echo "restore marked running"
 
 
@@ -375,8 +376,8 @@ jobs:
                  "SET status = :'status', finished_at = now(),\n"
                  "    report = :'report'::jsonb, error = :'err'\n"
                  "WHERE id = :'rid'::uuid\n"
-                 "  AND status = 'running'\n"
-                 "  AND github_run_id = :'runid';\n")
+                 "  AND status IN ('queued','running')\n"
+                 "  AND (github_run_id IS NULL OR github_run_id = :'runid');\n")
           args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE,
                   "-v", f"status={status}", "-v", f"rid={RID}",
                   "-v", f"runid={os.environ['RUN_ID']}",
