@@ -2,8 +2,8 @@
 // Never returns, logs or prints the DB password or URL.
 import sodium from "npm:libsodium-wrappers@0.7.13";
 
-const REPO_OWNER = "barrymckenna120";
-let REPO_NAME = "bookedjobs";
+
+let REPO_FULL = "barrymckenna120/bookedjobs";
 const SECRET_NAME = "SUPABASE_DB_URL";
 const POOLER_HOST = "aws-1-eu-west-2.pooler.supabase.com";
 const POOLER_PORT = 5432;
@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
     // Fetch repo public key; on 404, auto-discover the repo that already
     // has the SUPABASE_DB_URL Actions secret (name only, never the value).
     let keyResp = await fetch(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/secrets/public-key`,
+      `https://api.github.com/repos/${REPO_FULL}/actions/secrets/public-key`,
       { headers: ghHeaders },
     );
     if (keyResp.status === 404) {
@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
           { headers: ghHeaders },
         );
         if (sResp.ok) {
-          REPO_NAME = r.name;
+          REPO_FULL = r.full_name;
           keyResp = await fetch(
             `https://api.github.com/repos/${r.full_name}/actions/secrets/public-key`,
             { headers: ghHeaders },
@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
 
     // Write the secret
     const putResp = await fetch(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/secrets/${SECRET_NAME}`,
+      `https://api.github.com/repos/${REPO_FULL}/actions/secrets/${SECRET_NAME}`,
       {
         method: "PUT",
         headers: {
