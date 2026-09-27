@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { VerifyOtpParams } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,48 @@ export const resolveOtpType = (type: string | null): "invite" | "recovery" | nul
   if (!type) return "recovery";
   if (type === "invite" || type === "recovery") return type;
   return null;
+};
+
+export interface ResetAuthClient {
+  getSession: () => Promise<{ data: { session: { user: unknown } | null } }>;
+  verifyOtp: (params: VerifyOtpParams) => Promise<{ error: { message: string } | null }>;
+  setSession: (params: { access_token: string; refresh_token: string }) => Promise<{ error: { message: string } | null }>;
+}
+
+/**
+ * Establishes a session for the reset/invite flow.
+ * If the URL carries a one-time token, it is ALWAYS verified first and replaces any
+ * existing session — a pre-existing session (e.g. someone else already signed in on
+ * this browser) must never be reused for an invitee's or resetter's account.
+ */
+export const establishResetSession = async (
+  auth: ResetAuthClient,
+  params: { access_token: string | null; refresh_token: string | null; type: string | null; token: string | null; token_hash: string | null; email: string | null },
+  onVerified: () => void = () => {}
+): Promise<boolean> => {
+  const { access_token, refresh_token, type, token, token_hash, email } = params;
+
+  if (token || token_hash) {
+    const otpType = resolveOtpType(type);
+    if (!otpType) return false;
+    if (token && email) {
+      const { error } = await auth.verifyOtp({ email, token, type: otpType });
+      if (!error) { onVerified(); return true; }
+    } else if (token_hash) {
+      const { error } = await auth.verifyOtp({ token_hash, type: otpType });
+      if (!error) { onVerified(); return true; }
+    }
+    return false;
+  }
+
+  const { data: { session } } = await auth.getSession();
+  if (session?.user) return true;
+
+  if (access_token && refresh_token) {
+    const { error } = await auth.setSession({ access_token, refresh_token });
+    if (!error) return true;
+  }
+  return false;
 };
 
 const ResetPassword = () => {
@@ -194,6 +237,19 @@ const ResetPassword = () => {
         toast({
           title: "Session expired",
           description: "Please request a new password reset link.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // If the link carried a one-time token, the session must belong to the
+      // invited/reset account — never to whoever was already signed in.
+      const urlParams = urlTokensRef.current;
+      if ((urlParams.token || urlParams.token_hash) && urlParams.email && session.user.email?.toLowerCase() !== urlParams.email.toLowerCase()) {
+        toast({
+          title: "This link is for a different account.",
+          description: "Please sign out and open the link again.",
           variant: "destructive",
         });
         setLoading(false);
