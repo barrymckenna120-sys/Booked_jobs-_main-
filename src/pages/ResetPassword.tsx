@@ -99,6 +99,9 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isInvite] = useState(() => parseTokensFromUrl().type === "invite");
+  // URL tokens captured at mount so the account-match check in handleReset
+  // survives stripTokenFromUrlNow().
+  const urlTokensRef = useRef(parseTokensFromUrl());
 
   const stripTokenFromUrlNow = () => {
     try {
