@@ -61,8 +61,11 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
     fetchStatus();
   }, [user, roleLoading]);
 
+  // A replay (from Help) is local-only: finishing/skipping it never writes again.
+  const [isReplay, setIsReplay] = useState(false);
+
   const markComplete = useCallback(async () => {
-    if (!user) return;
+    if (!user || isReplay) return;
     // Always persist to localStorage (works even if DB update fails for engineers)
     localStorage.setItem(localKey(user.id), "true");
     await supabase
@@ -70,25 +73,29 @@ export const useOnboardingTour = (user: User | null): UseOnboardingTourReturn =>
       .update({ onboarding_complete: true } as any)
       .eq("user_id", user.id);
     setOnboardingComplete(true);
-  }, [user]);
+  }, [user, isReplay]);
 
   const completeTour = useCallback(async () => {
     await markComplete();
     setShowTour(false);
+    setIsReplay(false);
   }, [markComplete]);
 
   const skipTour = useCallback(async () => {
     await markComplete();
     setShowTour(false);
+    setIsReplay(false);
   }, [markComplete]);
 
   const startTour = useCallback(() => {
+    setIsReplay(true);
     setShowTour(true);
   }, []);
 
   const closeTour = useCallback(async () => {
     await markComplete();
     setShowTour(false);
+    setIsReplay(false);
   }, [markComplete]);
 
   return {
