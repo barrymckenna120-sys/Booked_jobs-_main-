@@ -31,7 +31,13 @@ Deno.serve(async (req) => {
     const admin = await requirePlatformAdmin(req, { fnName: FN, cors });
     if (isPlatformAdminDenied(admin)) return admin.error;
 
-    let body: { organisation_id?: unknown; backup_stamp?: unknown; mode?: unknown };
+    let body: {
+      organisation_id?: unknown;
+      backup_stamp?: unknown;
+      mode?: unknown;
+      confirm?: unknown;
+      dry_run_id?: unknown;
+    };
     try {
       body = await req.json();
     } catch (_e) {
@@ -48,8 +54,18 @@ Deno.serve(async (req) => {
     if (!STAMP_RE.test(backupStamp)) {
       return json(cors, 400, { error: "backup_stamp must match YYYY-MM-DD-HHMM" });
     }
-    if (mode !== "dry_run") {
-      return json(cors, 400, { error: "mode must be 'dry_run'" });
+    if (mode !== "dry_run" && mode !== "recover_missing") {
+      return json(cors, 400, { error: "mode must be 'dry_run' or 'recover_missing'" });
+    }
+
+    const dryRunId = typeof body.dry_run_id === "string" ? body.dry_run_id : "";
+    if (mode === "recover_missing") {
+      if (body.confirm !== true) {
+        return json(cors, 400, { error: "recover_missing requires confirm === true" });
+      }
+      if (!UUID_RE.test(dryRunId)) {
+        return json(cors, 400, { error: "recover_missing requires dry_run_id (UUID of a successful dry run)" });
+      }
     }
 
     const supabase = createClient(
