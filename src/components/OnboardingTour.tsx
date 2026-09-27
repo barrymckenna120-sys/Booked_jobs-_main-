@@ -1,32 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import type { TourType } from "@/hooks/useOnboardingTour";
-import {
-  Briefcase, MapPin, ClipboardList, Clock, Monitor, Smartphone,
-  ArrowLeft, ArrowRight, Check
-} from "lucide-react";
+import { Monitor, Smartphone, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
 import { OFFICE_TOUR_STEPS } from "@/components/onboarding/officeTourSteps";
-
-// ─── Step definitions ───
-
-interface TourStep {
-  id: string;
-  title: string;
-  desc: string;
-  icon: any;
-  route: string;
-  isSettings?: boolean;
-  tab?: string;
-}
-
-const ENGINEER_STEPS: TourStep[] = [
-  { id: "eng-jobs", title: "Your Jobs for Today", desc: "All your jobs are listed here with customer name, address, time slot and job type. Amber flags mean the office has left you a note — check those before you set off.", icon: Briefcase, route: "/engineer/today" },
-  { id: "eng-jobcard", title: "Job Details & Status", desc: "Tap a job to see the boiler, access notes, payment status and last service. Hit En Route when you leave, then Start Job when you arrive — the office sees your status live.", icon: MapPin, route: "/engineer/today" },
-  { id: "eng-notes", title: "Notes, Messages & Access", desc: "The Access Note has gate codes and parking info. Add site notes and photos, message the office using preset chips, and see the full call notes history between you and the office.", icon: ClipboardList, route: "/engineer/today" },
-  { id: "eng-history", title: "Customer History & Boiler", desc: "Tap the customer name for their full service history and boiler details — useful for knowing exactly what was done last time before you knock on the door.", icon: Clock, route: "/engineer/today" },
-];
+import { ENGINEER_TOUR_STEPS } from "@/components/onboarding/engineerTourSteps";
 
 interface Props {
   open: boolean;
@@ -42,17 +19,14 @@ interface Props {
 type Phase = "intro" | "steps" | "feedback";
 
 const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
-  const navigate = useNavigate();
-  const steps: { id: string }[] = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_STEPS;
+  const steps = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_TOUR_STEPS;
   const [phase, setPhase] = useState<Phase>("intro");
   const [stepIndex, setStepIndex] = useState(0);
 
-  const currentStep = ENGINEER_STEPS[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
-  const totalSteps = steps.length;
   const isOffice = tourType === "office";
 
-  // Desktop (≥1024px) office tour uses a centred dialog; below that the sheet is unchanged.
+  // Desktop (≥1024px) uses a centred dialog; below that the sheet is unchanged.
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
   );
@@ -62,14 +36,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
-  const useDesktopDialog = isOffice && isDesktop;
-
-  // Engineer tour only: navigate to the step's route. The office tour never changes the page.
-  useEffect(() => {
-    if (!isOffice && phase === "steps" && currentStep?.route) {
-      navigate(currentStep.route);
-    }
-  }, [isOffice, phase, stepIndex, currentStep?.route, navigate]);
+  const useDesktopDialog = isDesktop;
 
   const handleStartTour = useCallback(() => {
     setPhase("steps");
