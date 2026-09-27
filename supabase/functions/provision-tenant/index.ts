@@ -405,19 +405,23 @@ Deno.serve(async (req) => {
   const newOrgId =
     org.id as string;
 
-  // Step 6 (moved): send invite first to get user_id;
-  // reuse if user exists
+  // Step 6 (moved): create the owner (no email is sent here) to get user_id;
+  // reuse if user exists. The branded invite is emailed in Step 7a, only
+  // after every provisioning step has succeeded.
   let newUserId:
     | string
     | null = null;
+  let inviteHashedToken: string | null = null;
+  let inviteLinkType: "invite" | "recovery" = "invite";
 
   const {
     data: inviteData,
     error: inviteErr,
   } =
-    await supabase.auth.admin.inviteUserByEmail(
-      owner_email,
-      {
+    await supabase.auth.admin.generateLink({
+      type: "invite",
+      email: owner_email,
+      options: {
         data: {
           organisation_id:
             newOrgId,
@@ -425,8 +429,8 @@ Deno.serve(async (req) => {
           full_name:
             owner_name,
         },
-      }
-    );
+      },
+    });
 
   if (inviteErr) {
     const msg =
@@ -514,9 +518,22 @@ Deno.serve(async (req) => {
     }
 
     newUserId = found.id;
+
+    // Existing user: recovery link (generated only; nothing is sent here).
+    const { data: recData, error: recErr } =
+      await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email: owner_email,
+      });
+    if (!recErr) {
+      inviteHashedToken = recData?.properties?.hashed_token ?? null;
+      inviteLinkType = "recovery";
+    }
   } else {
     newUserId =
       inviteData.user.id;
+    inviteHashedToken = inviteData.properties?.hashed_token ?? null;
+    inviteLinkType = "invite";
   }
 
   // Post-resolution superadmin guard: if the resolved user is a superadmin,
