@@ -1904,6 +1904,44 @@ export type Database = {
           },
         ]
       }
+      gdpr_erasures: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          erased_at: string
+          erased_by: string | null
+          id: string
+          organisation_id: string
+          reason: string | null
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          erased_at?: string
+          erased_by?: string | null
+          id?: string
+          organisation_id: string
+          reason?: string | null
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          erased_at?: string
+          erased_by?: string | null
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdpr_erasures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hazard_notifications: {
         Row: {
           access_token: string
