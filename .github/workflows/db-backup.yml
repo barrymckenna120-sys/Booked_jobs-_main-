@@ -40,7 +40,12 @@ jobs:
           set -euo pipefail
           STAMP=$(date -u +%F-%H%M)
           FILE="backup-$STAMP.sql.gz"
-          /usr/lib/postgresql/17/bin/pg_dump --no-owner --no-privileges "$SUPABASE_DB_URL" | gzip > "/tmp/$FILE"
+          if ! /usr/lib/postgresql/17/bin/pg_dump --no-owner --no-privileges "$SUPABASE_DB_URL" 2>/tmp/pg_dump.err | gzip > "/tmp/$FILE"; then
+            sed -E -e 's#(postgres(ql)?://)[^[:space:]]*#(postgres URL REDACTED)#g' -e 's#(password=)[^&[:space:]]*#\1[REDACTED]#g' /tmp/pg_dump.err > /tmp/pg_dump.redacted
+            MSG=$(head -10 /tmp/pg_dump.redacted | sed 's/%/%25/g' | paste -sd'|' - | sed 's/|/ | /g')
+            echo "::error title=pg_dump failed::${MSG}"
+            exit 1
+          fi
           SIZE=$(stat -c%s "/tmp/$FILE")
           echo "Dump file size: $SIZE bytes"
           if [ "$SIZE" -lt 2048 ]; then
