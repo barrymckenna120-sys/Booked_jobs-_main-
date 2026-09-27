@@ -49,16 +49,43 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Platform admins (superadmin UI) get the real send result; everyone else
+    // (public login page, tenant staff) gets the generic response so email
+    // addresses can't be probed. This check only shapes the response — it
+    // never blocks the flow.
+    const platformAdmin = await checkPlatformAdmin(req);
+    const respond = (sent: boolean, reason: string | null) =>
+      new Response(
+        JSON.stringify(
+          platformAdmin ? { success: true, sent, reason } : { success: true }
+        ),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
     // Resolve the reset host from the user's OWN organisation:
     // organisations.public_domain is authoritative, with the tenant's WhatsApp
     // integration domain as a same-tenant secondary. Never another tenant's host.
-    const { data: usersList, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listUsersError) {
-      console.error("listUsers failed:", listUsersError.message);
+    // Page through ALL users — listUsers() defaults to the first 50 only.
+    let matchedUser: { id: string; email?: string } | null = null;
+    let page = 1;
+    for (;;) {
+      const { data: usersList, error: listUsersError } =
+        await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listUsersError) {
+        console.error("listUsers failed:", listUsersError.message);
+        break;
+      }
+      const users = usersList?.users ?? [];
+      const found = users.find(
+        (u) => u.email?.toLowerCase() === String(email).toLowerCase()
+      );
+      if (found) {
+        matchedUser = found;
+        break;
+      }
+      if (users.length < 1000) break;
+      page += 1;
     }
-    const matchedUser = usersList?.users?.find(
-      (u) => u.email?.toLowerCase() === String(email).toLowerCase()
-    );
 
     let tenantDomain: string | null = null;
     let orgName = "BookedJobs";
@@ -90,16 +117,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Platform fallback when the tenant has no domain of its own yet (new
+    // tenants): the configured public app URL, then the platform default.
+    // Never another tenant's host, never a hardcoded tenant host.
     if (!tenantDomain) {
-      // No same-tenant host: skip the send rather than point the user at another
-      // tenant's domain. The response stays generic so addresses aren't enumerable.
-      console.warn("send-reset-email: no tenant domain resolved — send skipped");
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      tenantDomain =
+        String(Deno.env.get("APP_PUBLIC_URL") ?? "").trim() ||
+        "https://app.bookedjobs.ie";
+    }
+    // Normalise to "https://<host>" with no trailing slash.
+    tenantDomain = tenantDomain
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+    const host = `https://${tenantDomain}`;
+
+    if (!matchedUser) {
+      // Unknown address: nothing to send. Generic response for non-admins.
+      console.log(`Password reset: no matching user for ${email}`);
+      return respond(false, "user not found");
     }
 
-    const redirectUrl = `https://${tenantDomain}/reset-password`;
+    const redirectUrl = `${host}/reset-password`;
 
 
 
