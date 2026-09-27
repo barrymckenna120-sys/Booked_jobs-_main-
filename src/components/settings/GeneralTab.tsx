@@ -164,8 +164,8 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         <CardHeader><CardTitle className="text-base">Business Information</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Business Name</Label><Input value={form.business_name} onChange={(e) => set("business_name", e.target.value)} placeholder="Karl's Gas" /></div>
-            <div><Label>Owner Name</Label><Input value={form.owner_name} onChange={(e) => set("owner_name", e.target.value)} placeholder="Karl O'Brien" /></div>
+            <div><Label>Business Name</Label><Input value={form.business_name} onChange={(e) => set("business_name", e.target.value)} placeholder="Your Business Ltd" /></div>
+            <div><Label>Owner Name</Label><Input value={form.owner_name} onChange={(e) => set("owner_name", e.target.value)} placeholder="Jane Smith" /></div>
             <div><Label>Business Phone</Label><Input value={form.business_phone} onChange={(e) => set("business_phone", e.target.value)} placeholder="+353 87 100 0000" /></div>
             <div><Label>Business Email</Label><Input value={form.business_email} onChange={(e) => set("business_email", e.target.value)} placeholder="info@karls.ie" /></div>
             <div><Label>Website</Label><Input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://karls.ie" /></div>

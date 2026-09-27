@@ -5,6 +5,7 @@ import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
 import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "@/components/onboarding/officeTourSteps";
 import { ENGINEER_TOUR_STEPS } from "@/components/onboarding/engineerTourSteps";
+import { useOrgBrandName } from "@/hooks/useOrgBrandName";
 
 interface Props {
   open: boolean;
@@ -21,6 +22,7 @@ type Phase = "intro" | "steps" | "feedback";
 
 const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
   const steps = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_TOUR_STEPS;
+  const brandName = useOrgBrandName();
   const [phase, setPhase] = useState<Phase>("intro");
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -91,7 +93,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
           </h2>
           <p className="text-[13px] leading-[1.7]" style={{ color: "#64748b" }}>
             {isOffice
-              ? "Karl's Gas runs on BookedJobs. A quick 3-minute tour will show you the 7 things you'll use every day."
+              ? `${brandName || "Your team"} runs on BookedJobs. A quick 3-minute tour will show you the 7 things you'll use every day.`
               : "Everything you need for your jobs is right here. A quick 2-minute tour to show you around."}
           </p>
           <button
