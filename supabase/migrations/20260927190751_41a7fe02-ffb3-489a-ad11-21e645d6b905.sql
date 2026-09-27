@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.stamp_onboarding_feedback() FROM PUBLIC, anon, authenticated;
