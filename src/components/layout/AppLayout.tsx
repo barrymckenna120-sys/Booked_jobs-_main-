@@ -351,7 +351,7 @@ const AppLayoutInner = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => startTour()}>Replay tour</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => startTour()}>Take the tour</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />

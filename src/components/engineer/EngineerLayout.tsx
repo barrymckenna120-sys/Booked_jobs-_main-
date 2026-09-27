@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, LogOut, ArrowLeft } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, LogOut, ArrowLeft, HelpCircle } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
@@ -56,7 +56,7 @@ const EngineerLayout = () => {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications("engineer");
-  const { showTour, tourType, completeTour, skipTour, closeTour, isReplay: tourIsReplay } = useOnboardingTour(user);
+  const { showTour, tourType, completeTour, skipTour, closeTour, startTour, isReplay: tourIsReplay } = useOnboardingTour(user);
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
@@ -125,6 +125,7 @@ const EngineerLayout = () => {
             items={[
               { label: "Order Parts", icon: Package, onSelect: () => navigate("/engineer/parts") },
               { label: "Fault Finder", icon: SearchCode, onSelect: () => openFaultFinder?.() },
+              { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
               { label: "Report a Bug", icon: Bug, onSelect: () => setReportOpen(true) },
               { label: "Sign Out", icon: LogOut, separatorBefore: true, onSelect: () => signOut() },
             ]}
