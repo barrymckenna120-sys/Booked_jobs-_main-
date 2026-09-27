@@ -160,6 +160,15 @@ const EngineerLayout = () => {
               <SearchCode />
             </HeaderIconButton>
             <HeaderIconButton
+              onClick={() => startTour()}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              label="Take the tour"
+              title="Take the tour"
+              aria-label="Take the tour"
+            >
+              <HelpCircle />
+            </HeaderIconButton>
+            <HeaderIconButton
               onClick={() => setReportOpen(true)}
               className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Report a Bug"

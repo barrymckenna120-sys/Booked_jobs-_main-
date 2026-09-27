@@ -313,6 +313,7 @@ const AppLayoutInner = () => {
             items={[
               { label: "New Job", icon: Plus, primary: true, onSelect: () => setShowNewJob(true) },
               { label: "Settings", icon: Settings, onSelect: () => guardedNavigate("/settings") },
+              { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
               { label: "Report an issue", icon: LifeBuoy, onSelect: () => setReportOpen(true) },
               {
                 label: "Sign Out",
@@ -350,8 +351,8 @@ const AppLayoutInner = () => {
                   </HeaderIconButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => startTour()}>Take the tour</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
