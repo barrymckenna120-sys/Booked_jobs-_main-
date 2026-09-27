@@ -90,6 +90,44 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!run) return json(cors, 400, { error: "backup_stamp not found in backup_runs" });
 
+    // recover_missing: verify the referenced dry run succeeded recently, for the
+    // same org + stamp, with no report errors and something actually missing.
+    let insertReport: Record<string, unknown> | undefined;
+    if (mode === "recover_missing") {
+      const { data: dryRun } = await supabase
+        .from("tenant_restores")
+        .select("id, organisation_id, backup_stamp, mode, status, finished_at, report")
+        .eq("id", dryRunId)
+        .maybeSingle();
+
+      if (!dryRun) return json(cors, 400, { error: "dry_run_id not found" });
+      if (dryRun.organisation_id !== organisationId || dryRun.backup_stamp !== backupStamp) {
+        return json(cors, 400, { error: "dry_run_id does not match this organisation and backup_stamp" });
+      }
+      if (dryRun.mode !== "dry_run" || dryRun.status !== "succeeded") {
+        return json(cors, 400, { error: "dry_run_id must refer to a succeeded dry run" });
+      }
+      const finishedAt = dryRun.finished_at ? Date.parse(dryRun.finished_at) : NaN;
+      if (!Number.isFinite(finishedAt) || Date.now() - finishedAt > 30 * 60 * 1000) {
+        return json(cors, 400, { error: "dry run is older than 30 minutes — run a fresh dry run first" });
+      }
+      const report = (dryRun.report ?? {}) as {
+        errors?: number;
+        tables?: Array<{ missing_from_live?: number }>;
+      };
+      if ((report.errors ?? 0) !== 0) {
+        return json(cors, 400, { error: "dry run report has errors — resolve them before recovering" });
+      }
+      const totalMissing = (report.tables ?? []).reduce(
+        (sum, t) => sum + (typeof t.missing_from_live === "number" ? t.missing_from_live : 0),
+        0,
+      );
+      if (totalMissing <= 0) {
+        return json(cors, 400, { error: "Nothing to recover" });
+      }
+      insertReport = { based_on_dry_run: dryRunId };
+    }
+
     // Record the queued restore (unique index: one active restore per tenant)
     const { data: restore, error: insertErr } = await supabase
       .from("tenant_restores")
@@ -99,6 +137,7 @@ Deno.serve(async (req) => {
         mode,
         status: "queued",
         requested_by: admin.userId,
+        ...(insertReport ? { report: insertReport } : {}),
       })
       .select("id")
       .single();
