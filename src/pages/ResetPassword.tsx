@@ -177,30 +177,7 @@ const ResetPassword = () => {
   }, []);
 
   const establishSessionIfNeeded = async (): Promise<boolean> => {
-    // Check if we already have a session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) return true;
-
-    // Try to establish from URL tokens
-    const { access_token, refresh_token, type, token, token_hash, email } = parseTokensFromUrl();
-
-    if (token || token_hash) {
-      const otpType = resolveOtpType(type);
-      if (!otpType) return false;
-      if (token && email) {
-        const { error } = await supabase.auth.verifyOtp({ email, token, type: otpType });
-        if (!error) { stripTokenFromUrlNow(); return true; }
-      }
-      if (token_hash) {
-        const { error } = await supabase.auth.verifyOtp({ token_hash, type: otpType });
-        if (!error) { stripTokenFromUrlNow(); return true; }
-      }
-    }
-    if (access_token && refresh_token) {
-      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-      if (!error) return true;
-    }
-    return false;
+    return establishResetSession(supabase.auth, parseTokensFromUrl(), stripTokenFromUrlNow);
   };
 
   const handleReset = async (e: React.FormEvent) => {
