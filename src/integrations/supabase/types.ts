@@ -2719,8 +2719,13 @@ export type Database = {
           clarity: boolean | null
           comment: string | null
           created_at: string | null
+          device: string | null
           id: string
+          is_replay: boolean
+          notified_at: string | null
+          organisation_id: string
           rating: number | null
+          role: string | null
           tour_type: string
           user_id: string
         }
@@ -2728,21 +2733,39 @@ export type Database = {
           clarity?: boolean | null
           comment?: string | null
           created_at?: string | null
+          device?: string | null
           id?: string
+          is_replay?: boolean
+          notified_at?: string | null
+          organisation_id?: string
           rating?: number | null
+          role?: string | null
           tour_type: string
-          user_id: string
+          user_id?: string
         }
         Update: {
           clarity?: boolean | null
           comment?: string | null
           created_at?: string | null
+          device?: string | null
           id?: string
+          is_replay?: boolean
+          notified_at?: string | null
+          organisation_id?: string
           rating?: number | null
+          role?: string | null
           tour_type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_feedback_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_price_list: {
         Row: {
