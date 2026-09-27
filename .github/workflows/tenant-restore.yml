@@ -142,6 +142,17 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "${LIVE_URL:-}" ] || { echo "::error::SUPABASE_DB_URL secret missing"; exit 1; }
+          python3 - << 'EOF'
+          import os, urllib.parse as u
+          p = u.urlsplit(os.environ["LIVE_URL"])
+          print("scheme:", p.scheme)
+          print("user:", (p.username or "")[:12] + "…", "has_dot:", "." in (p.username or ""))
+          print("host:", p.hostname, "port:", p.port, "db:", p.path)
+          print("query keys:", sorted(u.parse_qs(p.query).keys()))
+          print("password present:", bool(p.password))
+          EOF
+          /usr/lib/postgresql/17/bin/psql "$LIVE_URL" -qAtX -c "select 1" \
+            && echo "bash psql connect: OK" || echo "bash psql connect: FAILED"
           python3 - << 'PYEOF'
           import json, os, re, subprocess, sys
           PSQL = "/usr/lib/postgresql/17/bin/psql"
