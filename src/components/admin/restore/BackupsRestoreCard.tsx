@@ -3,6 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -25,9 +34,13 @@ type ReportRow = {
   missing_from_live?: number;
   changed?: number;
   added_since?: number;
+  planned?: number;
+  inserted?: number;
+  skipped_gdpr?: number;
+  skipped_orphan?: number;
 };
 
-type RestoreRow = {
+export type RestoreRow = {
   id: string;
   backup_stamp: string;
   mode: string;
@@ -48,6 +61,26 @@ const STATUS_CLASS: Record<string, string> = {
 
 const n = (v: number | undefined | null) => (v == null ? "—" : String(v));
 
+const RECOVER_WINDOW_MS = 30 * 60 * 1000;
+
+export function totalMissing(row: RestoreRow): number {
+  return (row.report?.tables ?? []).reduce(
+    (sum, t) => sum + (typeof t.missing_from_live === "number" ? t.missing_from_live : 0),
+    0,
+  );
+}
+
+export function canRecover(row: RestoreRow): boolean {
+  if (row.mode !== "dry_run" || row.status !== "succeeded" || !row.finished_at) return false;
+  const t = Date.parse(row.finished_at);
+  if (!Number.isFinite(t) || Date.now() - t > RECOVER_WINDOW_MS) return false;
+  return totalMissing(row) > 0;
+}
+
+export function statusLabel(row: RestoreRow): string {
+  return row.mode === "recover_missing" && row.status === "succeeded" ? "recovered" : row.status;
+}
+
 async function errorText(error: any): Promise<{ status?: number; message: string }> {
   const ctx = error?.context;
   const status = ctx?.status ?? ctx?.response?.status;
@@ -61,13 +94,14 @@ async function errorText(error: any): Promise<{ status?: number; message: string
   return { status, message: error?.message || "Request failed" };
 }
 
-export default function BackupsRestoreCard({ orgId }: { orgId: string }) {
+export default function BackupsRestoreCard({ orgId, orgName }: { orgId: string; orgName?: string | null }) {
   const [points, setPoints] = useState<RestorePoint[] | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
   const [history, setHistory] = useState<RestoreRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [recoverTarget, setRecoverTarget] = useState<RestoreRow | null>(null);
 
   const loadPoints = useCallback(async () => {
     const since = new Date(Date.now() - 35 * 24 * 3600 * 1000).toISOString();
@@ -129,6 +163,30 @@ export default function BackupsRestoreCard({ orgId }: { orgId: string }) {
         toast.error(status === 409 ? "A restore is already running for this tenant" : message);
       } else {
         toast.success("Dry run started");
+      }
+    } finally {
+      setStarting(null);
+      loadHistory();
+    }
+  };
+
+  const startRecover = async (row: RestoreRow) => {
+    setStarting(row.id);
+    try {
+      const { error } = await supabase.functions.invoke("trigger-tenant-restore", {
+        body: {
+          organisation_id: orgId,
+          backup_stamp: row.backup_stamp,
+          mode: "recover_missing",
+          dry_run_id: row.id,
+          confirm: true,
+        },
+      });
+      if (error) {
+        const { status, message } = await errorText(error);
+        toast.error(status === 409 ? "A restore is already running for this tenant" : message);
+      } else {
+        toast.success("Recovery started");
       }
     } finally {
       setStarting(null);
@@ -250,11 +308,19 @@ export default function BackupsRestoreCard({ orgId }: { orgId: string }) {
                       </span>
                       <span className="font-mono text-xs text-muted-foreground">{r.backup_stamp}</span>
                       <span className="text-xs">{r.mode}</span>
-                      <Badge variant="outline" className={STATUS_CLASS[r.status] ?? ""}>{r.status}</Badge>
+                      <Badge variant="outline" className={STATUS_CLASS[r.status] ?? ""}>{statusLabel(r)}</Badge>
                       <span className="font-mono text-xs text-muted-foreground md:ml-auto">
                         {formatDuration(r.started_at, r.finished_at)}
                       </span>
                     </button>
+                    {canRecover(r) && (
+                      <div className="flex justify-end px-3 pb-2">
+                        <Button size="sm" variant="destructive" disabled={starting !== null}
+                          onClick={() => setRecoverTarget(r)}>
+                          Recover missing rows
+                        </Button>
+                      </div>
+                    )}
                     {open && <ReportView row={r} />}
                   </div>
                 );
@@ -262,12 +328,104 @@ export default function BackupsRestoreCard({ orgId }: { orgId: string }) {
             </div>
           )}
         </section>
+
+        {recoverTarget && (
+          <RecoverDialog
+            row={recoverTarget}
+            orgName={orgName || "this tenant"}
+            onClose={() => setRecoverTarget(null)}
+            onStart={startRecover}
+          />
+        )}
       </CardContent>
     </Card>
   );
 }
 
+function RecoverDialog({
+  row,
+  orgName,
+  onClose,
+  onStart,
+}: {
+  row: RestoreRow;
+  orgName: string;
+  onClose: () => void;
+  onStart: (row: RestoreRow) => Promise<void> | void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const missingTables = (row.report?.tables ?? []).filter(
+    (t) => (t.missing_from_live ?? 0) > 0,
+  );
+
+  const recoverNow = async () => {
+    setStarting(true);
+    try {
+      await onStart(row);
+    } finally {
+      setStarting(false);
+      onClose();
+    }
+  };
+
+  return (
+    <AlertDialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Recover missing rows for {orgName}?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Table</TableHead>
+                  <TableHead className="text-right">Missing from live</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {missingTables.map((t) => (
+                  <TableRow key={t.table}>
+                    <TableCell className="text-xs">{t.table}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {t.missing_from_live}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            <li>• Only adds rows that were deleted. Nothing existing is changed or removed.</li>
+            <li>• Automatic messages are switched off during recovery — no WhatsApp, emails or alerts will be sent.</li>
+            <li>• Customers erased under GDPR are never brought back.</li>
+            <li>• Logins, integration settings, activity history and job photos are not restored.</li>
+          </ul>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={starting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={!armed || starting}
+            onClick={(e) => { e.preventDefault(); recoverNow(); }}
+          >
+            {starting ? "Starting…" : "Recover now"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function ReportView({ row }: { row: RestoreRow }) {
+  const isRecover = row.mode === "recover_missing";
   const tables = row.report?.tables ?? [];
   const reportOnly = row.report?.report_only ?? [];
   return (
@@ -277,6 +435,31 @@ function ReportView({ row }: { row: RestoreRow }) {
       )}
       {!row.report ? (
         <p className="text-sm text-muted-foreground">No report available yet.</p>
+      ) : isRecover ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Table</TableHead>
+                <TableHead className="text-right">Planned</TableHead>
+                <TableHead className="text-right">Inserted</TableHead>
+                <TableHead className="text-right">Skipped (GDPR)</TableHead>
+                <TableHead className="text-right">Skipped (orphan)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tables.map((t) => (
+                <TableRow key={t.table}>
+                  <TableCell className="text-xs">{t.table}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.planned)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.inserted)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.skipped_gdpr)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.skipped_orphan)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">
