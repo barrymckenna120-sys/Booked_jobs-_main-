@@ -22,6 +22,18 @@ const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
   const isLast = index === steps.length - 1;
   const next = steps[index + 1];
 
+  // Below 1200px viewport, inactive tabs collapse to their number so the tab row
+  // and "Skip tour" fit on one line; the active tab keeps its full label.
+  const wideQuery = () => typeof window !== "undefined" && window.matchMedia("(min-width: 1200px)").matches;
+  const [wide, setWide] = useState(wideQuery);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1200px)");
+    const onChange = () => setWide(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+
   // Preload the next image only when it actually exists.
   useEffect(() => {
     if (next?.hasImage) {
@@ -60,6 +72,8 @@ const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
                     key={s.id}
                     role="tab"
                     aria-selected={active}
+                    aria-label={s.label}
+                    title={s.label}
                     onClick={() => { setShowFeedback(false); setIndex(i); }}
                     className={cn(
                       "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors motion-reduce:transition-none",
@@ -68,12 +82,13 @@ const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
                         : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted",
                     )}
                   >
-                    <span className="font-mono mr-1.5">{s.number}</span>{s.label}
+                    <span className="mr-1.5">{s.number}</span>{(wide || active) && s.label}
                   </button>
                 );
               })}
               <span
                 aria-label="Feedback"
+                title="Feedback"
                 className={cn(
                   "flex items-center rounded-lg border px-2 py-1.5",
                   showFeedback ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground",
@@ -88,6 +103,7 @@ const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
             >
               Skip tour
             </button>
+
           </div>
 
           {showFeedback ? (
