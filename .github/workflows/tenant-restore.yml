@@ -105,6 +105,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
 
+      - name: Mark restore running (tenant_restores only)
+        if: ${{ inputs.restore_id != '' }}
+        env:
+          LIVE_URL: ${{ env.DB_URL }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [ -n "${LIVE_URL:-}" ] || { echo "::error::DB_URL missing"; exit 1; }
+          OUT=$(/usr/lib/postgresql/17/bin/psql "$LIVE_URL" -qAtX -v ON_ERROR_STOP=1 \
+            -v rid="$RESTORE_ID" -v org="$ORG_ID" -v mode="${{ inputs.mode }}" \
+            -v stamp="$BACKUP_STAMP" -v runid="$RUN_ID" <<'SQL' 2>&1
+          UPDATE public.tenant_restores
+          SET status = 'running', started_at = now(), github_run_id = :'runid'
+          WHERE id = :'rid'::uuid
+            AND status = 'queued'
+            AND organisation_id = :'org'::uuid
+            AND mode = :'mode'
+            AND backup_stamp = :'stamp';
+          SQL
+          ) || { echo "::error::restore status update failed (details redacted)"; exit 1; }
+          [ "$OUT" = "UPDATE 1" ] || { echo "::error::restore request mismatch"; exit 1; }
+          echo "restore marked running"
+
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -325,6 +349,7 @@ jobs:
         env:
           LIVE_URL: ${{ env.DB_URL }}
           COMPARE_OUTCOME: ${{ steps.compare.outcome }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           [ -n "${LIVE_URL:-}" ] || { echo "::warning::DB_URL missing; cannot record result"; exit 0; }
