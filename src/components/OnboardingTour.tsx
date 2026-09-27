@@ -1,32 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Monitor, Smartphone, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import type { TourType } from "@/hooks/useOnboardingTour";
-import {
-  Briefcase, MapPin, ClipboardList, Clock, Monitor, Smartphone,
-  ArrowLeft, ArrowRight, Check
-} from "lucide-react";
 import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
-import { OFFICE_TOUR_STEPS } from "@/components/onboarding/officeTourSteps";
-
-// ─── Step definitions ───
-
-interface TourStep {
-  id: string;
-  title: string;
-  desc: string;
-  icon: any;
-  route: string;
-  isSettings?: boolean;
-  tab?: string;
-}
-
-const ENGINEER_STEPS: TourStep[] = [
-  { id: "eng-jobs", title: "Your Jobs for Today", desc: "All your jobs are listed here with customer name, address, time slot and job type. Amber flags mean the office has left you a note — check those before you set off.", icon: Briefcase, route: "/engineer/today" },
-  { id: "eng-jobcard", title: "Job Details & Status", desc: "Tap a job to see the boiler, access notes, payment status and last service. Hit En Route when you leave, then Start Job when you arrive — the office sees your status live.", icon: MapPin, route: "/engineer/today" },
-  { id: "eng-notes", title: "Notes, Messages & Access", desc: "The Access Note has gate codes and parking info. Add site notes and photos, message the office using preset chips, and see the full call notes history between you and the office.", icon: ClipboardList, route: "/engineer/today" },
-  { id: "eng-history", title: "Customer History & Boiler", desc: "Tap the customer name for their full service history and boiler details — useful for knowing exactly what was done last time before you knock on the door.", icon: Clock, route: "/engineer/today" },
-];
+import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "@/components/onboarding/officeTourSteps";
+import { ENGINEER_TOUR_STEPS } from "@/components/onboarding/engineerTourSteps";
 
 interface Props {
   open: boolean;
@@ -42,17 +20,14 @@ interface Props {
 type Phase = "intro" | "steps" | "feedback";
 
 const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
-  const navigate = useNavigate();
-  const steps: { id: string }[] = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_STEPS;
+  const steps = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_TOUR_STEPS;
   const [phase, setPhase] = useState<Phase>("intro");
   const [stepIndex, setStepIndex] = useState(0);
 
-  const currentStep = ENGINEER_STEPS[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
-  const totalSteps = steps.length;
   const isOffice = tourType === "office";
 
-  // Desktop (≥1024px) office tour uses a centred dialog; below that the sheet is unchanged.
+  // Desktop (≥1024px) uses a centred dialog; below that the sheet is unchanged.
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
   );
@@ -62,14 +37,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
-  const useDesktopDialog = isOffice && isDesktop;
-
-  // Engineer tour only: navigate to the step's route. The office tour never changes the page.
-  useEffect(() => {
-    if (!isOffice && phase === "steps" && currentStep?.route) {
-      navigate(currentStep.route);
-    }
-  }, [isOffice, phase, stepIndex, currentStep?.route, navigate]);
+  const useDesktopDialog = isDesktop;
 
   const handleStartTour = useCallback(() => {
     setPhase("steps");
@@ -106,7 +74,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
 
   // Desktop office: dialog only; its final screen is the shared feedback form.
   if (useDesktopDialog) {
-    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} onFinish={handleFinish} onSkip={handleSkip} />;
+    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} steps={steps} onFinish={handleFinish} onSkip={handleSkip} />;
   }
 
   // ─── Intro Sheet ───
@@ -150,86 +118,21 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
     );
   }
 
-  // ─── Office mobile step (shared content with desktop) ───
-  if (isOffice) {
-    return (
-      <OfficeMobileStep
-        index={stepIndex}
-        onNext={handleNext}
-        onBack={handleBack}
-        onSkip={handleSkip}
-      />
-    );
-  }
-
-  // ─── Step Content ───
-  const StepIcon = currentStep.icon;
-
+  // ─── Mobile step sheet (shared layout for both tours) ───
   return (
-    <Sheet>
-      <div className="flex flex-col gap-0">
-        {/* Title row */}
-        <div className="flex items-center gap-2.5">
-          <StepIcon className="w-5 h-5 shrink-0" style={{ color: "#4A86E8" }} />
-          <h3 className="text-[15px] font-extrabold leading-tight" style={{ color: "#1a1a2e" }}>{currentStep.title}</h3>
-        </div>
-
-        {/* Description */}
-        <p className="text-[13px] leading-[1.7] mt-2" style={{ color: "#64748b" }}>{currentStep.desc}</p>
-
-        {currentStep.isSettings && (
-          <div className="mt-2 rounded-lg p-2 text-xs font-medium" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe", color: "#4A86E8" }}>
-            Tour navigated to Settings → {currentStep.tab}
-          </div>
-        )}
-
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-1.5 mt-4">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className="h-1.5 rounded-full transition-all"
-              style={{
-                width: i === stepIndex ? 20 : 8,
-                backgroundColor: i === stepIndex ? "#4A86E8" : i < stepIndex ? "#bfdbfe" : "#e2e8f0",
-              }}
-            />
-          ))}
-          <Check className="w-3 h-3 text-muted-foreground" aria-label="Feedback" />
-        </div>
-
-        {/* Navigation buttons */}
-        <div className="flex gap-2.5 mt-3.5 md:justify-end">
-          {stepIndex > 0 && (
-            <button
-              className="flex-1 md:flex-none md:min-w-[100px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-5 text-[13px] font-semibold"
-              style={{ border: "1px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
-              onClick={handleBack}
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-          )}
-          <button
-            className="flex-[2] md:flex-none md:min-w-[140px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-6 text-[13px] font-bold text-white"
-            style={{ backgroundColor: "#4A86E8", boxShadow: "0 2px 8px rgba(74,134,232,0.25)" }}
-            onClick={handleNext}
-          >
-            <>Next <ArrowRight className="w-4 h-4" /></>
-          </button>
-        </div>
-
-        {/* Skip link */}
-        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe md:text-right md:mt-4" style={{ color: "#94a3b8" }}>
-          Skip tour
-        </button>
-      </div>
-    </Sheet>
+    <TourMobileStep
+      steps={steps}
+      index={stepIndex}
+      onNext={handleNext}
+      onBack={handleBack}
+      onSkip={handleSkip}
+    />
   );
 };
 
-// ─── Office mobile step sheet ───
-const OfficeMobileStep = ({ index, onNext, onBack, onSkip }: { index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
-  const step = OFFICE_TOUR_STEPS[index];
+// ─── Mobile step sheet (same layout as the office tour) ───
+const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: OfficeTourStep[]; index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
+  const step = steps[index];
   const touch = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -286,8 +189,8 @@ const OfficeMobileStep = ({ index, onNext, onBack, onSkip }: { index: number; on
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-center gap-1.5 mt-4" aria-label={`Step ${index + 1} of ${OFFICE_TOUR_STEPS.length}`}>
-          {OFFICE_TOUR_STEPS.map((s, i) => (
+        <div className="flex items-center justify-center gap-1.5 mt-4" aria-label={`Step ${index + 1} of ${steps.length}`}>
+          {steps.map((s, i) => (
             <div
               key={s.id}
               className="h-1.5 rounded-full motion-safe:transition-all"
