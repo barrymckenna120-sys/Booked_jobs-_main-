@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
       user_id: admin.userId,
       user_name: admin.email,
       user_role: admin.role,
-      action_type: "tenant_restore_requested",
+      action_type: mode === "recover_missing" ? "tenant_restore_recover_requested" : "tenant_restore_requested",
       entity_type: "tenant_restore",
       entity_id: restoreId,
       organisation_id: organisationId,
