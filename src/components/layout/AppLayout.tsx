@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { LifeBuoy } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -144,7 +145,7 @@ const AppLayoutInner = () => {
     refetchInterval: 30000,
   });
 
-  const { showTour, tourType, completeTour, skipTour, closeTour } = useOnboardingTour(user);
+  const { showTour, tourType, completeTour, skipTour, closeTour, startTour } = useOnboardingTour(user);
 
   useEffect(() => {
     unlockAudio();
@@ -342,9 +343,17 @@ const AppLayoutInner = () => {
                 </HeaderIconButton>
               )}
               <div className="mx-2 h-6 w-px bg-border" />
-              <HeaderIconButton onClick={() => setReportOpen(true)} label="Help" showLabel={false} title="Report an issue" aria-label="Report an issue">
-                <LifeBuoy />
-              </HeaderIconButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <HeaderIconButton label="Help" showLabel={false} title="Help" aria-label="Help">
+                    <LifeBuoy />
+                  </HeaderIconButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => startTour()}>Replay tour</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
               <HeaderIconButton
                 onClick={() => guardedNavigate("/settings")}
