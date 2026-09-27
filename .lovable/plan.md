@@ -1,30 +1,41 @@
-# BJ-NEW-M step 2 — Branded owner invite
+# Read-only diagnosis: barrytest2024+2@gmail.com (no changes made)
 
-## What changes
-When a superadmin provisions a new tenant, the owner gets exactly one branded BookedJobs email (via Resend) sent only after every provisioning step succeeds. The admin toast says truthfully whether it was sent.
+## 1. auth.users
+- id: 37eed0e6-a0b9-4eb8-9d32-5a8be0d340dd
+- created_at: 2026-09-27 08:42:47.291 UTC
+- invited_at: 2026-09-27 08:42:47.289 UTC
+- email_confirmed_at: 2026-09-27 08:43:46.546 UTC
+- last_sign_in_at: 2026-09-27 08:43:46.550 UTC
+- updated_at: 2026-09-27 08:43:46.996 UTC
+- banned_until: null
+- encrypted_password set: true
 
-## provision-tenant/index.ts
-1. Step 6 (~line 418): replace `inviteUserByEmail` with `auth.admin.generateLink({ type: "invite", email, options: { data: <same user_metadata> } })` — creates the user without sending an email. `newUserId = data.user.id`; keep `hashed_token` and `linkType = "invite"`.
-2. Existing-email branch: keep the current lookup, superadmin guard and cross-org guard exactly as they are; then `generateLink({ type: "recovery", email })`, `linkType = "recovery"`. The "already registered" detection will be adjusted only as far as needed to match the error `generateLink` returns (verified against the real error text, not guessed).
-3. All other steps (4, 5, 5b–5e, 6b–6e) untouched.
-4. New Step 7a just before `// Step 7: success`:
-   - Host: `organisations.public_domain` if non-blank, else `APP_PUBLIC_URL` or `https://app.bookedjobs.ie`; normalised to `https://<host>`, no trailing slash. No fallback host or karlsgas host.
-   - Link: `<host>/reset-password?token_hash=<hashed_token>&type=<invite|recovery>` (never `action_link`).
-   - Resend: From `BookedJobs <noreply@bookedjobs.ie>`, Reply-To = business_email if given, subject "You've been invited to <company_name> on BookedJobs", body/button/footer as specified, styled like the invite-team-member email, every value HTML-escaped.
-   - On failure (including missing key): tenant still succeeds; `logFailure("step 7a", ...)` without link/token.
-5. Success response adds `invite_sent` and `invite_error`. Link and token never appear in the response or logs.
+## 2. profiles / engineers
+- profiles: organisation_id a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, role admin, is_active true, deactivated_at null
+- engineers: organisation_id a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, role admin, status active (the table has no is_active column)
 
-## AdminPanel.tsx (toast only, ~line 1667)
-- Sent: "✅ <company> provisioned. Invite emailed to <ownerEmail>."
-- Failed: warning toast "⚠️ <company> provisioned, but the invite email failed: <invite_error>. Open the tenant and use Send Password Recovery."
+## 3. organisations (a7cfa53b-...)
+- name: "test gas 3", public_domain: null, subscription_status: trial
 
-## Not touched
-requirePlatformAdmin, guards, slug logic, other steps, invite-team-member, send-reset-email, auth-email-hook, ResetPassword.tsx.
+## 4. Failed-login / lock state
+- login_attempts (used by track-failed-login): 0 rows for this email → attempt count 0, locked: no
+- profiles has no lock columns; lock-failed-login reads profiles/organisations only
+- Auth log: one `/token` 400 invalid_credentials at 08:45:00 (password sign-in failed)
 
-## Deploy and verify
-- Typecheck/tests, then deploy only `provision-tenant`; report timestamp.
-- Report full diff of both files and commit hashes. Note: the workspace is on an edit branch (`edit/edt-39431c70...`), not `dev`; I can't commit to `dev` directly, so I will report the real hashes and branch.
-- Live test: I'll need an owner email address you control for the scratch tenant "Test Invite Gas". I can check what the email service accepted and the link host/path. You'll need to confirm only one email arrived, open it in a private window, set a password and check you land in Test Invite Gas. I'll report the toast text.
+## 5. audit_log + auth_activity_events (last 2h)
+- audit_log: 0 rows. **No `password_reset_completed` row.**
+- auth_activity_events: 0 rows
+- Auth logs sequence: 08:42:47 generate_link (invite) → 08:43:46 /verify 200 (user_signedup, login via otp) → 08:43:47 PUT /user 200 (user_modified, password set) → 08:43:47 /logout 204 → 08:45:00 password login 400 invalid credentials → 08:48:38 and 08:48:45 /verify 403 otp_expired ("One-time token not found")
 
-## Risk
-High: this touches auth and tenant provisioning, so it needs the full review process. The change is kept small, and the scratch tenant will be labelled for cleanup.
+## 6. Edge Function logs
+- provision-tenant: only boot/shutdown lines at 08:42:46–08:46:06; no log line records step 7a / invite_sent (the function does not log it). The invite email was generated via generate_link at 08:42:47.
+- send-reset-email 08:45:28: "Password reset requested for: barrytest2024+2@gmail.com" followed by warning **"no tenant domain resolved — send skipped"** (org public_domain is null).
+
+## 7. Published site version
+- Yes, karlsgas.lovable.app serves ResetPassword-BoILy9ow.js which contains "This link is for a different account" (the account-match guard).
+- How checked: fetched the published index.html → main bundle → lazy ResetPassword chunk, grepped the string.
+- ResetPassword.tsx is byte-identical in 9910ea4f7, e1a94511a and HEAD (git diff empty), so the published chunk matches e1a9451's version of this file. Caveat: this is string-based inference, not a build hash match.
+
+## Unexplained / notable facts
+- Password update at 08:43:47 succeeded, but no audit/auth-activity row was written.
+- Reset email for this tenant was skipped due to null public_domain.
