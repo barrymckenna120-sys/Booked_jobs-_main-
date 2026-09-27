@@ -1179,7 +1179,7 @@ const ImportCustomers = () => {
           <div>
             <p className="text-sm font-medium">Need the template?</p>
             <p className="text-sm text-muted-foreground mb-2">
-              Download the Karl's Gas import template — it has all the right columns and includes 4 example customers.
+              Download the import template — it has all the right columns and includes 4 example customers.
             </p>
             <Button variant="outline" size="sm" onClick={generateImportTemplate}>
               ⬇ Download Template (.xlsx)

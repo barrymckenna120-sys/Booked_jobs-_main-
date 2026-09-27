@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrgBrandName } from "@/hooks/useOrgBrandName";
 import { classifyWhatsAppError, getWhatsAppErrorToast } from "@/lib/whatsappErrors";
 
 type Quote = {
@@ -36,6 +37,7 @@ type Props = {
 
 const SendQuoteModal = ({ mode, quote, customer, businessPhone, onClose, onSent }: Props) => {
   const { toast } = useToast();
+  const brandName = useOrgBrandName();
 
   const firstName = customer.name.split(" ")[0];
   const refNumber = `Q-${quote.id.slice(0, 4).toUpperCase()}`;
@@ -48,9 +50,9 @@ const SendQuoteModal = ({ mode, quote, customer, businessPhone, onClose, onSent 
   if (labour > 0) breakdownLines += `• Labour: €${labour.toFixed(2)}\n`;
   breakdownLines += `• Total: €${total}`;
 
-  const defaultMessage = `Hi ${firstName},
+  const buildMessage = (name: string) => `Hi ${firstName},
 
-Here is your quote from Karl's Gas.
+Here is your quote${name ? ` from ${name}` : ""}.
 
 Quote Ref: ${refNumber}
 
@@ -63,11 +65,20 @@ To accept this quote, simply reply *YES* to this message.
 
 This quote is valid for 14 days from today.
 
-Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
+${[name, businessPhone ? `📞 ${businessPhone}` : ""].filter(Boolean).join("\n")}`.trimEnd();
+  const buildSubject = (name: string) => `Your Quote${name ? ` from ${name}` : ""} — €${total}`;
 
-  const [message, setMessage] = useState(defaultMessage);
+  const [message, setMessage] = useState(() => buildMessage(""));
   const [emailTo, setEmailTo] = useState(customer.email || "");
-  const [emailSubject, setEmailSubject] = useState(`Your Quote from Karl's Gas — €${total}`);
+  const [emailSubject, setEmailSubject] = useState(() => buildSubject(""));
+  const [subjectEdited, setSubjectEdited] = useState(false);
+
+  // Fill the tenant's name in once it loads, without overwriting a subject the user typed.
+  useEffect(() => {
+    setMessage(buildMessage(brandName));
+    if (!subjectEdited) setEmailSubject(buildSubject(brandName));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandName]);
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -127,7 +138,7 @@ Karl's Gas${businessPhone ? `\n📞 ${businessPhone}` : ""}`;
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Subject</Label>
-                <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+                <Input value={emailSubject} onChange={(e) => { setSubjectEdited(true); setEmailSubject(e.target.value); }} />
               </div>
             </>
           )}

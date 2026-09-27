@@ -22,7 +22,7 @@
 - [x] Tenant initialisation v1 — product-owned `_shared/tenantDefaults.ts`, `organisations.tenant_config_version` (existing tenants stay 0), idempotent provisioning of approved BookedJobs defaults in `provision-tenant`. No K&N runtime source, no existing-tenant backfill.
 
 - [x] Tenant initialisation v1 clean-tenant E2E — fresh tenant provisioned (Ennis Test Gas): blank public web address, empty service areas, config version 1, 6 categories, branding, 3 integrations, settings defaults. Job completion, certificate draft, renewal date, isolation (both directions) and re-run safety verified.
-- [ ] BJ — Welcome tour hardcodes "Karl's Gas" (src/components/OnboardingTour.tsx:144); parameterise per tenant.
+- [x] BJ — Welcome tour hardcodes "Karl's Gas" (done via company-name helper)
 - [ ] BJ — Area-code/Eircode validation rejects F-prefix routing keys (AREA_CODE_RE in src/lib/customerValidation.ts); needs Irish routing-key review.
 - [ ] BJ — WhatsApp/SumUp "not configured" errors surface raw technical text; replace with "WhatsApp is not connected for this company" style copy.
 - [ ] BJ — Certificate form does not prefill the tenant's RGI number from settings (blank on new tenant cert).
@@ -108,3 +108,10 @@
 - [ ] BJ-NEW-M step 1 — code done (verify on submit only, invite support). Open: live Test 1/2 need someone with a Cavan test inbox to open the reset email.
 - [x] Office onboarding tour desktop (≥1024px) dialog redesign + Help → Replay tour (local-only replay).
 - [ ] Tour type by layout: (c) engineer invite awaits scratch email from user
+- [ ] Karl cleanup 1: send-email branding — code done, awaiting deploy approval
+- [x] Karl cleanup 2: SendQuoteModal / JobReviewPanel Contact / RenewalDetailSheet via helper
+- [x] Karl cleanup 3: SendReminderModal / RenewalsCard neutral fallback
+- [x] Karl cleanup 4: tour welcome name
+- [x] Karl cleanup 5: Settings placeholders + import template
+- [x] Karl cleanup 6: delete unused SendAllQuotes / SendServiceReminders / RenewalsCard after search
+- [x] NGBD 22/09 rows: Karl's Gas true/false + sender
