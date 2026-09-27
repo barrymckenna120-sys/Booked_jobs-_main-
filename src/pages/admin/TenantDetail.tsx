@@ -1155,7 +1155,7 @@ export default function TenantDetail() {
       })()}
 
       {/* Backups & Restore (read + dry run only) */}
-      {orgId && <BackupsRestoreCard orgId={orgId} />}
+      {orgId && <BackupsRestoreCard orgId={orgId} orgName={org?.name ?? null} />}
 
       {/* Actions */}
 

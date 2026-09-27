@@ -328,12 +328,104 @@ export default function BackupsRestoreCard({ orgId, orgName }: { orgId: string; 
             </div>
           )}
         </section>
+
+        {recoverTarget && (
+          <RecoverDialog
+            row={recoverTarget}
+            orgName={orgName || "this tenant"}
+            onClose={() => setRecoverTarget(null)}
+            onStart={startRecover}
+          />
+        )}
       </CardContent>
     </Card>
   );
 }
 
+function RecoverDialog({
+  row,
+  orgName,
+  onClose,
+  onStart,
+}: {
+  row: RestoreRow;
+  orgName: string;
+  onClose: () => void;
+  onStart: (row: RestoreRow) => Promise<void> | void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const missingTables = (row.report?.tables ?? []).filter(
+    (t) => (t.missing_from_live ?? 0) > 0,
+  );
+
+  const recoverNow = async () => {
+    setStarting(true);
+    try {
+      await onStart(row);
+    } finally {
+      setStarting(false);
+      onClose();
+    }
+  };
+
+  return (
+    <AlertDialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Recover missing rows for {orgName}?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Table</TableHead>
+                  <TableHead className="text-right">Missing from live</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {missingTables.map((t) => (
+                  <TableRow key={t.table}>
+                    <TableCell className="text-xs">{t.table}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {t.missing_from_live}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            <li>• Only adds rows that were deleted. Nothing existing is changed or removed.</li>
+            <li>• Automatic messages are switched off during recovery — no WhatsApp, emails or alerts will be sent.</li>
+            <li>• Customers erased under GDPR are never brought back.</li>
+            <li>• Logins, integration settings, activity history and job photos are not restored.</li>
+          </ul>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={starting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={!armed || starting}
+            onClick={(e) => { e.preventDefault(); recoverNow(); }}
+          >
+            {starting ? "Starting…" : "Recover now"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function ReportView({ row }: { row: RestoreRow }) {
+  const isRecover = row.mode === "recover_missing";
   const tables = row.report?.tables ?? [];
   const reportOnly = row.report?.report_only ?? [];
   return (
@@ -343,6 +435,31 @@ function ReportView({ row }: { row: RestoreRow }) {
       )}
       {!row.report ? (
         <p className="text-sm text-muted-foreground">No report available yet.</p>
+      ) : isRecover ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Table</TableHead>
+                <TableHead className="text-right">Planned</TableHead>
+                <TableHead className="text-right">Inserted</TableHead>
+                <TableHead className="text-right">Skipped (GDPR)</TableHead>
+                <TableHead className="text-right">Skipped (orphan)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tables.map((t) => (
+                <TableRow key={t.table}>
+                  <TableCell className="text-xs">{t.table}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.planned)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.inserted)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.skipped_gdpr)}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{n(t.skipped_orphan)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">
