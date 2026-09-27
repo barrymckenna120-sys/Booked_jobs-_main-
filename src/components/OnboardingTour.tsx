@@ -117,86 +117,21 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
     );
   }
 
-  // ─── Office mobile step (shared content with desktop) ───
-  if (isOffice) {
-    return (
-      <OfficeMobileStep
-        index={stepIndex}
-        onNext={handleNext}
-        onBack={handleBack}
-        onSkip={handleSkip}
-      />
-    );
-  }
-
-  // ─── Step Content ───
-  const StepIcon = currentStep.icon;
-
+  // ─── Mobile step sheet (shared layout for both tours) ───
   return (
-    <Sheet>
-      <div className="flex flex-col gap-0">
-        {/* Title row */}
-        <div className="flex items-center gap-2.5">
-          <StepIcon className="w-5 h-5 shrink-0" style={{ color: "#4A86E8" }} />
-          <h3 className="text-[15px] font-extrabold leading-tight" style={{ color: "#1a1a2e" }}>{currentStep.title}</h3>
-        </div>
-
-        {/* Description */}
-        <p className="text-[13px] leading-[1.7] mt-2" style={{ color: "#64748b" }}>{currentStep.desc}</p>
-
-        {currentStep.isSettings && (
-          <div className="mt-2 rounded-lg p-2 text-xs font-medium" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe", color: "#4A86E8" }}>
-            Tour navigated to Settings → {currentStep.tab}
-          </div>
-        )}
-
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-1.5 mt-4">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className="h-1.5 rounded-full transition-all"
-              style={{
-                width: i === stepIndex ? 20 : 8,
-                backgroundColor: i === stepIndex ? "#4A86E8" : i < stepIndex ? "#bfdbfe" : "#e2e8f0",
-              }}
-            />
-          ))}
-          <Check className="w-3 h-3 text-muted-foreground" aria-label="Feedback" />
-        </div>
-
-        {/* Navigation buttons */}
-        <div className="flex gap-2.5 mt-3.5 md:justify-end">
-          {stepIndex > 0 && (
-            <button
-              className="flex-1 md:flex-none md:min-w-[100px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-5 text-[13px] font-semibold"
-              style={{ border: "1px solid #e2e8f0", color: "#64748b", backgroundColor: "white" }}
-              onClick={handleBack}
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-          )}
-          <button
-            className="flex-[2] md:flex-none md:min-w-[140px] flex items-center justify-center gap-1.5 rounded-[9px] py-3 md:py-[10px] md:px-6 text-[13px] font-bold text-white"
-            style={{ backgroundColor: "#4A86E8", boxShadow: "0 2px 8px rgba(74,134,232,0.25)" }}
-            onClick={handleNext}
-          >
-            <>Next <ArrowRight className="w-4 h-4" /></>
-          </button>
-        </div>
-
-        {/* Skip link */}
-        <button onClick={handleSkip} className="text-xs text-center mt-3.5 pb-safe md:text-right md:mt-4" style={{ color: "#94a3b8" }}>
-          Skip tour
-        </button>
-      </div>
-    </Sheet>
+    <TourMobileStep
+      steps={steps}
+      index={stepIndex}
+      onNext={handleNext}
+      onBack={handleBack}
+      onSkip={handleSkip}
+    />
   );
 };
 
-// ─── Office mobile step sheet ───
-const OfficeMobileStep = ({ index, onNext, onBack, onSkip }: { index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
-  const step = OFFICE_TOUR_STEPS[index];
+// ─── Mobile step sheet (same layout as the office tour) ───
+const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: OfficeTourStep[]; index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
+  const step = steps[index];
   const touch = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
