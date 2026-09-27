@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Trash2, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History, CalendarIcon, ChevronDown } from "lucide-react";
+import { ArrowLeft, Save, Loader2, PhoneOff, MessageCircle, CheckCircle2, CalendarCheck, Wallet, History, CalendarIcon, ChevronDown, Archive, ArchiveRestore } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,6 @@ import PaymentHistory from "@/components/customer/PaymentHistory";
 import CustomerActivityTimeline from "@/components/customer/CustomerActivityTimeline";
 import CustomerPartsHistory from "@/components/parts/CustomerPartsHistory";
 import SendReminderModal from "@/components/whatsapp/SendReminderModal";
-import DeleteCustomerModal from "@/components/customer/DeleteCustomerModal";
 import { useLastCompletedService } from "@/hooks/useLastCompletedService";
 import CustomerFormField from "@/components/shared/CustomerFormField";
 import { buildCustomerUpdatePayload } from "@/lib/customerUpdatePayload";
@@ -184,7 +184,7 @@ const CustomerDetail = () => {
   const { data: lastService } = useLastCompletedService(id);
   const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<any>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState<{ archive: boolean } | null>(null);
   const [boilerBrands, setBoilerBrands] = useState<BoilerBrandRow[]>([]);
   const [modelManual, setModelManual] = useState(false);
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
@@ -402,14 +402,25 @@ const CustomerDetail = () => {
   };
 
 
-  const handleDelete = async () => {
-    const { error } = await supabase.from("customers").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Customer deleted" });
-      navigate("/dashboard");
+  const handleArchive = async () => {
+    if (!archiveConfirm) return;
+    const archive = archiveConfirm.archive;
+    // .select() returns the rows that actually matched — guard against the
+    // RLS/match case where 0 rows change and the update would otherwise
+    // silently succeed.
+    const { data, error } = await supabase
+      .from("customers")
+      .update({ is_archived: archive } as any)
+      .eq("id", id)
+      .select("id");
+    if (error || !data || data.length !== 1) {
+      toast({ title: archive ? "Couldn't archive this customer" : "Couldn't restore this customer", variant: "destructive" });
+      return;
     }
+    setForm((prev) => ({ ...prev, is_archived: archive }));
+    setOriginalForm((prev) => ({ ...prev, is_archived: archive }));
+    toast({ title: archive ? `${form.name || "Customer"} archived` : `${form.name || "Customer"} restored` });
+    setArchiveConfirm(null);
   };
 
   const handleBackButton = () => {
@@ -436,9 +447,12 @@ const CustomerDetail = () => {
             </Button>
             <div>
               <h1 className="text-xl font-bold">{form.name}</h1>
-              <Badge variant={form.service_status === "Overdue" ? "destructive" : form.service_status === "Due Soon" ? "secondary" : "default"} className="mt-0.5">
-                {form.service_status || "Up to Date"}
-              </Badge>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Badge variant={form.service_status === "Overdue" ? "destructive" : form.service_status === "Due Soon" ? "secondary" : "default"}>
+                  {form.service_status || "Up to Date"}
+                </Badge>
+                {form.is_archived && <Badge variant="secondary">Archived</Badge>}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -447,8 +461,14 @@ const CustomerDetail = () => {
               <span className="hidden sm:inline ml-1">{saving ? "Saving…" : "Save"}</span>
             </Button>
 
-            <Button size="sm" variant="destructive" onClick={() => setShowDeleteModal(true)}>
-              <Trash2 className="w-4 h-4" />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setArchiveConfirm({ archive: !form.is_archived })}
+              title={form.is_archived ? "Restore customer" : "Archive customer"}
+            >
+              {form.is_archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+              <span className="hidden sm:inline ml-1">{form.is_archived ? "Restore" : "Archive"}</span>
             </Button>
           </div>
         </div>
@@ -956,13 +976,27 @@ const CustomerDetail = () => {
         </div>
       )}
 
-      {/* Delete Customer Modal */}
-      <DeleteCustomerModal
-        open={showDeleteModal}
-        customerName={form.name || ""}
-        onConfirm={() => { setShowDeleteModal(false); handleDelete(); }}
-        onCancel={() => setShowDeleteModal(false)}
-      />
+      {/* Archive/Restore Confirmation Dialog */}
+      <AlertDialog open={!!archiveConfirm} onOpenChange={(open) => !open && setArchiveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {archiveConfirm?.archive ? `Archive ${form.name || "customer"}?` : `Restore ${form.name || "customer"}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveConfirm?.archive
+                ? "They'll be hidden from lists. Jobs, quotes and history are kept. You can restore them later."
+                : `${form.name || "This customer"} will be visible in your lists again.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              {archiveConfirm?.archive ? "Archive" : "Restore"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Send Reminder Modal */}
       {showSendModal && form.name && (
