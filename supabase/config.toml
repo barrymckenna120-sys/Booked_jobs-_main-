@@ -159,3 +159,6 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
 
   [functions.log-auth-event]
     verify_jwt = false
+
+  [functions.sync-backup-db-secret]
+    verify_jwt = false
