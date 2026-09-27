@@ -210,8 +210,8 @@ jobs:
 
           try:
               run("live", "SELECT 1;")
-          except RuntimeError:
-              print("::error::Could not connect to live database (details redacted)"); sys.exit(1)
+          except RuntimeError as e:
+              print(f"::error::Could not connect to live database: {e}"); sys.exit(1)
 
           results = []; errors = 0
           for table, parent, fk in [(t, None, None) for t in DIRECT] + CHILDREN:
