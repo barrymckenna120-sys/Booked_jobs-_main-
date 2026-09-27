@@ -1,14 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import type { TourType } from "@/hooks/useOnboardingTour";
 import {
   LayoutDashboard, Calendar, Inbox, Users, FileText, TrendingUp, Settings,
   Briefcase, MapPin, ClipboardList, Clock, Monitor, Smartphone,
-  ArrowLeft, ArrowRight, CheckCircle, Star, ThumbsUp, ThumbsDown
+  ArrowLeft, ArrowRight, Check
 } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
 import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
+import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
 
 // ─── Step definitions ───
 
@@ -43,24 +42,20 @@ interface Props {
   open: boolean;
   tourType: TourType;
   userId: string;
+  /** True when replayed from Help — feedback is tagged is_replay. */
+  isReplay?: boolean;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
   onClose: () => void;
 }
 
-type Phase = "intro" | "steps" | "feedback" | "thanks";
+type Phase = "intro" | "steps" | "feedback";
 
-const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }: Props) => {
+const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
   const navigate = useNavigate();
   const steps = tourType === "office" ? OFFICE_STEPS : ENGINEER_STEPS;
   const [phase, setPhase] = useState<Phase>("intro");
   const [stepIndex, setStepIndex] = useState(0);
-
-  // Feedback state
-  const [rating, setRating] = useState(0);
-  const [clarity, setClarity] = useState<boolean | null>(null);
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
@@ -112,37 +107,16 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
     resetState();
   }, [onSkip]);
 
-  const handleSkipFeedback = useCallback(async () => {
-    await onComplete();
-    resetState();
-  }, [onComplete]);
-
   const resetState = () => {
     setPhase("intro");
     setStepIndex(0);
-    setRating(0);
-    setClarity(null);
-    setComment("");
-  };
-
-  const handleSubmitFeedback = async () => {
-    setSubmitting(true);
-    await supabase.from("onboarding_feedback").insert({
-      user_id: userId,
-      tour_type: tourType,
-      rating,
-      clarity,
-      comment: comment.trim() || null,
-    } as any);
-    setSubmitting(false);
-    setPhase("thanks");
   };
 
   if (!open) return null;
 
-  // Desktop office: dialog only — Finish closes immediately (no feedback screen).
+  // Desktop office: dialog only; its final screen is the shared feedback form.
   if (useDesktopDialog) {
-    return <OfficeTourDesktop onFinish={handleFinish} onSkip={handleSkip} />;
+    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} onFinish={handleFinish} onSkip={handleSkip} />;
   }
 
   // ─── Intro Sheet ───
@@ -177,100 +151,11 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
     );
   }
 
-  // ─── Thanks State ───
-  if (phase === "thanks") {
-    return (
-      <Sheet maxHeight="56vh">
-        <div className="flex flex-col items-center text-center gap-2.5">
-          <CheckCircle className="w-10 h-10 text-emerald-500" />
-          <h2 className="text-base font-extrabold" style={{ color: "#1a1a2e" }}>Thanks for your feedback!</h2>
-          <p className="text-xs" style={{ color: "#64748b" }}>It helps Karl improve BookedJobs for the whole team.</p>
-          <button
-            className="w-full mt-4 rounded-[9px] px-3 py-3 text-[13px] font-semibold cursor-pointer border border-[#e2e8f0] bg-white"
-            style={{ color: "#555" }}
-            onClick={handleFinish}
-          >
-            Close
-          </button>
-        </div>
-      </Sheet>
-    );
-  }
-
-  // ─── Feedback Form ───
+  // ─── Feedback (final screen) ───
   if (phase === "feedback") {
     return (
       <Sheet maxHeight="56vh">
-        <div className="flex flex-col gap-4">
-          <div className="text-center">
-            <h2 className="text-base font-extrabold" style={{ color: "#1a1a2e" }}>How was the tour?</h2>
-            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>30 seconds. Goes straight to Karl.</p>
-          </div>
-
-          {/* Star rating */}
-          <div className="flex justify-center gap-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button key={s} onClick={() => setRating(s)} className="transition-transform hover:scale-110">
-                <Star className={`w-7 h-7 ${s <= rating ? "fill-amber-400 text-amber-400" : "text-[#e2e8f0]"}`} />
-              </button>
-            ))}
-          </div>
-
-          {/* Clarity */}
-          <div className="text-center">
-            <p className="text-xs mb-2" style={{ color: "#64748b" }}>Easy to follow?</p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setClarity(true)}
-                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  border: `1px solid ${clarity === true ? "#4A86E8" : "#e2e8f0"}`,
-                  backgroundColor: clarity === true ? "#eff6ff" : "transparent",
-                  color: clarity === true ? "#4A86E8" : "#94a3b8",
-                }}
-              >
-                <ThumbsUp className="w-4 h-4" /> Yes
-              </button>
-              <button
-                onClick={() => setClarity(false)}
-                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  border: `1px solid ${clarity === false ? "#4A86E8" : "#e2e8f0"}`,
-                  backgroundColor: clarity === false ? "#eff6ff" : "transparent",
-                  color: clarity === false ? "#4A86E8" : "#94a3b8",
-                }}
-              >
-                <ThumbsDown className="w-4 h-4" /> No
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Anything we should improve? (optional)"
-            rows={2}
-            className="w-full rounded-lg p-2.5 text-xs resize-none"
-            style={{ border: "1px solid #e2e8f0", minHeight: 64, boxSizing: "border-box" }}
-          />
-
-          <button
-            className="w-full rounded-[9px] py-3 text-[13px] font-bold transition-colors"
-            style={{
-              backgroundColor: rating > 0 ? "#4A86E8" : "#e2e8f0",
-              color: rating > 0 ? "white" : "#94a3b8",
-              boxShadow: rating > 0 ? "0 2px 8px rgba(74,134,232,0.25)" : "none",
-            }}
-            disabled={rating === 0 || submitting}
-            onClick={handleSubmitFeedback}
-          >
-            Submit Feedback
-          </button>
-
-          <button onClick={handleSkipFeedback} className="text-xs text-center" style={{ color: "#94a3b8" }}>
-            Skip feedback
-          </button>
-        </div>
+        <TourFeedbackForm tourType={tourType} isReplay={isReplay} onDone={handleFinish} />
       </Sheet>
     );
   }
@@ -308,6 +193,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
               }}
             />
           ))}
+          <Check className="w-3 h-3 text-muted-foreground" aria-label="Feedback" />
         </div>
 
         {/* Navigation buttons */}
@@ -326,11 +212,7 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
             style={{ backgroundColor: "#4A86E8", boxShadow: "0 2px 8px rgba(74,134,232,0.25)" }}
             onClick={handleNext}
           >
-            {isLastStep ? (
-              <><CheckCircle className="w-4 h-4" /> Finish Tour</>
-            ) : (
-              <>Next <ArrowRight className="w-4 h-4" /></>
-            )}
+            <>Next <ArrowRight className="w-4 h-4" /></>
           </button>
         </div>
 
