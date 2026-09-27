@@ -2,21 +2,22 @@ import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OFFICE_TOUR_STEPS } from "./officeTourSteps";
+import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "./officeTourSteps";
 import TourFeedbackForm from "./TourFeedbackForm";
 import type { TourType } from "@/hooks/useOnboardingTour";
 
 interface Props {
   tourType: TourType;
   isReplay: boolean;
+  /** Step data — defaults to the office tour; the engineer tour passes its own steps. */
+  steps?: OfficeTourStep[];
   onFinish: () => void;
   onSkip: () => void;
 }
 
-/** Desktop (≥1024px) office tour: centred dialog over the live app. Never navigates. */
-const OfficeTourDesktop = ({ tourType, isReplay, onFinish, onSkip }: Props) => {
+/** Desktop (≥1024px) tour: centred dialog over the live app. Never navigates. */
+const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFinish, onSkip }: Props) => {
   const [showFeedback, setShowFeedback] = useState(false);
-  const steps = OFFICE_TOUR_STEPS;
   const [index, setIndex] = useState(0);
   const step = steps[index];
   const isLast = index === steps.length - 1;

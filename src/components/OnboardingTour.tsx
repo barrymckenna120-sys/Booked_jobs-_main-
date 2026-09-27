@@ -73,7 +73,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
 
   // Desktop office: dialog only; its final screen is the shared feedback form.
   if (useDesktopDialog) {
-    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} onFinish={handleFinish} onSkip={handleSkip} />;
+    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} steps={steps} onFinish={handleFinish} onSkip={handleSkip} />;
   }
 
   // ─── Intro Sheet ───
