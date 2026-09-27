@@ -79,6 +79,29 @@ jobs:
           echo "BACKUP_STAMP=$BACKUP" >> "$GITHUB_ENV"
           echo "RESTORE_ID=${RESTORE_ID,,}" >> "$GITHUB_ENV"
 
+      - name: Mark restore running (tenant_restores only)
+        if: ${{ inputs.restore_id != '' }}
+        env:
+          LIVE_URL: ${{ env.DB_URL }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [ -n "${LIVE_URL:-}" ] || { echo "::error::DB_URL missing"; exit 1; }
+          OUT=$(/usr/lib/postgresql/17/bin/psql "$LIVE_URL" -qAtX -v ON_ERROR_STOP=1 \
+            -v rid="$RESTORE_ID" -v org="$ORG_ID" -v mode="${{ inputs.mode }}" \
+            -v stamp="$BACKUP_STAMP" -v runid="$RUN_ID" <<'SQL' 2>&1
+          UPDATE public.tenant_restores
+          SET status = 'running', started_at = now(), github_run_id = :'runid'
+          WHERE id = :'rid'::uuid
+            AND status = 'queued'
+            AND organisation_id = :'org'::uuid
+            AND mode = :'mode'
+            AND backup_stamp = :'stamp';
+          SQL
+          ) || { echo "::error::restore status update failed (details redacted)"; exit 1; }
+          [ "$OUT" = "UPDATE 1" ] || { echo "::error::restore request mismatch"; exit 1; }
+          echo "restore marked running"
+
       - name: Start postgres 17 container with random password (never printed)
         run: |
           set -euo pipefail
@@ -167,6 +190,7 @@ jobs:
           echo "org found in backup"
 
       - name: Compare backup vs live (read-only, counts only)
+        id: compare
         env:
           LIVE_URL: ${{ env.DB_URL }}
         run: |
