@@ -3,6 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -25,6 +34,10 @@ type ReportRow = {
   missing_from_live?: number;
   changed?: number;
   added_since?: number;
+  planned?: number;
+  inserted?: number;
+  skipped_gdpr?: number;
+  skipped_orphan?: number;
 };
 
 type RestoreRow = {
@@ -48,6 +61,26 @@ const STATUS_CLASS: Record<string, string> = {
 
 const n = (v: number | undefined | null) => (v == null ? "—" : String(v));
 
+const RECOVER_WINDOW_MS = 30 * 60 * 1000;
+
+function totalMissing(row: RestoreRow): number {
+  return (row.report?.tables ?? []).reduce(
+    (sum, t) => sum + (typeof t.missing_from_live === "number" ? t.missing_from_live : 0),
+    0,
+  );
+}
+
+function canRecover(row: RestoreRow): boolean {
+  if (row.mode !== "dry_run" || row.status !== "succeeded" || !row.finished_at) return false;
+  const t = Date.parse(row.finished_at);
+  if (!Number.isFinite(t) || Date.now() - t > RECOVER_WINDOW_MS) return false;
+  return totalMissing(row) > 0;
+}
+
+function statusLabel(row: RestoreRow): string {
+  return row.mode === "recover_missing" && row.status === "succeeded" ? "recovered" : row.status;
+}
+
 async function errorText(error: any): Promise<{ status?: number; message: string }> {
   const ctx = error?.context;
   const status = ctx?.status ?? ctx?.response?.status;
@@ -61,13 +94,14 @@ async function errorText(error: any): Promise<{ status?: number; message: string
   return { status, message: error?.message || "Request failed" };
 }
 
-export default function BackupsRestoreCard({ orgId }: { orgId: string }) {
+export default function BackupsRestoreCard({ orgId, orgName }: { orgId: string; orgName?: string | null }) {
   const [points, setPoints] = useState<RestorePoint[] | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
   const [history, setHistory] = useState<RestoreRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [recoverTarget, setRecoverTarget] = useState<RestoreRow | null>(null);
 
   const loadPoints = useCallback(async () => {
     const since = new Date(Date.now() - 35 * 24 * 3600 * 1000).toISOString();
