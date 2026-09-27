@@ -135,6 +135,7 @@ const RenewalsCard = () => {
         .select("id, name, phone, eircode, next_service_due, last_reminder_sent, renewal_stage, scheduled_service_date")
         .lte("next_service_due", thirtyDaysFromNow.toISOString().split("T")[0])
         .not("next_service_due", "is", null)
+        .eq("is_archived", false)
         .order("next_service_due", { ascending: true });
 
       return (data || []) as RenewalCustomer[];

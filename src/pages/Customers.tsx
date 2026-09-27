@@ -177,6 +177,7 @@ const Customers = () => {
     const archived = showArchivedRef.current;
 
     try {
+      const cached = localStorage.getItem(CACHE_KEY);
       // Cached copy is only used for the normal (non-archived) list
       if (cached && !archived) {
         const parsed = JSON.parse(cached);
@@ -323,7 +324,7 @@ const Customers = () => {
           <Input placeholder="Search name, phone, address..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[150px] min-h-[44px]"><SelectValue /></SelectTrigger>
           <SelectContent className="bg-popover z-50">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Up to Date">Up to Date</SelectItem>
@@ -331,6 +332,15 @@ const Customers = () => {
             <SelectItem value="Overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
+        {(showArchived || (archivedCount ?? 0) > 0) && (
+          <button
+            type="button"
+            onClick={toggleArchived}
+            className={`inline-flex items-center min-h-[44px] px-3 py-2 rounded-full text-xs font-semibold transition-colors border cursor-pointer ${showArchived ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground border-border hover:bg-secondary"}`}
+          >
+            Show archived{(archivedCount ?? 0) > 0 ? ` (${archivedCount})` : ""}
+          </button>
+        )}
       </div>
 
       {/* Tag Filter Chips */}
@@ -360,7 +370,9 @@ const Customers = () => {
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">Loading...</div>
           ) : paginated.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">No customers found.</div>
+            <div className="p-8 text-center text-muted-foreground">
+              {showArchived ? "No archived customers." : "No customers found."}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -380,6 +392,7 @@ const Customers = () => {
                       <TableCell className="font-semibold">
                         <span className="inline-flex items-center gap-1.5 flex-wrap">
                           {c.name}
+                          {showArchived && <Badge variant="secondary">Archived</Badge>}
                           <NewCustomerBadge status={newCustomerIds.has(c.id) ? "new" : null} size="sm" />
                         </span>
                       </TableCell>
