@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { checkPlatformAdmin } from "../_shared/platformAdmin.ts";
 
 /**
  * Password-reset email.
