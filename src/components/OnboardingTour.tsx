@@ -8,6 +8,7 @@ import {
   ArrowLeft, ArrowRight, CheckCircle, Star, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import OfficeTourDesktop from "@/components/onboarding/OfficeTourDesktop";
 
 // ─── Step definitions ───
 
@@ -66,12 +67,24 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
   const totalSteps = steps.length;
   const isOffice = tourType === "office";
 
-  // Navigate to the current step's route when step changes
+  // Desktop (≥1024px) office tour uses a centred dialog; below that the sheet is unchanged.
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
   useEffect(() => {
-    if (phase === "steps" && currentStep?.route) {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktop(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  const useDesktopDialog = isOffice && isDesktop;
+
+  // Navigate to the current step's route when step changes (sheet flow only)
+  useEffect(() => {
+    if (!useDesktopDialog && phase === "steps" && currentStep?.route) {
       navigate(currentStep.route);
     }
-  }, [phase, stepIndex, currentStep?.route, navigate]);
+  }, [useDesktopDialog, phase, stepIndex, currentStep?.route, navigate]);
 
   const handleStartTour = useCallback(() => {
     setPhase("steps");
@@ -126,6 +139,11 @@ const OnboardingTour = ({ open, tourType, userId, onComplete, onSkip, onClose }:
   };
 
   if (!open) return null;
+
+  // Desktop office: dialog only — Finish closes immediately (no feedback screen).
+  if (useDesktopDialog) {
+    return <OfficeTourDesktop onFinish={handleFinish} onSkip={handleSkip} />;
+  }
 
   // ─── Intro Sheet ───
   if (phase === "intro") {
