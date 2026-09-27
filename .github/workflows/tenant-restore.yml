@@ -374,9 +374,12 @@ jobs:
           sql = ("UPDATE public.tenant_restores\n"
                  "SET status = :'status', finished_at = now(),\n"
                  "    report = :'report'::jsonb, error = :'err'\n"
-                 "WHERE id = :'rid'::uuid;\n")
+                 "WHERE id = :'rid'::uuid\n"
+                 "  AND status = 'running'\n"
+                 "  AND github_run_id = :'runid';\n")
           args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE,
                   "-v", f"status={status}", "-v", f"rid={RID}",
+                  "-v", f"runid={os.environ['RUN_ID']}",
                   "-v", f"report={report or ''}", "-v", f"err={err or ''}"]
           if report is None:
               sql = sql.replace(":'report'::jsonb", "NULL")
