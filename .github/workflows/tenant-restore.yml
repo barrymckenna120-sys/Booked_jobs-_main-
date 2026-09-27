@@ -32,6 +32,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Normalise DB URL
+        env:
+          RAW: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          python3 - << 'EOF'
+          import os, urllib.parse as u
+          p = u.urlsplit(os.environ["RAW"])
+          ref = "ktkfuquqxbrmuqrmbmdj"
+          userinfo, host = p.netloc.rsplit("@", 1)
+          user, _, pw = userinfo.partition(":")
+          if "." not in u.unquote(user):
+              user = u.quote(u.unquote(user) + "." + ref, safe="")
+          q = dict(u.parse_qsl(p.query)); q.setdefault("sslmode", "require")
+          url = u.urlunsplit(("postgresql", f"{user}:{pw}@{host}", p.path or "/postgres", u.urlencode(q), ""))
+          print(f"::add-mask::{url}")
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"DB_URL={url}\n")
+          EOF
+
       - name: Validate inputs
         env:
           ORG_ID: ${{ inputs.org_id }}
@@ -138,10 +157,10 @@ jobs:
 
       - name: Compare backup vs live (read-only, counts only)
         env:
-          LIVE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          LIVE_URL: ${{ env.DB_URL }}
         run: |
           set -euo pipefail
-          [ -n "${LIVE_URL:-}" ] || { echo "::error::SUPABASE_DB_URL secret missing"; exit 1; }
+          [ -n "${LIVE_URL:-}" ] || { echo "::error::DB_URL missing"; exit 1; }
           python3 - << 'EOF'
           import os, urllib.parse as u
           p = u.urlsplit(os.environ["LIVE_URL"])
