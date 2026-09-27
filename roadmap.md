@@ -108,10 +108,10 @@
 - [ ] BJ-NEW-M step 1 — code done (verify on submit only, invite support). Open: live Test 1/2 need someone with a Cavan test inbox to open the reset email.
 - [x] Office onboarding tour desktop (≥1024px) dialog redesign + Help → Replay tour (local-only replay).
 - [ ] Tour type by layout: (c) engineer invite awaits scratch email from user
-- [ ] Karl cleanup 1: send-email branding (diff before deploy)
-- [ ] Karl cleanup 2: SendQuoteModal / JobReviewPanel Contact / RenewalDetailSheet via helper
-- [ ] Karl cleanup 3: SendReminderModal / RenewalsCard neutral fallback
-- [ ] Karl cleanup 4: tour welcome name
-- [ ] Karl cleanup 5: Settings placeholders + import template
-- [ ] Karl cleanup 6: delete unused SendAllQuotes / SendServiceReminders / RenewalsCard after search
-- [ ] NGBD 22/09 rows: Karl's Gas true/false + sender
+- [ ] Karl cleanup 1: send-email branding — code done, awaiting deploy approval
+- [x] Karl cleanup 2: SendQuoteModal / JobReviewPanel Contact / RenewalDetailSheet via helper
+- [x] Karl cleanup 3: SendReminderModal / RenewalsCard neutral fallback
+- [x] Karl cleanup 4: tour welcome name
+- [x] Karl cleanup 5: Settings placeholders + import template
+- [x] Karl cleanup 6: delete unused SendAllQuotes / SendServiceReminders / RenewalsCard after search
+- [x] NGBD 22/09 rows: Karl's Gas true/false + sender
