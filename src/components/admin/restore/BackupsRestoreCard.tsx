@@ -63,21 +63,21 @@ const n = (v: number | undefined | null) => (v == null ? "—" : String(v));
 
 const RECOVER_WINDOW_MS = 30 * 60 * 1000;
 
-function totalMissing(row: RestoreRow): number {
+export function totalMissing(row: RestoreRow): number {
   return (row.report?.tables ?? []).reduce(
     (sum, t) => sum + (typeof t.missing_from_live === "number" ? t.missing_from_live : 0),
     0,
   );
 }
 
-function canRecover(row: RestoreRow): boolean {
+export function canRecover(row: RestoreRow): boolean {
   if (row.mode !== "dry_run" || row.status !== "succeeded" || !row.finished_at) return false;
   const t = Date.parse(row.finished_at);
   if (!Number.isFinite(t) || Date.now() - t > RECOVER_WINDOW_MS) return false;
   return totalMissing(row) > 0;
 }
 
-function statusLabel(row: RestoreRow): string {
+export function statusLabel(row: RestoreRow): string {
   return row.mode === "recover_missing" && row.status === "succeeded" ? "recovered" : row.status;
 }
 
