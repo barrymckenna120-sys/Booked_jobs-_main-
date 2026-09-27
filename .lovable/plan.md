@@ -1,41 +1,36 @@
-# Read-only diagnosis: barrytest2024+2@gmail.com (no changes made)
+# Read-only diagnosis: barrytest2024+2@gmail.com — "Session expired" on Create password
 
-## 1. auth.users
-- id: 37eed0e6-a0b9-4eb8-9d32-5a8be0d340dd
-- created_at: 2026-09-27 08:42:47.291 UTC
-- invited_at: 2026-09-27 08:42:47.289 UTC
-- email_confirmed_at: 2026-09-27 08:43:46.546 UTC
-- last_sign_in_at: 2026-09-27 08:43:46.550 UTC
-- updated_at: 2026-09-27 08:43:46.996 UTC
-- banned_until: null
+No code or data changed.
+
+## 1. Auth logs (08:30–09:00 UTC, from auth logs)
+- 08:42:47 POST /admin/generate_link 200 — user_invited for barrytest2024+2@gmail.com (provision-tenant step 6)
+- 08:43:46 POST /verify 200 — user_signedup, login via otp (the invite token was consumed here, ~1 minute after issue)
+- 08:43:47 PUT /user 200 — user_modified (password set)
+- 08:43:47 POST /logout 204
+- 08:45:00 POST /token 400 — "Invalid login credentials" (password sign-in attempt failed)
+- 08:48:38 POST /verify 403 — error_code otp_expired, "One-time token not found"
+- 08:48:45 POST /verify 403 — error_code otp_expired, "One-time token not found"
+- Analytics log store returned no rows for the window, so the 08:49/08:51 (Dublin 09:49/09:51) presses are not yet visible; the two 08:48 403s match the same symptom (token already consumed).
+
+## 2. auth.users (id 37eed0e6-a0b9-4eb8-9d32-5a8be0d340dd)
+- created_at 08:42:47.291 | invited_at 08:42:47.289 | email_confirmed_at 08:43:46.546
+- confirmation_sent_at: null | recovery_sent_at: null
+- last_sign_in_at 08:43:46.550 | updated_at 08:43:46.996
 - encrypted_password set: true
 
-## 2. profiles / engineers
-- profiles: organisation_id a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, role admin, is_active true, deactivated_at null
-- engineers: organisation_id a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, role admin, status active (the table has no is_active column)
+## 3. generateLink / invite / recovery calls for this email today
+- Exactly one: provision-tenant generate_link (invite) at 08:42:47. No recovery or magic-link calls. I did not open or test any link myself.
 
-## 3. organisations (a7cfa53b-...)
-- name: "test gas 3", public_domain: null, subscription_status: trial
+## 4. Configured OTP / link expiry
+- No `mailer_otp_exp` / `GOTRUE_MAILER_OTP_EXP` override exists in config.toml or any Edge Function — the platform default applies (1 hour / 3600s). Not confirmed from a live settings endpoint; reported as configured-state only.
 
-## 4. Failed-login / lock state
-- login_attempts (used by track-failed-login): 0 rows for this email → attempt count 0, locked: no
-- profiles has no lock columns; lock-failed-login reads profiles/organisations only
-- Auth log: one `/token` 400 invalid_credentials at 08:45:00 (password sign-in failed)
+## 5. Tenant provisioning
+- Org: a7cfa53b-b4cb-4291-a283-69bbb8aa4fc1, name "test gas 3", public_domain null, subscription_status trial.
+- provision-tenant ran 08:42:46–08:42:47 (boot 08:42:46, generate_link 08:42:47). auth.users.created_at equals the run time → the email did not exist before this run.
 
-## 5. audit_log + auth_activity_events (last 2h)
-- audit_log: 0 rows. **No `password_reset_completed` row.**
-- auth_activity_events: 0 rows
-- Auth logs sequence: 08:42:47 generate_link (invite) → 08:43:46 /verify 200 (user_signedup, login via otp) → 08:43:47 PUT /user 200 (user_modified, password set) → 08:43:47 /logout 204 → 08:45:00 password login 400 invalid credentials → 08:48:38 and 08:48:45 /verify 403 otp_expired ("One-time token not found")
+## 6. profiles / engineers
+- profiles: organisation_id a7cfa53b-..., role admin, is_active true
+- engineers: organisation_id a7cfa53b-..., role admin, status active
 
-## 6. Edge Function logs
-- provision-tenant: only boot/shutdown lines at 08:42:46–08:46:06; no log line records step 7a / invite_sent (the function does not log it). The invite email was generated via generate_link at 08:42:47.
-- send-reset-email 08:45:28: "Password reset requested for: barrytest2024+2@gmail.com" followed by warning **"no tenant domain resolved — send skipped"** (org public_domain is null).
-
-## 7. Published site version
-- Yes, karlsgas.lovable.app serves ResetPassword-BoILy9ow.js which contains "This link is for a different account" (the account-match guard).
-- How checked: fetched the published index.html → main bundle → lazy ResetPassword chunk, grepped the string.
-- ResetPassword.tsx is byte-identical in 9910ea4f7, e1a94511a and HEAD (git diff empty), so the published chunk matches e1a9451's version of this file. Caveat: this is string-based inference, not a build hash match.
-
-## Unexplained / notable facts
-- Password update at 08:43:47 succeeded, but no audit/auth-activity row was written.
-- Reset email for this tenant was skipped due to null public_domain.
+## Key fact pattern
+The invite token was already consumed at 08:43:46 (the first successful open, which also set a password and signed the user in). Every later press of "Create password" re-verifies the same dead token → otp_expired → "Session expired". Separately: the 08:45 password login failed with invalid credentials despite the password update at 08:43:47, and no audit_log/auth_activity rows exist for the password change.
