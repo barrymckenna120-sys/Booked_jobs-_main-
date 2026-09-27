@@ -1,76 +1,120 @@
-# Tour feedback visible to superadmin
+# Tour feedback visible to superadmin (upgrade onboarding_feedback in place)
 
-## 1. What the feedback screen does today (confirmed)
-- It isn't going nowhere. On submit, `src/components/OnboardingTour.tsx` (line 128) inserts into the existing table **`onboarding_feedback`** with `user_id`, `tour_type`, `rating`, `clarity` and `comment`.
-- The live table has **11 rows**. It has no `organisation_id` and no device or role column.
-- Its access rules only let a user insert or read **their own** rows. Nobody else can read them, including the superadmin, so the feedback is effectively invisible.
-- The insert result is never checked: a failure still shows "Thanks", with no error toast.
-- Skip calls `onComplete()` and writes nothing.
-- The desktop office dialog currently skips feedback entirely, because Finish closes it straight away.
-- Nothing reads from localStorage or calls a function on submit.
+## Pre-check (read-only, already run)
+- `onboarding_feedback` has 11 rows. **All 11 match a `profiles` row that has an organisation** (profiles.user_id = user_id), and none match more than one. The backfill can go ahead.
+- Existing constraints: only `onboarding_feedback_pkey`. There are no rating or comment CHECKs, no triggers, and only the primary-key index.
+- Existing ratings are 1–5 with none blank, and comment lengths are 3–6 characters, so the new CHECKs will pass.
+- Existing policies to drop: **"Users insert own feedback"** (INSERT) and **"Users read own feedback"** (SELECT). These are the only two.
 
-## 2. Migration (one migration, schema only)
+## 1. Migration (one file)
 ```sql
-CREATE TABLE public.tour_feedback (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organisation_id uuid NOT NULL REFERENCES public.organisations(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL,
-  role text,
-  tour_type text NOT NULL CHECK (tour_type IN ('office','engineer')),
-  device text NOT NULL CHECK (device IN ('mobile','desktop')),
-  rating int NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  comment text NULL CHECK (comment IS NULL OR char_length(comment) <= 1000),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX tour_feedback_org_created_idx ON public.tour_feedback (organisation_id, created_at DESC);
+-- a. New columns + checks
+ALTER TABLE public.onboarding_feedback
+  ADD COLUMN organisation_id uuid REFERENCES public.organisations(id) ON DELETE CASCADE,
+  ADD COLUMN role text,
+  ADD COLUMN device text NULL CHECK (device IN ('mobile','desktop')),
+  ADD COLUMN is_replay boolean NOT NULL DEFAULT false,
+  ADD COLUMN notified_at timestamptz NULL,
+  ADD CONSTRAINT onboarding_feedback_rating_check CHECK (rating BETWEEN 1 AND 5),
+  ADD CONSTRAINT onboarding_feedback_comment_len CHECK (comment IS NULL OR char_length(comment) <= 1000);
 
-REVOKE ALL ON public.tour_feedback FROM anon;
-GRANT INSERT, SELECT ON public.tour_feedback TO authenticated;
-GRANT ALL ON public.tour_feedback TO service_role;
+-- b. Backfill from profiles; abort the whole migration if any row is unmatched
+UPDATE public.onboarding_feedback f
+   SET organisation_id = p.organisation_id
+  FROM public.profiles p
+ WHERE p.user_id = f.user_id AND f.organisation_id IS NULL;
 
-ALTER TABLE public.tour_feedback ENABLE ROW LEVEL SECURITY;
+DO $$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM public.onboarding_feedback WHERE organisation_id IS NULL;
+  IF n > 0 THEN
+    RAISE EXCEPTION 'onboarding_feedback backfill: % unmatched rows, aborting', n;
+  END IF;
+END $$;
 
--- Server fills these; the client never supplies them.
-ALTER TABLE public.tour_feedback
+-- c. NOT NULL, defaults, session-stamping trigger
+ALTER TABLE public.onboarding_feedback
+  ALTER COLUMN organisation_id SET NOT NULL,
   ALTER COLUMN organisation_id SET DEFAULT public.get_my_org_id(),
   ALTER COLUMN user_id SET DEFAULT auth.uid();
 
-CREATE POLICY tour_feedback_insert_own ON public.tour_feedback
+CREATE OR REPLACE FUNCTION public.stamp_onboarding_feedback()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    NEW.user_id := auth.uid();
+    NEW.organisation_id := public.get_my_org_id();
+    NEW.role := public.get_user_role(auth.uid());
+  END IF;
+  NEW.notified_at := NULL;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER onboarding_feedback_stamp
+  BEFORE INSERT ON public.onboarding_feedback
+  FOR EACH ROW EXECUTE FUNCTION public.stamp_onboarding_feedback();
+
+-- d. Policies + grants
+DROP POLICY IF EXISTS "Users insert own feedback" ON public.onboarding_feedback;
+DROP POLICY IF EXISTS "Users read own feedback" ON public.onboarding_feedback;
+
+REVOKE ALL ON public.onboarding_feedback FROM anon;
+REVOKE ALL ON public.onboarding_feedback FROM authenticated;
+GRANT INSERT, SELECT ON public.onboarding_feedback TO authenticated;
+GRANT ALL ON public.onboarding_feedback TO service_role;
+ALTER TABLE public.onboarding_feedback ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY onboarding_feedback_insert_own ON public.onboarding_feedback
   FOR INSERT TO authenticated
   WITH CHECK (organisation_id = public.get_my_org_id() AND user_id = auth.uid());
 
-CREATE POLICY tour_feedback_select_superadmin ON public.tour_feedback
+CREATE POLICY onboarding_feedback_select_superadmin ON public.onboarding_feedback
   FOR SELECT TO authenticated
   USING (public.is_superadmin(auth.uid()));
--- No UPDATE / DELETE policies.
+
+-- e. Index
+CREATE INDEX onboarding_feedback_org_created_idx
+  ON public.onboarding_feedback (organisation_id, created_at DESC);
 ```
-- `role` is filled by a small BEFORE INSERT trigger from `get_user_role(auth.uid())`, so the client can't set it. The trigger also overwrites `organisation_id` and `user_id` with the session values, even if a client tries to send them.
-- The superadmin check is `is_superadmin()`, the same one /admin relies on.
-- The old `onboarding_feedback` table and its 11 rows are left untouched. Copying them across would be a separate, review-gated data step, and only if you want it. They lack org and device, so they would need a join through `profiles`.
+Notes:
+- The backfill is inside this migration because you asked for that. If any row doesn't match, the whole migration rolls back.
+- After applying, I'll read back the row count (11), the count of blank `organisation_id` (0), the policies and the constraints.
+- The trigger only resets `notified_at` to blank on insert, so a client can't pre-mark a row as already emailed. Only the edge function (service role, doing an UPDATE) can set it.
 
-## 3. Client changes
-- **`OnboardingTour.tsx` (mobile/engineer sheet):** submit inserts into `tour_feedback` with only `tour_type`, `device` (`desktop` when the width is at least 1024px, otherwise `mobile`), `rating` and `comment`. It checks the error: on failure it shows an error toast and stays on the screen; on success it shows "Thanks" as now. The "clarity" yes/no question stays on screen but is no longer stored, because the spec has no column for it (confirm if you want a column instead). Skip is unchanged.
-- **`OfficeTourDesktop.tsx`:** Finish on step 7 switches the dialog body to the same feedback screen: stars, an optional comment with a 1000-character limit, a Submit button, and Skip. Skip closes without writing. Tour completion still happens exactly as today. Replaying the tour from Help shows the feedback screen too, but it still never writes `onboarding_complete`.
-- After a successful insert, the client calls the new function `notify-tour-feedback` with `{ feedback_id }` only, fire-and-forget. An email failure never blocks the save or rolls it back.
+## 2. Final screen (all tours: desktop dialog, mobile sheet, engineer tour)
+- On step 7 the primary button reads **"Next"**, not Finish.
+- The final screen shows:
+  - "How was the tour?"
+  - 5 stars
+  - the existing clarity question
+  - an optional comment (1000-character limit)
+  - **"Send & finish"**, disabled until a star is chosen
+  - **"Skip & finish"**
+- **Send & finish** inserts `tour_type`, `device`, `rating`, `clarity`, `comment` and `is_replay` only. On error it shows an error toast and stays open. On success it completes the tour exactly as today and closes. The separate "Thanks" step is removed.
+- **Skip & finish** completes the tour and writes nothing.
+- The progress row shows a small ✓ after 07, not a numbered tab.
+- On replay, neither button writes `onboarding_complete`, and submissions set `is_replay = true`. The replay flag is passed from `useOnboardingTour` into both tour components.
+- Device is `desktop` when the width is at least 1024px, otherwise `mobile`.
+- After a successful insert, the client calls `notify-tour-feedback` with `{ feedback_id }`, fire-and-forget. An email failure never affects the save.
 
-## 4. Edge function `notify-tour-feedback` (new)
-- It requires a signed-in user. It loads the row by id using the service role, and only acts if `row.user_id` matches the caller.
-- It sends only when `rating <= 3` or the comment isn't empty.
-- It uses the existing `sendAdminEmail` from `_shared/notifyOrgAdmins.ts` (Resend, noreply@bookedjobs.ie). The recipients are `platformOwnerAlertEmails()`, from the `PLATFORM_OWNER_EMAILS` secret; no email address is written into the code.
-- Subject: `Tour feedback: <rating>★ from <tenant>`. The body gives the tenant, role, tour type, device, rating and the escaped comment.
-- It won't be deployed until you approve.
+## 3. Edge function `notify-tour-feedback` (new)
+- It requires a signed-in user, loads the row with the service role, and only acts if `row.user_id` matches the caller.
+- It sends only if `notified_at IS NULL` and either `rating <= 3` or the comment isn't empty.
+- It claims the row first (`UPDATE ... SET notified_at = now() WHERE id = $1 AND notified_at IS NULL RETURNING id`), so two calls can't both send.
+  - If the send fails, it resets `notified_at` to blank so the row can be retried.
+  - With this ordering, `notified_at` means "sent or in flight". This is the safe version of "set after a successful send".
+- It sends through the existing `sendAdminEmail` (Resend, noreply@bookedjobs.ie) to `platformOwnerAlertEmails()`.
+- Subject: `Tour feedback: <rating>★ from <tenant>`. The body gives the tenant, role, tour type, device, clarity, whether it was a replay, and the escaped comment.
 
-## 5. /admin "Tour feedback" section
-- A new `src/components/admin/TourFeedbackSection.tsx`, mounted in `AdminPanel.tsx` without changing the existing tabs.
-- **Summary:** average rating, total responses, and a split of office vs engineer (count and average for each).
-- **Table:** newest first, showing tenant name, role, tour type, device, rating, comment and date (DD/MM/YY). It has a tenant filter plus loading, empty and error states. Tenant names come from `organisations`, which the superadmin can already read.
+## 4. /admin "Tour feedback" section
+- A new `src/components/admin/TourFeedbackSection.tsx`, mounted in `AdminPanel.tsx`. Existing tabs are unchanged.
+- **Summary:** average rating, total responses, and office vs engineer (count and average for each). Averages exclude replays; totals show replays separately.
+- **Table:** newest first, showing tenant, role, tour type, device ("—" when unknown), rating, clarity, a replay marker, comment and date (DD/MM/YY). It has a tenant filter plus loading, empty and error states. All 11 existing rows appear.
 
-## 6. Verification (Test Gas 4 only, org 93ec32a9…)
-- Mint a session for the Test Gas 4 admin and submit desktop feedback with 2 stars and a comment. Then read the row back with SQL, check the org and user, and take a screenshot of it in /admin as the superadmin.
-- As the Test Gas 4 user, select from `tour_feedback` and show an empty result, even though their own row exists.
-- Try inserting with a different `organisation_id` and show it is rejected or rewritten.
-- The test email is sent to the platform owner address. Please confirm you received it; I can only confirm the send result.
-- Run the type check and build, and give the commit hash(es). Commits land on an edit branch, so I'll say so if dev isn't confirmed. Nothing will be published.
-
-## Open question
-- Should "clarity" be dropped or kept? The plan drops it from storage, because the spec lists no column for it.
+## 5. Verification (Test Gas 4, org 93ec32a9…)
+- Row count before (11) and after (11 plus the test rows).
+- As the Test Gas 4 admin: submit desktop feedback with 2 stars and a comment, read the row back with SQL (org, user, role, device, is_replay), and take a screenshot of it in /admin as the superadmin.
+- As the Test Gas 4 user: a SELECT returns empty, and an insert that supplies another org's id gets rewritten to their own org.
+- Call `notify-tour-feedback` twice with the same id: the first sends and the second skips. `notified_at` gets set once, and I'll show both responses. Please confirm you received the one email.
+- Run the type check and build, and give the migration file name and commit hash(es). I'll say so if the commit isn't confirmed on dev. Nothing will be published and no function will be deployed until you approve.
