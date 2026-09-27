@@ -16,7 +16,7 @@ on:
         description: "Mode"
         required: true
         type: choice
-        options: [dry_run]
+        options: [dry_run, recover_missing]
         default: dry_run
       restore_id:
         description: "tenant_restores row UUID (blank = standalone run)"
@@ -64,7 +64,10 @@ jobs:
           RESTORE_ID: ${{ inputs.restore_id }}
         run: |
           set -euo pipefail
-          [[ "$MODE" == "dry_run" ]] || { echo "::error::Only dry_run is supported"; exit 1; }
+          [[ "$MODE" == "dry_run" || "$MODE" == "recover_missing" ]] || { echo "::error::Unsupported mode"; exit 1; }
+          if [[ "$MODE" == "recover_missing" && -z "$RESTORE_ID" ]]; then
+            echo "::error::recover_missing requires restore_id"; exit 1
+          fi
           [[ "$ORG_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] \
             || { echo "::error::org_id is not a valid UUID"; exit 1; }
           if [ -n "$BACKUP" ]; then
@@ -78,6 +81,7 @@ jobs:
           echo "ORG_ID=${ORG_ID,,}" >> "$GITHUB_ENV"
           echo "BACKUP_STAMP=$BACKUP" >> "$GITHUB_ENV"
           echo "RESTORE_ID=${RESTORE_ID,,}" >> "$GITHUB_ENV"
+          echo "MODE=$MODE" >> "$GITHUB_ENV"
 
       - name: Start postgres 17 container with random password (never printed)
         run: |
@@ -280,7 +284,7 @@ jobs:
           except RuntimeError as e:
               print(f"::error::Could not connect to live database: {e}"); sys.exit(1)
 
-          results = []; errors = 0
+          results = []; errors = 0; MISSING = {}
           for table, parent, fk in [(t, None, None) for t in DIRECT] + CHILDREN:
               row = {"table": table, "kind": "direct" if parent is None else f"child of {parent}"}
               try:
@@ -293,6 +297,8 @@ jobs:
                       where = org_filter(parent, fk)
                       b, l = hashes("backup", table, common, where), hashes("live", table, common, where)
                       bk, lk = set(b), set(l)
+                      if os.environ.get("MODE") == "recover_missing":
+                          MISSING[table] = sorted(bk - lk)
                       row.update(status="ok", in_backup=len(bk), in_live=len(lk),
                                  missing_from_live=len(bk - lk),
                                  changed=sum(1 for k in bk & lk if b[k] != l[k]),
@@ -320,6 +326,10 @@ jobs:
                     "tables": results, "report_only": report_only, "errors": errors}
           with open("/tmp/report.json", "w") as f:
               json.dump(report, f, indent=2)
+          if os.environ.get("MODE") == "recover_missing":
+              os.makedirs("/tmp/recover", mode=0o700, exist_ok=True)
+              with open("/tmp/recover/missing.json", "w") as f:
+                  json.dump({"missing": MISSING, "children": {c: [p, k] for c, p, k in CHILDREN}}, f)
 
           def g(r, k): return str(r.get(k, "-"))
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
@@ -336,6 +346,239 @@ jobs:
           sys.exit(1 if errors else 0)
           PYEOF
 
+      - name: Recover missing rows (recover_missing only)
+        id: recover
+        if: ${{ inputs.mode == 'recover_missing' && steps.compare.outcome == 'success' }}
+        env:
+          LIVE_URL: ${{ env.DB_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "${LIVE_URL:-}" ] || { echo "::error::DB_URL missing"; exit 1; }
+          python3 - << 'PYEOF'
+          import json, os, re, subprocess, sys
+          PSQL = "/usr/lib/postgresql/17/bin/psql"
+          ORG = os.environ["ORG_ID"]; RID = os.environ["RESTORE_ID"]; LIVE = os.environ["LIVE_URL"]
+          STAMP = os.environ["FILE"][len("backup-"):-len(".sql.gz")]
+          UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+          BASE_ENV = dict(os.environ); BASE_ENV.pop("LIVE_URL", None); BASE_ENV.pop("PGOPTIONS", None)
+          LIVE_ENV = {k: v for k, v in BASE_ENV.items() if not k.startswith("PG")}
+          LIVE_ENV["PGCONNECT_TIMEOUT"] = "20"
+          # Never recovered, even if they appear in the compare list
+          FORBIDDEN = {"profiles", "tenant_integrations", "audit_log", "message_log", "tenant_activity_log",
+                       "edge_function_logs", "debug_logs", "email_send_log", "customer_activity"}
+          os.makedirs("/tmp/recover", mode=0o700, exist_ok=True)
+
+          def redact(s):
+              s = re.sub(r"postgres(ql)?://\S+", "[redacted-url]", s)
+              return re.sub(r"password=\S+", "password=[redacted]", s)
+
+          def fail(msg):
+              msg = redact(msg)[:300]
+              with open("/tmp/recover/error.txt", "w") as f: f.write(msg)
+              print(f"::error::{msg}"); sys.exit(1)
+
+          def run(side, sql):
+              if side == "live":
+                  args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE]; env = LIVE_ENV
+                  sql = ("SET TIME ZONE 'UTC';\nSET default_transaction_read_only = on;\n"
+                         "BEGIN TRANSACTION READ ONLY;\n" + sql + "\nCOMMIT;\n")
+              else:
+                  args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1"]; env = BASE_ENV
+                  sql = "SET TIME ZONE 'UTC';\n" + sql
+              r = subprocess.run(args, input=sql, capture_output=True, text=True, env=env)
+              if r.returncode != 0:
+                  raise RuntimeError("query failed (details redacted)")
+              return r.stdout
+
+          def q(s): return "'" + str(s).replace("'", "''") + "'"
+          def ident(s): return '"' + s.replace('"', '""') + '"'
+          def uarr(ids): return "ARRAY[" + ",".join(q(i) for i in sorted(ids)) + "]::uuid[]"
+          def tarr(vals): return "ARRAY[" + ",".join(q(v) for v in sorted(vals)) + "]::text[]"
+          def rows(side, sql): return [l.split("|") for l in run(side, sql).splitlines() if l]
+
+          try:
+              data = json.load(open("/tmp/recover/missing.json"))
+              children = {c: (p, k) for c, (p, k) in data["children"].items()}
+              cand = {}
+              for t, ids in data["missing"].items():
+                  if t in FORBIDDEN: continue
+                  bad = [i for i in ids if not UUID.match(i)]
+                  if bad: fail(f"non-uuid id in {t}; aborting")
+                  cand[t] = set(ids)
+              tables = sorted(cand)
+              gdpr = {t: set() for t in tables}; orphan = {t: set() for t in tables}
+
+              # Common, insertable columns (live generated/identity-always columns excluded)
+              cols = {}
+              for t in tables:
+                  bc = {r[0] for r in rows("backup", "SELECT column_name FROM information_schema.columns "
+                        f"WHERE table_schema='public' AND table_name={q(t)};")}
+                  lc = {r[0] for r in rows("live", "SELECT column_name FROM information_schema.columns "
+                        f"WHERE table_schema='public' AND table_name={q(t)} "
+                        "AND is_generated <> 'ALWAYS' AND coalesce(identity_generation,'') <> 'ALWAYS';")}
+                  cols[t] = sorted(bc & lc)
+                  if "id" not in cols[t]: fail(f"no common id column on {t}")
+                  if t not in children and "organisation_id" not in cols[t]:
+                      fail(f"no organisation_id on {t}; aborting")
+
+              # Foreign keys on affected tables (read from LIVE)
+              fks = set()
+              for r in rows("live", f"""
+                  SELECT cl.relname, a.attname, n2.nspname, cl2.relname, a2.attname, array_length(c.conkey,1)
+                  FROM pg_constraint c
+                  JOIN pg_class cl ON cl.oid = c.conrelid JOIN pg_namespace n ON n.oid = cl.relnamespace
+                  JOIN pg_class cl2 ON cl2.oid = c.confrelid JOIN pg_namespace n2 ON n2.oid = cl2.relnamespace
+                  JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+                  JOIN pg_attribute a2 ON a2.attrelid = c.confrelid AND a2.attnum = c.confkey[1]
+                  WHERE c.contype = 'f' AND n.nspname = 'public' AND cl.relname = ANY({tarr(tables)});"""):
+                  t, col, ps, pt, pc, n = r
+                  if n != "1": fail(f"multi-column foreign key on {t}; unsupported")
+                  fks.add((t, col, ps, pt, pc))
+              for c, (p, k) in children.items():
+                  if c in cand: fks.add((c, k, "public", p, "id"))
+
+              # GDPR exclusions (erased set read from LIVE)
+              erased = {r[0] for r in rows("live",
+                  "SELECT entity_id::text FROM public.gdpr_erasures "
+                  f"WHERE organisation_id = {q(ORG)}::uuid AND entity_type = 'customer';")}
+              if "customers" in cand:
+                  hit = cand["customers"] & erased
+                  gdpr["customers"] |= hit; cand["customers"] -= hit
+              if erased:
+                  for t in tables:
+                      if "customer_id" in cols[t] and cand[t]:
+                          hit = {r[0] for r in rows("backup", f"SELECT id::text FROM public.{ident(t)} "
+                                 f"WHERE id = ANY({uarr(cand[t])}) AND customer_id::text = ANY({tarr(erased)});")}
+                          gdpr[t] |= hit; cand[t] -= hit
+
+              # FK values of candidates (from backup) and live parent existence
+              fkvals = {}
+              for (t, col, ps, pt, pc) in fks:
+                  if col not in cols[t] or not cand[t]: continue
+                  fkvals[(t, col, ps, pt, pc)] = dict(rows("backup",
+                      f"SELECT id::text, {ident(col)}::text FROM public.{ident(t)} "
+                      f"WHERE id = ANY({uarr(cand[t])}) AND {ident(col)} IS NOT NULL;"))
+              live_has = {}
+              for (t, col, ps, pt, pc), m in fkvals.items():
+                  vals = set(m.values())
+                  if not vals: continue
+                  have = {r[0] for r in rows("live",
+                      f"SELECT x FROM unnest({tarr(vals)}) x WHERE EXISTS "
+                      f"(SELECT 1 FROM {ident(ps)}.{ident(pt)} p WHERE p.{ident(pc)}::text = x);")}
+                  live_has.setdefault((ps, pt, pc), set()).update(have)
+
+              # Propagate exclusions to children until stable
+              changed = True
+              while changed:
+                  changed = False
+                  for (t, col, ps, pt, pc), m in fkvals.items():
+                      for rid_, val in m.items():
+                          if rid_ not in cand[t]: continue
+                          if val in live_has.get((ps, pt, pc), set()): continue
+                          inplan = ps == "public" and pc == "id" and pt in cand
+                          if inplan and val in cand[pt]: continue
+                          if inplan and val in gdpr[pt]: gdpr[t].add(rid_)
+                          else: orphan[t].add(rid_)
+                          cand[t].discard(rid_); changed = True
+          except RuntimeError as e:
+              fail(f"recovery planning failed: {e}")
+
+          planned = {t: len(cand[t]) for t in tables}
+          work = [t for t in tables if cand[t]]
+
+          # Export candidate rows from the container (files only, never printed)
+          for t in work:
+              clist = ", ".join(ident(c) for c in cols[t])
+              try:
+                  out = run("backup", f"COPY (SELECT {clist} FROM public.{ident(t)} "
+                                      f"WHERE id = ANY({uarr(cand[t])})) TO STDOUT WITH (FORMAT csv);")
+              except RuntimeError:
+                  fail(f"export failed for {t}")
+              fd = os.open(f"/tmp/recover/{t}.csv", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+              with os.fdopen(fd, "w") as f: f.write(out)
+
+          inserted = {t: [] for t in tables}; committed = False
+          if work:
+              counts_json = json.dumps({t: planned[t] for t in work})
+              s = ["BEGIN;", "SET LOCAL session_replication_role = replica;",
+                   "SET LOCAL statement_timeout = '120s';", "SET LOCAL TIME ZONE 'UTC';",
+                   "CREATE TEMP TABLE _ins (t text, id uuid) ON COMMIT DROP;"]
+              for t in work:
+                  clist = ", ".join(ident(c) for c in cols[t]); tmp = ident("tmp_" + t)
+                  s += [f"\\echo __step__ insert:{t}",
+                        f"CREATE TEMP TABLE {tmp} ON COMMIT DROP AS SELECT {clist} FROM public.{ident(t)} WITH NO DATA;",
+                        f"\\copy {tmp}({clist}) FROM '/tmp/recover/{t}.csv' WITH (FORMAT csv)",
+                        f"WITH ins AS (INSERT INTO public.{ident(t)} ({clist}) SELECT {clist} FROM {tmp} "
+                        f"WHERE id NOT IN (SELECT id FROM public.{ident(t)}) ON CONFLICT DO NOTHING RETURNING id) "
+                        f"INSERT INTO _ins SELECT {q(t)}, id FROM ins;"]
+              s.append("\\o /dev/null")
+              for t in work:  # a) counts
+                  s += [f"\\echo __step__ count_check:{t}",
+                        f"SELECT 1/(CASE WHEN count(*) = {planned[t]} THEN 1 ELSE 0 END) FROM _ins WHERE t = {q(t)};"]
+              for (t, col, ps, pt, pc) in sorted(fks):  # b) FK orphans
+                  if t not in work or col not in cols[t]: continue
+                  s += [f"\\echo __step__ fk_check:{t}.{col}",
+                        f"SELECT 1/(CASE WHEN count(*) = 0 THEN 1 ELSE 0 END) FROM public.{ident(t)} x "
+                        f"JOIN _ins i ON i.t = {q(t)} AND i.id = x.id WHERE x.{ident(col)} IS NOT NULL "
+                        f"AND NOT EXISTS (SELECT 1 FROM {ident(ps)}.{ident(pt)} p WHERE p.{ident(pc)} = x.{ident(col)});"]
+              for t in work:  # c) org
+                  s.append(f"\\echo __step__ org_check:{t}")
+                  if t in children:
+                      p, k = children[t]
+                      s.append(f"SELECT 1/(CASE WHEN count(*) = 0 THEN 1 ELSE 0 END) FROM public.{ident(t)} x "
+                               f"JOIN _ins i ON i.t = {q(t)} AND i.id = x.id LEFT JOIN public.{ident(p)} p ON p.id = x.{ident(k)} "
+                               f"WHERE p.organisation_id IS DISTINCT FROM :'org'::uuid;")
+                  else:
+                      s.append(f"SELECT 1/(CASE WHEN count(*) = 0 THEN 1 ELSE 0 END) FROM public.{ident(t)} x "
+                               f"JOIN _ins i ON i.t = {q(t)} AND i.id = x.id "
+                               f"WHERE x.organisation_id IS DISTINCT FROM :'org'::uuid;")
+              s += ["\\echo __step__ audit_log",
+                    "WITH a AS (INSERT INTO public.audit_log (user_id, user_name, user_role, action_type, entity_type,"
+                    " entity_id, detail, metadata, organisation_id)"
+                    " SELECT r.requested_by, 'Tenant restore', 'superadmin', 'tenant_restore_recovered', 'tenant_restore',"
+                    " r.id::text, 'Recovered missing rows from backup ' || :'stamp',"
+                    " jsonb_build_object('restore_id', r.id, 'backup', :'stamp', 'counts', :'counts'::jsonb), r.organisation_id"
+                    " FROM public.tenant_restores r WHERE r.id = :'rid'::uuid AND r.organisation_id = :'org'::uuid"
+                    " RETURNING 1) SELECT 1/(CASE WHEN count(*) = 1 THEN 1 ELSE 0 END) FROM a;",
+                    "\\o", "\\echo __ids__", "COPY (SELECT t, id FROM _ins) TO STDOUT;",
+                    "COMMIT;", "\\echo __committed__"]
+              args = [PSQL, "-qAtX", "-v", "ON_ERROR_STOP=1", "-d", LIVE,
+                      "-v", f"org={ORG}", "-v", f"rid={RID}", "-v", f"stamp={STAMP}", "-v", f"counts={counts_json}"]
+              r = subprocess.run(args, input="\n".join(s) + "\n", capture_output=True, text=True, env=LIVE_ENV)
+              lines = r.stdout.splitlines()
+              if r.returncode != 0 or "__committed__" not in lines:
+                  step = next((l.split(" ", 1)[1] for l in reversed(lines) if l.startswith("__step__ ")), "start")
+                  err = next((l for l in r.stderr.splitlines() if "ERROR" in l), "unknown error")
+                  if "violates unique constraint" in err: why = "unique constraint violation"
+                  elif "division by zero" in err: why = "safety check failed"
+                  elif "permission denied" in err: why = "permission denied"
+                  else: why = re.sub(r"\"[^\"]*\"|'[^']*'", "…", err.split("ERROR:", 1)[-1]).strip()
+                  fail(f"recovery rolled back at {step}: {why}")
+              committed = True
+              in_ids = False
+              for l in lines:
+                  if l == "__ids__": in_ids = True; continue
+                  if l == "__committed__": break
+                  if in_ids and "\t" in l:
+                      t, i = l.split("\t", 1); inserted[t].append(i)
+
+          summary = {t: {"planned": planned[t], "inserted": len(inserted[t]),
+                         "skipped_gdpr": len(gdpr[t]), "skipped_orphan": len(orphan[t])} for t in tables}
+          rep = json.load(open("/tmp/report.json"))
+          rep["mode"] = "recover_missing"
+          rep["recovery"] = {"committed": committed, "tables": summary}
+          with open("/tmp/report.json", "w") as f: json.dump(rep, f, indent=2)
+          rep["recovery"]["inserted_ids"] = {t: v for t, v in inserted.items() if v}
+          fd = os.open("/tmp/report_full.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+          with os.fdopen(fd, "w") as f: json.dump(rep, f)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s2:
+              s2.write("\n## Recovery (recover_missing)\n\n| table | planned | inserted | skipped_gdpr | skipped_orphan |\n|---|---|---|---|---|\n")
+              for t in tables:
+                  v = summary[t]
+                  s2.write(f"| {t} | {v['planned']} | {v['inserted']} | {v['skipped_gdpr']} | {v['skipped_orphan']} |\n")
+          print(f"recovery complete: inserted={sum(len(v) for v in inserted.values())} tables={len(work)}")
+          PYEOF
+
       - name: Upload report (counts only)
         if: always()
         uses: actions/upload-artifact@v4
@@ -350,6 +593,7 @@ jobs:
         env:
           LIVE_URL: ${{ env.DB_URL }}
           COMPARE_OUTCOME: ${{ steps.compare.outcome }}
+          RECOVER_OUTCOME: ${{ steps.recover.outcome }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -360,14 +604,20 @@ jobs:
           LIVE = os.environ["LIVE_URL"]
           RID = os.environ["RESTORE_ID"]
           ok = os.environ.get("COMPARE_OUTCOME") == "success"
+          if os.environ.get("MODE") == "recover_missing":
+              ok = ok and os.environ.get("RECOVER_OUTCOME") == "success"
           status = "succeeded" if ok else "failed"
           report = None
-          if os.path.exists("/tmp/report.json"):
-              with open("/tmp/report.json") as f:
+          rpath = "/tmp/report_full.json" if os.path.exists("/tmp/report_full.json") else "/tmp/report.json"
+          if os.path.exists(rpath):
+              with open(rpath) as f:
                   report = f.read()
           err = None
           if not ok:
               err = f"workflow compare step outcome: {os.environ.get('COMPARE_OUTCOME', 'unknown')}"
+              if os.path.exists("/tmp/recover/error.txt"):
+                  with open("/tmp/recover/error.txt") as f:
+                      err = f.read()
               err = re.sub(r"postgres(ql)?://\S+", "[redacted-url]", err)
               err = re.sub(r"password=\S+", "password=[redacted]", err)[:300]
           env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
@@ -397,4 +647,4 @@ jobs:
         if: always()
         run: |
           docker rm -f pgrestore || true
-          rm -rf /tmp/backup-*.sql.gz /tmp/backup-*.manifest.json /tmp/restore.err /tmp/report.json
+          rm -rf /tmp/backup-*.sql.gz /tmp/backup-*.manifest.json /tmp/restore.err /tmp/report.json /tmp/report_full.json /tmp/recover
