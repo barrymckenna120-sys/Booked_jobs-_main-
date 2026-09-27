@@ -1,37 +1,30 @@
-# BJ-NEW-M step 1 — Scanner-safe Set Password page (frontend only)
+# BJ-NEW-M step 2 — Branded owner invite
 
-Scope: `src/pages/ResetPassword.tsx` only. No changes to Auth.tsx, Edge Functions, routing, styling, or password rules. iOS Chrome handling kept.
+## What changes
+When a superadmin provisions a new tenant, the owner gets exactly one branded BookedJobs email (via Resend) sent only after every provisioning step succeeds. The admin toast says truthfully whether it was sent.
 
-## Changes
+## provision-tenant/index.ts
+1. Step 6 (~line 418): replace `inviteUserByEmail` with `auth.admin.generateLink({ type: "invite", email, options: { data: <same user_metadata> } })` — creates the user without sending an email. `newUserId = data.user.id`; keep `hashed_token` and `linkType = "invite"`.
+2. Existing-email branch: keep the current lookup, superadmin guard and cross-org guard exactly as they are; then `generateLink({ type: "recovery", email })`, `linkType = "recovery"`. The "already registered" detection will be adjusted only as far as needed to match the error `generateLink` returns (verified against the real error text, not guessed).
+3. All other steps (4, 5, 5b–5e, 6b–6e) untouched.
+4. New Step 7a just before `// Step 7: success`:
+   - Host: `organisations.public_domain` if non-blank, else `APP_PUBLIC_URL` or `https://app.bookedjobs.ie`; normalised to `https://<host>`, no trailing slash. No fallback host or karlsgas host.
+   - Link: `<host>/reset-password?token_hash=<hashed_token>&type=<invite|recovery>` (never `action_link`).
+   - Resend: From `BookedJobs <noreply@bookedjobs.ie>`, Reply-To = business_email if given, subject "You've been invited to <company_name> on BookedJobs", body/button/footer as specified, styled like the invite-team-member email, every value HTML-escaped.
+   - On failure (including missing key): tenant still succeeds; `logFailure("step 7a", ...)` without link/token.
+5. Success response adds `invite_sent` and `invite_error`. Link and token never appear in the response or logs.
 
-1. **Add URL type helper**
-   - `getLinkType()` reads `type` from query/hash. Returns `"invite"`, `"recovery"`, `null` (missing → treated as recovery), or `"invalid"` for anything else.
-   - `hasRecoveryIntent()` returns true for `type=recovery` or `type=invite`.
+## AdminPanel.tsx (toast only, ~line 1667)
+- Sent: "✅ <company> provisioned. Invite emailed to <ownerEmail>."
+- Failed: warning toast "⚠️ <company> provisioned, but the invite email failed: <invite_error>. Open the tenant and use Send Password Recovery."
 
-2. **useEffect (`establish()`)**
-   - Replace Method 1 and Method 2 with: if `token` or `token_hash` is in the URL, `setShowForm(true)` and `return` — no `verifyOtp`, no 5-second timeout, no URL stripping (token is needed at submit).
-   - Method 3 (access_token + refresh_token), Method 4 (existing session) and the `onAuthStateChange` fallback + timeout left byte-identical.
+## Not touched
+requirePlatformAdmin, guards, slug logic, other steps, invite-team-member, send-reset-email, auth-email-hook, ResetPassword.tsx.
 
-3. **`establishSessionIfNeeded()` (submit only)**
-   - Resolve type: missing → `"recovery"`; `"invite"`/`"recovery"` passed through to `verifyOtp` for both `token + email` and `token_hash` paths; any other type → return false, which shows the existing "Session expired" toast.
-   - On successful verification, strip the token from the URL.
-   - Access/refresh-token path unchanged.
+## Deploy and verify
+- Typecheck/tests, then deploy only `provision-tenant`; report timestamp.
+- Report full diff of both files and commit hashes. Note: the workspace is on an edit branch (`edit/edt-39431c70...`), not `dev`; I can't commit to `dev` directly, so I will report the real hashes and branch.
+- Live test: I'll need an owner email address you control for the scratch tenant "Test Invite Gas". I can check what the email service accepted and the link host/path. You'll need to confirm only one email arrived, open it in a private window, set a password and check you land in Test Invite Gas. I'll report the toast text.
 
-4. **Invite copy** (when `type=invite`)
-   - Title "Set up your account"; description "Choose a password to finish setting up your account."; button "Create password" (loading text unchanged). Reset links keep existing copy.
-
-5. **Audit metadata**
-   - `triggered_by: "invite"` when `type=invite`, otherwise `"self"`, in both `logAudit` and `logAuthActivity` (logAuthActivity currently has no metadata field; `triggered_by` added only where its signature allows — will confirm against `src/lib/authActivity.ts` and leave it untouched if it doesn't accept metadata, reporting that).
-
-## Verification / report
-
-- Full diff; `rg -n verifyOtp src/pages/ResetPassword.tsx` showing no call inside the useEffect.
-- Tests + typecheck.
-- Test 1 (Cavan Gas test user only): request reset, open link, wait 10s, confirm no "expired" error, set password, log in. Screenshots.
-- Test 2: resubmit same link → "Session expired".
-- Commit hash, and the actual branch (previous sessions ran on an edit branch rather than `dev` — will report truthfully).
-
-## Risk notes
-
-- This only protects links that land on `/reset-password?token_hash=...`. If the reset email template links via the auth `/verify` endpoint (which redirects with `access_token` in the hash), a scanner can still consume it before the page loads; I will check what the current reset email link looks like during Test 1 and report it.
-- Auth flow change — per project rules this is outside "lite review"; treat as Heavy TDD: add a unit test for the type-resolution helper (invite / recovery / missing / invalid).
+## Risk
+High: this touches auth and tenant provisioning, so it needs the full review process. The change is kept small, and the scratch tenant will be labelled for cleanup.
