@@ -593,6 +593,19 @@ Deno.serve(async (req) => {
       "tally-incoming-job",
     );
 
+    // Shared-phone guard: surface for office review (existing duplicate flag).
+    if (identityConflictWith) {
+      await supabase
+        .from("service_calls")
+        .update({ possible_duplicate: true })
+        .eq("id", job.id)
+        .eq("organisation_id", orgData.id);
+      await logSubmission("shared_phone_new_customer", {
+        job_id: job.id,
+        customer_id: customerId,
+        shares_phone_with_customer_id: identityConflictWith,
+      });
+    }
 
 
 
