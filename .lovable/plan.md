@@ -78,3 +78,62 @@ No Edge Function, trigger or payment path writes it.
   - Related exports: `resolveWhatsappApiKey` :33 and `fetchWhatsappApiKeyWithClient` :119
 
 Audit stopped here. No fixes proposed.
+
+---
+
+# READ-ONLY AUDIT — Dublin Gas (f1950683-e8b9-41cf-8972-2aa59516850d)
+
+## 1. job_type counts
+```text
+Boiler Service 54 | Boiler Replacement 16 | Emergency 15 | Repair 13 | Boiler Repair 11
+other 8 | Other 4 | Installation 3 | Install 2 | Heating Upgrade 2 | Service 1
+```
+
+## 2. Tags on Dublin Gas jobs
+```text
+New Boiler Fitted 2 (organisation_id NULL) | Under Warranty 1 (NULL) | New Boiler Soon 1 (NULL)
+```
+Columns in job_tags: `id uuid NOT NULL`, `name text NOT NULL`, `colour text NOT NULL`, `created_at timestamptz NOT NULL`, `organisation_id uuid NULLABLE`.
+The table allows per-org tags because organisation_id is nullable. All tags used on Dublin Gas jobs have organisation_id = NULL, which means they are shared across companies.
+
+## 3. tenant_integrations (config key names only, all rows active)
+```text
+tally         [new_booking_url, renewal_form_url, webhook_secret]
+stripe        [payment_link, payment_link_url, webhook_secret]
+make          [rebook_webhook_url, review_webhook_secret, review_webhook_url, webhook_secret]
+360messenger  [api_key_secret, company_name, company_phone, country_code, webhook_secret]  api_key_secret = THREESIXTY_API_KEY_DUBLIN_GAS
+whatsapp      [api_key, domain, phone_number_id, template_prefix, templates, waba_id, webhook_secret]
+settings      [company_name, company_phone, google_review_url, webhook_secret]
+sumup         [api_key_secret, environment, environments, merchant_code, webhook_secret]  api_key_secret = SUMUP_API_KEY_DUBLIN_GAS
+```
+Does fetchWhatsappApiKey resolve a key? Yes, if the secret is set in the function environment. It prefers the 360messenger row and resolves to `secret:THREESIXTY_API_KEY_DUBLIN_GAS`. I did not read the function environment in this audit; workspace notes say that secret is live. If the secret were missing, the function would use the `whatsapp` row, which has a literal `config.api_key`, giving `literal_config:whatsapp` (_shared/whatsappCredentials.ts:61-68).
+
+## 4. getCanonicalOrgBranding (from the settings row using the resolver's precedence rules; I did not call the function)
+```text
+org_name  = "Dublin Gas"   (settings.business_name, stored as "Dublin Gas " — clean() trims)
+org_phone = "014412618"    (settings.business_phone; company_phone "01 5433433" not used)
+footer    = "Dublin Gas | 5 Main Street, Swords, Co. Dublin | 01 5433433"  (settings.message_footer)
+```
+The phone in the footer (01 5433433) is different from the resolved org_phone (014412618).
+
+## 5. cron.job_run_details (by runid, no timeout)
+```text
+jobid status    start_time                     return_message
+7     succeeded 2026-09-28 09:00:00.301261+00  1 row
+9     succeeded 2026-09-28 09:00:00.299461+00  1 row
+3     succeeded 2026-09-28 09:00:00.308277+00  1 row
+6     succeeded 2026-09-28 09:00:00.296452+00  1 row
+(identical pattern for 27/09, 26/09, 25/09, 24/09 — all succeeded, "1 row")
+```
+"1 row" only means pg_net queued the HTTP request. It does not show what the function returned.
+
+## 6. edge_function_logs (last 5 per function)
+```text
+warranty-auto-send  2026-09-28 09:00:05.570524+00  OK
+warranty-auto-send  2026-09-27 09:00:04.213041+00  OK
+warranty-auto-send  2026-09-26 09:00:09.313589+00  OK
+warranty-auto-send  2026-09-25 09:00:04.979271+00  OK
+warranty-auto-send  2026-09-24 09:00:07.769208+00  OK
+quote-followup-day3 (no rows)
+quote-followup-day6 (no rows)
+```
