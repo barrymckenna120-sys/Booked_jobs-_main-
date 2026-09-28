@@ -41,7 +41,16 @@ export async function verifyTallySignature(
   const provided = String(header ?? "").trim();
   const s = String(secret ?? "");
   if (!provided || !s) return false;
-  return safeEqual(await tallySignatureFor(rawBody, s), provided);
+  if (safeEqual(await tallySignatureFor(rawBody, s), provided)) return true;
+  // Tally's reference implementation signs JSON.stringify(parsedBody), which can
+  // differ from the raw bytes (whitespace / unicode escaping). Accept either.
+  try {
+    const canonical = JSON.stringify(JSON.parse(rawBody));
+    if (canonical !== rawBody) return safeEqual(await tallySignatureFor(canonical, s), provided);
+  } catch (_e) {
+    // not JSON → raw comparison only
+  }
+  return false;
 }
 
 /**

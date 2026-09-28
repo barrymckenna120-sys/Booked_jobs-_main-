@@ -32,7 +32,8 @@ import {
   validateEnquirySubmission,
   validatePhoneOrEmail,
 } from "../_shared/boilerEnquiryPayload.ts";
-import { tallyFieldSchema, verifyTallySignature } from "../_shared/tallySignature.ts";
+import { verifyTallySignature } from "../_shared/tallySignature.ts";
+import { mapTallyForm, TALLY_FORM_MAPS, type MappedTallyForm } from "../_shared/tallyFormMaps.ts";
 
 const FN = "tally-boiler-enquiry";
 const BUCKET = "job-media";
@@ -130,12 +131,6 @@ Deno.serve(async (req) => {
         return json({ success: false, error: "Unknown form" }, 400);
       }
       const binding = signedBindings[0];
-      // TEMPORARY (remove once Zjq5rA mapping is done): keys/labels/types only.
-      await logStage(supabase, "field_schema_capture", {
-        submission_id: submissionId,
-        form_id: formId,
-        fields: tallyFieldSchema(body),
-      });
       const secretName = String(binding.config.boiler_enquiry_signing_secret_name);
       const secret = Deno.env.get(secretName) ?? "";
       if (!secret) {
@@ -179,7 +174,16 @@ Deno.serve(async (req) => {
     }
 
     // --- validation ---------------------------------------------------------
-    const contact = extractContact(flat);
+    const formMap = isSignedCall && formId ? TALLY_FORM_MAPS[formId] : undefined;
+    const mapped: MappedTallyForm | null = formMap ? mapTallyForm(formMap, body) : null;
+    const baseContact = extractContact(flat);
+    const contact = mapped
+      ? {
+        name: mapped.contact.name ?? baseContact.name,
+        phone: mapped.contact.phone ?? baseContact.phone,
+        email: mapped.contact.email ?? baseContact.email,
+      }
+      : baseContact;
     // Question NAMES only (never answers) so a mapping mismatch is diagnosable
     // without storing personal data in the log.
     const fieldNames = Object.keys(flat).slice(0, 100);
@@ -248,8 +252,10 @@ Deno.serve(async (req) => {
     }
 
     // --- customer match or create ------------------------------------------
-    const fields = mapBoilerEnquiryFields(flat);
-    const attribution = extractAttribution(flat);
+    const fields = { ...mapBoilerEnquiryFields(flat), ...(mapped?.columns ?? {}) };
+    const attribution = mapped
+      ? { ...extractAttribution(flat), source: mapped.source }
+      : extractAttribution(flat);
 
     const { matched, customer } = await matchCustomer(
       supabase,
@@ -318,7 +324,7 @@ Deno.serve(async (req) => {
       .insert({
         organisation_id: organisationId,
         customer_id: customerId,
-        enquiry_type: "new_boiler",
+        enquiry_type: mapped?.enquiryType ?? "new_boiler",
         status: "NEW",
         ...fields,
         contact_name: contact.name,
@@ -329,8 +335,11 @@ Deno.serve(async (req) => {
         external_submission_id: submissionId,
         raw_payload: body as Record<string, unknown>,
         office_review_notes:
-          Object.keys(customerDifferences).length > 0
-            ? { customer_differences: customerDifferences }
+          mapped || Object.keys(customerDifferences).length > 0
+            ? {
+              ...(Object.keys(customerDifferences).length > 0 ? { customer_differences: customerDifferences } : {}),
+              ...(mapped ? mapped.notes : {}),
+            }
             : null,
       })
       .select("id")
@@ -367,7 +376,7 @@ Deno.serve(async (req) => {
     }
 
     // --- photos: copied server-side, validated, tenant-scoped --------------
-    const photoUrls = enquiryPhotoUrls(flat);
+    const photoUrls = mapped && mapped.photoUrls.length > 0 ? mapped.photoUrls : enquiryPhotoUrls(flat);
     let storedPhotos = 0;
     const rejectedPhotos: string[] = [];
 
