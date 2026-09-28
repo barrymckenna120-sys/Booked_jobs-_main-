@@ -121,3 +121,5 @@
 ## BJ — Fault Finder (28/09/26)
 - [x] Result card reorder: code heading first, then explanation (FaultFinderSheet.tsx) + DOM-order test (3 tests).
 - [~] New public read-only Edge Function `public-fault-lookup` — built, tested (17 Deno tests), deployed 15:15 UTC 28/09/26. Awaiting Barry to set secret `PUBLIC_FAULT_ALLOWED_ORIGINS` (comma-separated allowed origins) before browser CORS works.
+
+- [ ] Viessmann (10 códigos Vitodens 100-W BPJA) ainda em draft — publicar depois de melhorar explicações (8/10 dizem "Burner blocked"); aguarda decisão.
