@@ -52,11 +52,9 @@ export type FaultLookupResult =
   | { status: "unknown"; manualUrl: string | null }
   | { status: "found"; fault: PublishedFaultCode };
 
-const normCode = (c: string) => c.trim().toUpperCase().replace(/[\s.-]/g, "");
-
 /** Exact code match within one model's published codes (never across models). */
 export const matchFaultCode = (codes: PublishedFaultCode[], code: string): PublishedFaultCode | null =>
-  codes.find((c) => normCode(c.code) === normCode(code)) ?? null;
+  findExactCode(codes, code);
 
 /** Find the published library model for a brand/model pair (case-insensitive). */
 export const findLibraryModel = (models: PublishedFaultModel[], brand: string, model: string) =>
@@ -164,7 +162,7 @@ export const resolveFaultResult = (
   if (!q || !brand.trim()) return { status: "idle" };
   const hit = matchFaultCode(codes, code);
   if (hit) return { status: "found", fault: hit };
-  const stillPrefix = codes.some((c) => normCode(c.code).startsWith(q));
+  const stillPrefix = anyCodeStartsWith(codes, code);
   if (!submitted && stillPrefix) return { status: "idle" };
   return { status: "unknown", manualUrl: codes.find((c) => c.manual_url)?.manual_url ?? getManualLink(brand) };
 };
