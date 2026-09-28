@@ -19,8 +19,10 @@ export type WarrantyWelcomeInput = {
   brand?: string | null;
   model?: string | null;
   warrantyYears?: number | null;
+  warrantyExpiry?: string | null; // YYYY-MM-DD
   tenantPhone?: string | null;
   footer?: string | null;
+  today?: string; // YYYY-MM-DD override for tests; defaults to Europe/Dublin today
 };
 
 const clean = (v: unknown) => String(v ?? "").trim();
@@ -29,13 +31,32 @@ export function firstNameOf(fullName: string | null | undefined): string {
   return clean(fullName).split(/\s+/)[0] || "";
 }
 
+/** Today's date (YYYY-MM-DD) in Europe/Dublin. */
+export function todayDublin(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Dublin", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return parts; // en-CA yields YYYY-MM-DD
+}
+
+/** Valid YYYY-MM-DD string strictly after `today` → formatted "12 March 2036" (en-IE, no weekday), else null. */
+export function futureExpiryClause(warrantyExpiry: string | null | undefined, today: string): string | null {
+  const raw = clean(warrantyExpiry);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T12:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== raw) return null;
+  if (raw <= today) return null;
+  const formatted = new Intl.DateTimeFormat("en-IE", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(d);
+  return ` and covered by the manufacturer's warranty until ${formatted}`;
+}
+
 export function buildWarrantyWelcome(i: WarrantyWelcomeInput): string {
   const first = clean(i.firstName);
   const brand = clean(i.brand);
   const model = clean(i.model);
   const boiler = brand && model ? `${brand} ${model} boiler` : brand ? `${brand} boiler` : "boiler";
+  const today = i.today ?? todayDublin();
+  const expiryClause = futureExpiryClause(i.warrantyExpiry, today);
   const n = Number(i.warrantyYears);
-  const clause = Number.isFinite(n) && n > 0 ? ` and covered by a ${n}-year manufacturer's warranty` : "";
+  const clause = expiryClause ?? (Number.isFinite(n) && n > 0 ? ` and covered by a ${n}-year manufacturer's warranty` : "");
   const phone = clean(i.tenantPhone);
   const footer = clean(i.footer);
 
