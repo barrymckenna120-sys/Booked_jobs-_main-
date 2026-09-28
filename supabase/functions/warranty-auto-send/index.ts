@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
+import { dublinDate, inReminderWindow } from "../_shared/installJob.ts";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,15 +44,8 @@ serve(async (req) => {
     );
     const organisations = await orgsResponse.json();
 
-    // Calculate target dates once
-    const today = new Date();
-    const day14Date = new Date(today);
-    day14Date.setDate(day14Date.getDate() - 14);
-    const day14Str = day14Date.toISOString().split("T")[0];
-
-    const day28Date = new Date(today);
-    day28Date.setDate(day28Date.getDate() - 28);
-    const day28Str = day28Date.toISOString().split("T")[0];
+    // Europe/Dublin today; grace windows so a missed run doesn't lose the reminder
+    const todayStr = dublinDate();
 
     for (const org of (organisations || []) as Array<{ id: string }>) {
       const ORG_ID = org.id;
@@ -74,7 +68,7 @@ serve(async (req) => {
 
       // Filter day 14 customers
       const day14Customers = (day14All || []).filter((c: Record<string, unknown>) => {
-        if (c.boiler_installation_date !== day14Str) return false;
+        if (!inReminderWindow(c.boiler_installation_date, todayStr, 14, 21)) return false;
         const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
         return !log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day14");
       });
@@ -122,7 +116,7 @@ serve(async (req) => {
 
       // Step 2 — Day 28 customers
       const day28Customers = (day14All || []).filter((c: Record<string, unknown>) => {
-        if (c.boiler_installation_date !== day28Str) return false;
+        if (!inReminderWindow(c.boiler_installation_date, todayStr, 28, 35)) return false;
         const log = Array.isArray(c.warranty_reminder_log) ? c.warranty_reminder_log : [];
         if (log.some((entry: Record<string, unknown>) => entry.message_type === "warranty_day28")) return false;
         const stage = (c.renewal_stage as string) || "";

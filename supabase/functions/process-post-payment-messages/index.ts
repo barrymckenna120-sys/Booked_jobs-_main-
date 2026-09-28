@@ -1,21 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
-import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
-import { normalisePhone } from "../_shared/whatsapp.ts";
-import { getCanonicalOrgBranding } from "../_shared/orgBranding.ts";
-import { evaluateOptOut } from "../_shared/optOut.ts";
-import { logMessage } from "../_shared/logMessage.ts";
-import {
-  buildWarrantyWelcome,
-  firstNameOf,
-  futureExpiryClause,
-  isInstallJob,
-  lookupWarrantyYears,
-  todayDublin,
-  type BoilerBrandRow,
-} from "../_shared/warrantyWelcome.ts";
+import { installDateOf, isInstallJob } from "../_shared/installJob.ts";
 
+// warranty_welcome rows no longer send WhatsApp. They set the customer's
+// boiler_installation_date so the existing warranty-auto-send reminders fire.
 const FN = "process-post-payment-messages";
 const MAX_ATTEMPTS = 3;
 const TOO_OLD_DAYS = 60;
@@ -33,7 +22,7 @@ type QueueRow = {
 
 type Prepared =
   | { skip: string }
-  | { phone: string; message: string; apiKey: string; customerId: string };
+  | { customerId: string; installDate: string; current: string | null; jobReference: string | null };
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -77,7 +66,7 @@ Deno.serve(async (req) => {
     const org = row.organisation_id;
     const { data: job, error: jobErr } = await sb
       .from("service_calls")
-      .select("id, organisation_id, customer_id, job_type, completed_at")
+      .select("id, organisation_id, customer_id, job_type, job_reference, completed_at, paid_at")
       .eq("id", row.service_call_id)
       .eq("organisation_id", org)
       .maybeSingle();
@@ -92,59 +81,23 @@ Deno.serve(async (req) => {
     const tagNames = (tagRows || []).map((t: any) => t?.job_tags?.name ?? null);
     if (!isInstallJob(job, tagNames)) return { skip: "not_install" };
 
-    if (job.completed_at) {
-      const ageMs = Date.now() - new Date(job.completed_at).getTime();
-      if (ageMs > TOO_OLD_DAYS * 86400000) return { skip: "too_old" };
-    }
+    const installDate = installDateOf(job);
+    if (!installDate) return { skip: "no_install_date" };
+    const ageMs = Date.now() - new Date(`${installDate}T12:00:00Z`).getTime();
+    if (ageMs > TOO_OLD_DAYS * 86400000) return { skip: "too_old" };
 
     const customerId = row.customer_id || job.customer_id;
     if (!customerId) return { skip: "customer_not_found" };
     const { data: cust, error: custErr } = await sb
       .from("customers")
-      .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years, warranty_expiry_date")
+      .select("id, boiler_installation_date")
       .eq("id", customerId)
       .eq("organisation_id", org)
       .maybeSingle();
     if (custErr) throw new Error(`customers read failed: ${custErr.message}`);
     if (!cust) return { skip: "customer_not_found" };
-    const opt = evaluateOptOut(cust);
-    if (opt.skip) return { skip: opt.reason === "customer_opted_out" ? "opted_out" : opt.reason === "no_phone_number" ? "no_phone" : opt.reason };
-    const phone = normalisePhone(String(cust!.phone));
-    if (!phone) return { skip: "no_phone" };
-
-    const wa = await fetchWhatsappApiKey(SUPABASE_URL, SERVICE_KEY, org);
-    if (!wa.apiKey) return { skip: "no_whatsapp_key" };
-
-    const branding = await getCanonicalOrgBranding(sb, org);
-    if (!branding.org_name) return { skip: "no_tenant_name" };
-
-    const expiry = cust!.warranty_expiry_date ?? null;
-    // Only look up boiler_brands years when a valid future expiry date doesn't apply.
-    const expiryApplies = futureExpiryClause(expiry, todayDublin()) !== null;
-    let years: number | null = null;
-    if (!expiryApplies) {
-      years = cust!.warranty_years ?? null;
-      if (years == null) {
-        const makeModel = [cust!.boiler_brand, cust!.boiler_model].filter(Boolean).join(" ") || cust!.boiler_make_model || "";
-        if (makeModel) {
-          const { data: brands, error: brandErr } = await sb.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default");
-          if (brandErr) throw new Error(`boiler_brands read failed: ${brandErr.message}`);
-          years = lookupWarrantyYears(makeModel, (brands || []) as BoilerBrandRow[]);
-        }
-      }
-    }
-
-    const message = buildWarrantyWelcome({
-      firstName: firstNameOf(cust!.name),
-      tenantName: branding.org_name,
-      brand: cust!.boiler_brand,
-      model: cust!.boiler_model,
-      warrantyYears: years,
-      warrantyExpiry: expiry,
-      tenantPhone: branding.org_phone,
-      footer: branding.footer && branding.footer !== branding.org_name ? branding.footer : "",
-    });
-    return { phone, message, apiKey: wa.apiKey, customerId: cust!.id };
+    const current = cust.boiler_installation_date ? String(cust.boiler_installation_date).slice(0, 10) : null;
+    return { customerId: cust.id, installDate, current, jobReference: job.job_reference ?? null };
   };
 
   try {
@@ -157,14 +110,23 @@ Deno.serve(async (req) => {
       const results = [];
       for (const row of (rows || []) as QueueRow[]) {
         const p = await prepare(row);
-        results.push("skip" in p
-          ? { id: row.id, status: "would_skip", reason: p.skip }
-          : { id: row.id, status: "would_send", reason: null, message: p.message });
+        if ("skip" in p) {
+          results.push({ id: row.id, status: "would_skip", reason: p.skip });
+        } else {
+          const willSet = p.current === null || p.current < p.installDate;
+          results.push({
+            id: row.id,
+            status: willSet ? "would_set_install_date" : "would_leave_unchanged",
+            install_date: p.installDate,
+            current_install_date: p.current,
+            customer_id: p.customerId,
+          });
+        }
       }
-      return json({ processed: results.length, sent: 0, skipped: 0, failed: 0, dry_run: true, results });
+      return json({ processed: results.length, set: 0, unchanged: 0, skipped: 0, failed: 0, dry_run: true, results });
     }
 
-    // Rows whose 10-minute sending lease expired: never resend, mark failed.
+    // Rows whose 10-minute lease expired: mark failed (retry is manual).
     const { data: stuck, error: stuckErr } = await sb
       .from("post_payment_messages")
       .update({ status: "failed", last_error: "stuck_in_sending" })
@@ -182,25 +144,27 @@ Deno.serve(async (req) => {
     });
     if (claimErr) throw new Error(`claim failed: ${claimErr.message}`);
 
-    let sent = 0, skipped = 0, failed = 0;
-    const results: Array<{ id: string; status: string; reason: string | null }> = [];
+    let set = 0, unchanged = 0, skipped = 0, failed = 0;
+    const results: Array<{ id: string; status: string; reason: string | null; install_date?: string }> = [];
+
+    const retryOrFail = async (row: QueueRow, reason: string) => {
+      const final = row.attempts >= MAX_ATTEMPTS;
+      await sb.from("post_payment_messages").update({
+        status: final ? "failed" : "pending",
+        not_before: new Date(Date.now() + 30 * 60000).toISOString(),
+        last_error: reason.slice(0, 500),
+      }).eq("id", row.id).eq("status", "sending");
+      await logFn(row.organisation_id, reason, { queue_id: row.id, service_call_id: row.service_call_id });
+      if (final) failed++;
+      results.push({ id: row.id, status: final ? "failed" : "pending", reason });
+    };
 
     for (const row of (claimed || []) as QueueRow[]) {
       let p: Prepared;
       try {
         p = await prepare(row);
       } catch (e) {
-        p = { skip: "" };
-        const reason = `prepare_error: ${(e as Error)?.message ?? e}`;
-        const final = row.attempts >= MAX_ATTEMPTS;
-        await sb.from("post_payment_messages").update({
-          status: final ? "failed" : "pending",
-          not_before: new Date(Date.now() + 30 * 60000).toISOString(),
-          last_error: reason.slice(0, 500),
-        }).eq("id", row.id).eq("status", "sending");
-        await logFn(row.organisation_id, reason, { queue_id: row.id, service_call_id: row.service_call_id });
-        final ? failed++ : null;
-        results.push({ id: row.id, status: final ? "failed" : "pending", reason });
+        await retryOrFail(row, `prepare_error: ${(e as Error)?.message ?? e}`);
         continue;
       }
 
@@ -212,70 +176,50 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const form = new FormData();
-      form.append("phonenumber", p.phone);
-      form.append("text", p.message);
-      let ok = false;
-      let errText = "";
-      try {
-        const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${p.apiKey}` },
-          body: form,
-          signal: AbortSignal.timeout(15000),
-        });
-        const txt = await res.text();
-        ok = res.ok;
-        if (!ok) errText = `HTTP ${res.status}: ${txt.slice(0, 200)}`;
-      } catch (e) {
-        errText = `network: ${(e as Error)?.message ?? e}`;
+      // Guarded, org-scoped write: only set when empty or earlier than this install.
+      const { data: updated, error: updErr } = await sb
+        .from("customers")
+        .update({ boiler_installation_date: p.installDate })
+        .eq("id", p.customerId)
+        .eq("organisation_id", row.organisation_id)
+        .or(`boiler_installation_date.is.null,boiler_installation_date.lt.${p.installDate}`)
+        .select("id");
+      if (updErr) {
+        await retryOrFail(row, `customer_update_error: ${updErr.message}`);
+        continue;
       }
+      const didSet = (updated || []).length > 0;
+      const outcome = didSet ? "install_date_set" : "install_date_unchanged";
 
-      if (ok) {
-        await sb.from("post_payment_messages").update({ status: "sent", sent_at: new Date().toISOString(), last_error: null })
-          .eq("id", row.id).eq("status", "sending");
-        await logMessage(sb, {
-          organisation_id: row.organisation_id,
-          customer_id: p.customerId,
-          message_type: "warranty_welcome",
-          content: p.message,
-          status: "sent",
-          channel: "whatsapp",
-          recipient_phone: `+${p.phone}`,
-        });
+      await sb.from("post_payment_messages").update({ status: "sent", sent_at: new Date().toISOString(), last_error: outcome })
+        .eq("id", row.id).eq("status", "sending");
+
+      if (didSet) {
         try {
           await sb.from("customer_activity").insert({
             organisation_id: row.organisation_id,
             customer_id: p.customerId,
             service_call_id: row.service_call_id,
-            event_type: "whatsapp_sent",
-            event_label: "WhatsApp sent — Warranty welcome",
-            event_data: { message_type: "warranty_welcome" },
+            event_type: "install_date_set",
+            event_label: `Boiler install date set from job ${p.jobReference ?? row.service_call_id}`,
+            event_data: { install_date: p.installDate, previous: p.current },
           });
         } catch (_e) {
           // non-critical
         }
-        await logFn(row.organisation_id, "OK", { queue_id: row.id, service_call_id: row.service_call_id });
-        sent++;
-        results.push({ id: row.id, status: "sent", reason: null });
+        set++;
       } else {
-        const final = row.attempts >= MAX_ATTEMPTS;
-        await sb.from("post_payment_messages").update({
-          status: final ? "failed" : "pending",
-          not_before: new Date(Date.now() + 30 * 60000).toISOString(),
-          last_error: errText.slice(0, 500),
-        }).eq("id", row.id).eq("status", "sending");
-        await logFn(row.organisation_id, `SEND_FAILED: ${errText}`, {
-          queue_id: row.id,
-          service_call_id: row.service_call_id,
-          attempts: row.attempts,
-        });
-        if (final) failed++;
-        results.push({ id: row.id, status: final ? "failed" : "pending", reason: errText });
+        unchanged++;
       }
+      await logFn(row.organisation_id, outcome.toUpperCase(), {
+        queue_id: row.id,
+        service_call_id: row.service_call_id,
+        install_date: p.installDate,
+      });
+      results.push({ id: row.id, status: "sent", reason: outcome, install_date: p.installDate });
     }
 
-    return json({ processed: results.length, sent, skipped, failed, dry_run: false, results });
+    return json({ processed: results.length, set, unchanged, skipped, failed, dry_run: false, results });
   } catch (e) {
     const msg = (e as Error)?.message ?? String(e);
     await logFn(null, `ERROR: ${msg}`, {});
