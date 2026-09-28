@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveOrgBranding } from "../_shared/orgBranding.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -109,6 +110,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Tenant business name for the email footer, via the shared branding
+    // resolver (Settings business name → organisation name → blank).
+    const [{ data: brandSettings }, { data: brandIntegrations }, { data: brandOrg }] = await Promise.all([
+      supabaseAdmin.from("settings").select("business_name, company_name, business_phone, company_phone, business_address, message_footer").eq("organisation_id", resolvedOrgId).limit(1).maybeSingle(),
+      supabaseAdmin.from("tenant_integrations").select("integration_type, config").eq("organisation_id", resolvedOrgId),
+      supabaseAdmin.from("organisations").select("name").eq("id", resolvedOrgId).maybeSingle(),
+    ]);
+    const resolvedBrand = resolveOrgBranding({
+      organisationId: resolvedOrgId,
+      settings: brandSettings as any,
+      integrations: (brandIntegrations as any) || [],
+      organisation: brandOrg as any,
+    });
+    const orgName = String(resolvedBrand.org_name || "").trim();
+    const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const footerOrg = escHtml(orgName);
+
     const { data: waIntegration } = await supabaseAdmin
       .from("tenant_integrations")
       .select("config")
@@ -200,7 +218,7 @@ Deno.serve(async (req) => {
 </div>
 <a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Set Password & Log In</a>
 </div></div>
-<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · Karl's Gas</p></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs${footerOrg ? ` · ${footerOrg}` : ""}</p></div>
 </div></body></html>`,
             }),
           });
@@ -277,7 +295,7 @@ Deno.serve(async (req) => {
 </div>
 <a href="${actionLink}" style="display:inline-block;background:linear-gradient(135deg,#2563EB,#1d4ed8);color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:15px 36px;border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">Set Password & Log In</a>
 </div></div>
-<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs · Karl's Gas</p></div>
+<div style="text-align:center;margin-top:28px;padding-bottom:8px;"><p style="font-size:12.5px;color:#9ca3af;">© 2026 BookedJobs${footerOrg ? ` · ${footerOrg}` : ""}</p></div>
 </div></body></html>`,
             }),
           });
