@@ -119,5 +119,5 @@
 - [x] NGBD 22/09 rows: Karl's Gas true/false + sender
 
 ## BJ — Fault Finder (28/09/26)
-- [ ] Result card reorder: code heading first, then explanation (FaultFinderSheet.tsx) + DOM-order test.
-- [ ] New public read-only Edge Function `public-fault-lookup` (models/codes/lookup, published-only, origin allow-list) + Deno tests + config.toml block. Awaiting Barry to set secret `PUBLIC_FAULT_ALLOWED_ORIGINS`.
+- [x] Result card reorder: code heading first, then explanation (FaultFinderSheet.tsx) + DOM-order test (3 tests).
+- [~] New public read-only Edge Function `public-fault-lookup` — built, tested (17 Deno tests), deployed 15:15 UTC 28/09/26. Awaiting Barry to set secret `PUBLIC_FAULT_ALLOWED_ORIGINS` (comma-separated allowed origins) before browser CORS works.
