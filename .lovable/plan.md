@@ -1,34 +1,31 @@
-# Fault Finder result card — code first, then explanation
+# Publish fault finder data (data change only, no code)
 
-## What should this do?
-On the mobile Fault Finder sheet, when a fault code is found, show the code as the big heading first, then the explanation as body text — so the engineer reads the code before the diagnosis. Long texts wrap instead of overflowing.
+## Verified current state (read-only queries already run)
 
-## Current state (verified by reading the file)
-- `src/components/engineer/FaultFinderSheet.tsx` lines 314–330, the `result.status === "found"` card renders in this order:
-  1. meta line: `{brand} · {model} · {code}` (small grey uppercase)
-  2. category pill (status / display message), if any
-  3. explanation as the bold heading (`text-base font-extrabold ... mt-0.5`)
-- There is no existing FaultFinderSheet test file. Project test convention (e.g. `PrimaryActions.gating.test.tsx`) is `renderToStaticMarkup`, no @testing-library, vitest node environment.
+The 5 target models exist, all currently `status='draft'`. Two model names differ slightly from the request — the actual DB names will be used:
 
-## Change (one source file + one new test file)
+| Model (actual DB name) | Codes to publish | draft_test_excluded (skipped) |
+|---|---|---|
+| Ideal — Logic MAX Combi2 C24 C30 C35 | 21 | 0 |
+| Ideal — Logic+ Combi2 C24 C30 C35 | 18 | 3 |
+| Baxi — 600 Combi 2 (24 - 30 - 36) | 60 | 3 |
+| Baxi — 800 Combi (24 - 30 - 36) | 10 | 0 |
+| Glow-worm — Energy7 25c-A (H-GB) / Energy7 30c-A (H-GB) / Energy7 35c-A (H-GB) | 10 | 0 |
 
-### src/components/engineer/FaultFinderSheet.tsx
-- Extract the found-result card JSX (lines 314–359) into an exported presentational subcomponent `FaultFoundCard` **inside the same file**, used inline in place of the JSX. Props: `fault`, `brand`, `model`, `isDraft`. No logic changes — pure move of the markup.
-  - Why: the sheet's found state only exists after internal `useState`/`useQuery` interactions, which a static-render test cannot reach. Extracting the card lets the new test render it directly with the same pattern the project already uses, without mocking react-query or the Supabase client.
-- In `FaultFoundCard`, reorder to:
-  1. meta line: `{brand} · {model}` — code removed from this line
-  2. code heading: `text-xl font-extrabold text-foreground break-words`
-  3. category pill unchanged, directly under the code
-  4. explanation: `text-base font-semibold text-foreground mt-1 break-words` (no longer a heading)
-- Draft banner, possible causes, manual button, and technical details section stay byte-identical.
+**Totals: 5 models published, 119 codes published, 6 codes stay draft (draft_test_excluded).**
 
-### src/components/engineer/__tests__/FaultFinderSheet.card.test.tsx (new)
-- One test: render `FaultFoundCard` with a found fault (code `E133`, explanation "Ignition failure — boiler will not light") via `renderToStaticMarkup`, assert the code heading markup appears **before** the explanation in the DOM string, and that the meta line no longer contains the code.
+## Steps
 
-## Checks
-- Run the full vitest suite and the TypeScript typecheck.
-- Confirm existing FaultFinder logic tests (`src/lib/faultFinder.test.ts`) still pass.
-- Visual check in the mobile preview: found card shows code → pill → explanation; a long display message (e.g. "Flame On Before Gas On") wraps without overflow; draft banner and all other sections unchanged.
+1. **Publish codes** — one `run_sql` UPDATE on `boiler_fault_codes`:
+   `SET status='published', verified_at=now()` WHERE `model_id` IN (the 5 IDs above) AND `status='draft'` AND `draft_test_excluded = false`. Expect 119 rows.
+2. **Publish models** — one `run_sql` UPDATE on `boiler_fault_models`:
+   `SET status='published', verified_at=now()` WHERE `id` IN (the 5 IDs) AND `status='draft'`. Expect 5 rows.
+3. **Verify by SQL read-back** — counts of published models/codes per brand; confirm the 6 excluded codes and all Vaillant/Viessmann/Worcester Bosch rows remain `draft`.
+4. **Verify via the live public function** — GET `public-fault-lookup?action=models&brand=Ideal` (and Baxi, Glow-worm), plus `action=lookup&model_id=<Logic+ id>&code=E1`; paste the JSON responses.
 
-## Report back
-Diff summary, commit hash on dev, test count and typecheck result.
+## Safety
+
+- No code changes, no schema changes — data UPDATEs only.
+- No `verified_by` is set (no approver UUID was provided); only `status` and `verified_at` change. Say the word if you want a specific approver UUID recorded.
+- Nothing is deleted; re-running the same UPDATEs is harmless (guarded by `status='draft'`).
+- Other brands and empty models (Baxi 400 Combi 2.1, 800 Combi 2, Assure 500 Combi 2) are untouched.
