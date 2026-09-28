@@ -14,11 +14,11 @@ import {
   isValidUuid,
   normCode,
 } from "./logic.ts";
-import { handle, type FaultDb } from "./handler.ts";
+import { handle, type FaultDb, type FaultQuery } from "./handler.ts";
 
 /* ---------- pure helpers ---------- */
 
-Deno.test("normCode matches like faultFinder (case, spaces, dots, dashes)", () => {
+Deno.test("normCode matches faultFinder (case, spaces, dots, dashes)", () => {
   assertEquals(normCode(" e 133 "), "E133");
   assertEquals(normCode("E-133"), "E133");
   assertEquals(normCode("e.133"), "E133");
@@ -129,12 +129,14 @@ const stubDb = (tables: Record<string, Record<string, unknown>[]>): FaultDb & {
         const idEq = filters[table].find(([k, c]) => k === "eq" && c === "id");
         let row: Record<string, unknown> | null = tables[table]?.[0] ?? null;
         if (idEq) row = row && row.id === idEq[2] ? row : null;
+        if (!statusEq) row = null; // published filter missing is a caller bug — behave as "not found" and let the filter assertion catch it
         return { data: row, error: null };
       };
-      (b as unknown as PromiseLike<never>)["then"] = (
+      const thenable = b as unknown as FaultQuery;
+      thenable.then = (
         res?: (v: unknown) => unknown, rej?: (e: unknown) => unknown,
-      ) => Promise.resolve({ data: tables[table] ?? [], error: null }).then(res, rej);
-      return b as unknown as ReturnType<FaultDb["from"]>;
+      ): Promise<unknown> => Promise.resolve({ data: tables[table] ?? [], error: null }).then(res, rej);
+      return b as unknown as FaultQuery;
     },
   };
   return db as never;
@@ -235,7 +237,7 @@ Deno.test("non-GET requests are rejected", async () => {
   assertEquals(res.status, 405);
 });
 
-Deno.test("lookup miss returns the brand's manual link", async () => {
+Deno.test("lookup hit and miss behave per spec", async () => {
   const modelId = "8c37827f-ce2c-4507-a821-a5e807d89856";
   const db = stubDb({
     boiler_fault_models: [{ id: modelId, brand: "Baxi", model_name: "800 Combi", status: "published" }],

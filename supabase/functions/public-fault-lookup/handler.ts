@@ -17,14 +17,18 @@ import {
 
 export type DbResult<T> = { data: T | null; error: { message: string } | null };
 
+type DbRow = Record<string, unknown>;
+
 /* Minimal structural type satisfied by the real Supabase client and by tests' stubs. */
+export type FaultQuery = {
+  select(cols: string): FaultQuery;
+  eq(col: string, val: unknown): FaultQuery;
+  ilike(col: string, val: string): FaultQuery;
+  maybeSingle(): PromiseLike<DbResult<DbRow | null>>;
+} & PromiseLike<DbResult<DbRow[]>>;
+
 export interface FaultDb {
-  from(table: string): {
-    select(cols: string): unknown;
-    eq(col: string, val: unknown): unknown;
-    ilike(col: string, val: string): unknown;
-    maybeSingle(): PromiseLike<DbResult<Record<string, unknown> | null>>;
-  } & PromiseLike<DbResult<Record<string, unknown>[]>>;
+  from(table: string): FaultQuery;
 }
 
 export interface HandlerDeps {
@@ -78,7 +82,7 @@ export const handle = async (req: Request, deps: HandlerDeps): Promise<Response>
         .from("boiler_fault_models")
         .select("id, brand, model_name")
         .eq("status", "published")
-        .ilike("brand", canonical) as DbResult<Record<string, unknown>[]>;
+        .ilike("brand", canonical);
       if (error) throw new Error(error.message);
       return jsonResponse(200, buildModelsPayload((data ?? []) as never), allowed);
     }
@@ -91,14 +95,14 @@ export const handle = async (req: Request, deps: HandlerDeps): Promise<Response>
         .select("id, brand, model_name")
         .eq("id", modelId)
         .eq("status", "published")
-        .maybeSingle() as DbResult<Record<string, unknown> | null>;
+        .maybeSingle();
       if (model.error) throw new Error(model.error.message);
       if (!model.data) return jsonResponse(200, [], allowed);
       const { data, error } = await deps.db
         .from("boiler_fault_codes")
         .select("code, category, status, draft_test_excluded")
         .eq("model_id", modelId)
-        .eq("status", "published") as DbResult<Record<string, unknown>[]>;
+        .eq("status", "published");
       if (error) throw new Error(error.message);
       return jsonResponse(200, buildCodesPayload((data ?? []) as never), allowed);
     }
@@ -113,7 +117,7 @@ export const handle = async (req: Request, deps: HandlerDeps): Promise<Response>
         .select("id, brand, model_name")
         .eq("id", modelId)
         .eq("status", "published")
-        .maybeSingle() as DbResult<Record<string, unknown> | null>;
+        .maybeSingle();
       if (model.error) throw new Error(model.error.message);
       if (!model.data) return jsonResponse(200, { found: false, manual_url: null }, allowed);
       const canonical = isAllowedBrand(String(model.data.brand ?? ""));
@@ -121,7 +125,7 @@ export const handle = async (req: Request, deps: HandlerDeps): Promise<Response>
         .from("boiler_fault_codes")
         .select("code, category, explanation, manual_url, status, draft_test_excluded")
         .eq("model_id", modelId)
-        .eq("status", "published") as DbResult<Record<string, unknown>[]>;
+        .eq("status", "published");
       if (error) throw new Error(error.message);
       return jsonResponse(200, buildLookup((data ?? []) as never, code, canonical), allowed);
     }
