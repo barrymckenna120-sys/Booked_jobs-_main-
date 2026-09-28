@@ -8,13 +8,15 @@
  * columns can never leak.
  */
 
-export const ALLOWED_BRANDS = ["Ideal", "Baxi", "Glow-worm"] as const;
+export const ALLOWED_BRANDS = ["Ideal", "Baxi", "Glow-worm", "Vaillant", "Worcester Bosch"] as const;
 
 /** Official manufacturer technical-document pages (same values as src/lib/faultFinder.ts). */
 export const MANUAL_LINKS: Record<string, string> = {
   Ideal: "https://idealheating.com/tech-hub/literature",
   Baxi: "https://www.baxi.co.uk/support/literature",
   "Glow-worm": "https://www.glow-worm.co.uk/installers/downloads/",
+  Vaillant: "https://professional.vaillant.co.uk/downloads/product-manuals/",
+  "Worcester Bosch": "https://www.worcester-bosch.co.uk/support/literature",
 };
 
 /** Same rule as normCode in src/lib/faultFinder.ts: case-insensitive, ignores spaces, dots and dashes. */

@@ -26,13 +26,15 @@ Deno.test("normCode matches faultFinder (case, spaces, dots, dashes)", () => {
   assertEquals(normCode("L2"), "L2");
 });
 
-Deno.test("only Ideal, Baxi and Glow-worm are allowed (case-insensitive)", () => {
+Deno.test("allowed brands resolve canonically (case-insensitive); Viessmann stays blocked", () => {
   assertEquals(isAllowedBrand("ideal"), "Ideal");
   assertEquals(isAllowedBrand("BAXI"), "Baxi");
   assertEquals(isAllowedBrand("glow-worm"), "Glow-worm");
   assertEquals(isAllowedBrand("glow worm"), "Glow-worm");
-  assertEquals(isAllowedBrand("Worcester Bosch"), null);
-  assertEquals(isAllowedBrand("Vaillant"), null);
+  assertEquals(isAllowedBrand("worcester bosch"), "Worcester Bosch");
+  assertEquals(isAllowedBrand("WORCESTER-BOSCH"), "Worcester Bosch");
+  assertEquals(isAllowedBrand("vaillant"), "Vaillant");
+  assertEquals(isAllowedBrand("Viessmann"), null);
   assertEquals(isAllowedBrand(""), null);
 });
 
