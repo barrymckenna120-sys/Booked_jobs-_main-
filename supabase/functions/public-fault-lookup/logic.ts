@@ -21,10 +21,13 @@ export const MANUAL_LINKS: Record<string, string> = {
 export const normCode = (c: string): string =>
   c.trim().toUpperCase().replace(/[\s.-]/g, "");
 
+/** Brand keys ignore spaces and hyphens so "glow worm" matches "Glow-worm" (as the engineer UI does). */
+const brandKey = (s: string): string => s.trim().toLowerCase().replace(/[\s-]+/g, "");
+
 /** Returns the canonical allowed brand name, or null when the brand is not public-facing. */
 export const isAllowedBrand = (brand: string): string | null => {
-  const q = brand.trim().toLowerCase();
-  return ALLOWED_BRANDS.find((b) => b.toLowerCase() === q) ?? null;
+  const q = brandKey(brand);
+  return ALLOWED_BRANDS.find((b) => brandKey(b) === q) ?? null;
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -129,7 +129,7 @@ const stubDb = (tables: Record<string, Record<string, unknown>[]>): FaultDb & {
         const idEq = filters[table].find(([k, c]) => k === "eq" && c === "id");
         let row: Record<string, unknown> | null = tables[table]?.[0] ?? null;
         if (idEq) row = row && row.id === idEq[2] ? row : null;
-        if (!statusEq) row = null; // published filter missing is a caller bug — behave as "not found" and let the filter assertion catch it
+        if (statusEq && row && row.status !== "published") row = null;
         return { data: row, error: null };
       };
       const anyB = b as unknown as { then: (res?: unknown, rej?: unknown) => Promise<unknown> };
