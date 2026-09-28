@@ -19,9 +19,9 @@ export const MANUAL_LINKS: Record<string, string> = {
   "Worcester Bosch": "https://www.worcester-bosch.co.uk/support/literature",
 };
 
-/** Same rule as normCode in src/lib/faultFinder.ts: case-insensitive, ignores spaces, dots and dashes. */
-export const normCode = (c: string): string =>
-  c.trim().toUpperCase().replace(/[\s.-]/g, "");
+import { findExactCode, normCode } from "../_shared/faultCode.ts";
+/** Shared with the engineer app (see _shared/faultCode.ts). */
+export { normCode };
 
 /** Brand keys ignore spaces and hyphens so "glow worm" matches "Glow-worm" (as the engineer UI does). */
 const brandKey = (s: string): string => s.trim().toLowerCase().replace(/[\s-]+/g, "");
@@ -67,8 +67,7 @@ export const buildLookup = (
   code: string,
   brand: string | null,
 ): LookupResult => {
-  const q = normCode(code);
-  const hit = publishedOnly(rows).find((r) => normCode(r.code) === q);
+  const hit = findExactCode(publishedOnly(rows), code);
   if (hit) {
     return { found: true, code: hit.code, category: hit.category ?? null, explanation: hit.explanation, manual_url: hit.manual_url };
   }

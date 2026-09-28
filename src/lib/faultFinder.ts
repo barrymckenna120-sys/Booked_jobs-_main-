@@ -6,6 +6,8 @@
  * It must never return an unverified diagnosis.
  */
 
+import { anyCodeStartsWith, findExactCode, normCode } from "./faultCode";
+
 export const STARTER_BRANDS = [
   "Baxi",
   "Ideal",
