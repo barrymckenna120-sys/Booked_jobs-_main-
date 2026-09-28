@@ -34,11 +34,12 @@ describe("ENGINEER_TOUR_STEPS", () => {
     ]);
   });
 
-  it("has three benefits and an alt per step; images deferred until assets exist", () => {
+  it("has three benefits and an alt per step; images point at public/tour files", () => {
     for (const s of ENGINEER_TOUR_STEPS) {
       expect(s.benefits).toHaveLength(3);
       expect(s.alt.length).toBeGreaterThan(0);
-      expect(s.hasImage).toBe(false);
+      expect(s.hasImage).toBe(true);
+      expect(s.image).toMatch(/^\/tour\/engineer-[a-z-]+\.webp$/);
     }
   });
 
