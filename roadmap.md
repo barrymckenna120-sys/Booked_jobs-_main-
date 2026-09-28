@@ -1,8 +1,8 @@
 # Roadmap
 
 - [x] BJ-0090 — Jobs list shows full assigned team (Lead + Assistants) on desktop table and mobile card; role labels only when assists exist; single batched `job_engineers` lookup; unit tests for grouping/labels.
-- [ ] BJ — Warranty welcome WhatsApp on install-job payment (queue table + trigger, process-post-payment-messages, 10-min cron, tests, Dublin Gas QA — needs user mobile number).
-- [ ] BJ — Warranty welcome fixes: sending lease + stuck sweep, 15s send timeout, DB errors retry; Dublin Gas QA (awaiting full test spec — message truncated at Job B).
+- [x] BJ — Warranty welcome replaced: install-job payment sets customers.boiler_installation_date (no WhatsApp); warranty-auto-send uses Dublin-date grace windows (14–21, 28–35).
+- [ ] BJ — Dry run for DG-1037 once it is really paid (currently unpaid, no queue row).
 - [x] Bug: Possible Duplicate badge missing on Schedule page — `Schedule.tsx` now carries `possible_duplicate` into `ScheduleJob`; badge rendered on weekly grid (desktop + mobile) and Unallocated Jobs cards. Detection logic untouched.
 - [x] BJ — Lookup failures must not become "no match"/successful skip: `DeliveryLookupError` in `_shared/deliveryStatus.ts`, 503 `lookup_failed` in `whatsapp-delivery-webhook`, distinct `lookup_failed` consent reason.
 - [ ] Inbound WhatsApp → Customer Message History: configure `WHATSAPP_INBOUND_SECRET` (missing → deployed `whatsapp-inbound` returns 401), run isolated scratch-customer end-to-end webhook test (persistence, matching, dedupe, UI), then hand off callback URL to 360Messenger (registration currently 403 — provider-side blocker).
