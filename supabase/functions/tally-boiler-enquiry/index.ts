@@ -30,7 +30,9 @@ import {
   mapBoilerEnquiryFields,
   MAX_ENQUIRY_PAYLOAD_BYTES,
   validateEnquirySubmission,
+  validatePhoneOrEmail,
 } from "../_shared/boilerEnquiryPayload.ts";
+import { tallyFieldSchema, verifyTallySignature } from "../_shared/tallySignature.ts";
 
 const FN = "tally-boiler-enquiry";
 const BUCKET = "job-media";
@@ -62,19 +64,25 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  if (!(await isMachineCaller(req))) {
-    console.warn(`${FN}: rejected unauthenticated caller`);
-    return json({ success: false, error: "Unauthorized" }, 401);
-  }
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
+  // Signed Tally path: a request carrying `tally-signature` is authenticated by
+  // HMAC against the signing secret configured for its form id. The org comes
+  // ONLY from that form-id binding.
+  const tallySignature = req.headers.get("tally-signature");
+  const isSignedCall = tallySignature !== null;
+  if (!isSignedCall && !(await isMachineCaller(req))) {
+    console.warn(`${FN}: rejected unauthenticated caller`);
+    return json({ success: false, error: "Unauthorized" }, 401);
+  }
+
   let submissionId: string | null = null;
   let organisationId: string | null = null;
+  let resolvedVia: string | null = null;
 
   try {
     // --- payload size limit -------------------------------------------------
@@ -103,37 +111,85 @@ Deno.serve(async (req) => {
       ((root.data as Record<string, unknown> | undefined)?.formId as string) ??
       null;
 
-    const resolved = await resolveMachineOrganisation(req, {
-      fnName: FN,
-      integrationTypes: ["tally"],
-      identifier: {
-        keys: ["boiler_enquiry_form_id", "find_my_boiler_form_id", "enquiry_form_id", "tally_form_id"],
-        value: formId,
-      },
-      claimedOrgId: typeof root.organisation_id === "string" ? root.organisation_id : null,
-    });
+    // Tally rows bound to this form id that REQUIRE a signature.
+    const signedBindings = formId
+      ? (((await supabase
+        .from("tenant_integrations")
+        .select("organisation_id, config")
+        .eq("integration_type", "tally")
+        .eq("is_active", true)
+        .eq("config->>boiler_enquiry_form_id", formId)).data ?? []) as {
+          organisation_id: string;
+          config: Record<string, unknown>;
+        }[]).filter((r) => typeof r.config?.boiler_enquiry_signing_secret_name === "string")
+      : [];
 
-    if (!resolved.ok) {
-      await logStage(supabase, `org_binding_failed:${resolved.reason}`, {
+    if (isSignedCall) {
+      if (signedBindings.length !== 1) {
+        await logStage(supabase, "unknown_form_id", { submission_id: submissionId, form_id: formId });
+        return json({ success: false, error: "Unknown form" }, 400);
+      }
+      const binding = signedBindings[0];
+      // TEMPORARY (remove once Zjq5rA mapping is done): keys/labels/types only.
+      await logStage(supabase, "field_schema_capture", {
         submission_id: submissionId,
         form_id: formId,
+        fields: tallyFieldSchema(body),
       });
-      return machineOrgDenial(resolved, corsHeaders);
+      const secretName = String(binding.config.boiler_enquiry_signing_secret_name);
+      const secret = Deno.env.get(secretName) ?? "";
+      if (!secret) {
+        await logStage(supabase, "signing_secret_not_configured", { submission_id: submissionId, form_id: formId });
+        return json({ success: false, error: "Unauthorized" }, 401);
+      }
+      if (!(await verifyTallySignature(raw, tallySignature, secret))) {
+        await logStage(supabase, "invalid_signature", { submission_id: submissionId, form_id: formId });
+        return json({ success: false, error: "Unauthorized" }, 401);
+      }
+      const claimed = typeof root.organisation_id === "string" ? root.organisation_id.trim() : "";
+      if (claimed && claimed !== binding.organisation_id) {
+        await logStage(supabase, "org_binding_failed:org_mismatch", { submission_id: submissionId, form_id: formId });
+        return json({ success: false, error: "Forbidden" }, 403);
+      }
+      organisationId = binding.organisation_id;
+    } else {
+      if (signedBindings.length > 0) {
+        await logStage(supabase, "missing_signature", { submission_id: submissionId, form_id: formId });
+        return json({ success: false, error: "Unauthorized" }, 401);
+      }
+      const resolved = await resolveMachineOrganisation(req, {
+        fnName: FN,
+        integrationTypes: ["tally"],
+        identifier: {
+          keys: ["boiler_enquiry_form_id", "find_my_boiler_form_id", "enquiry_form_id", "tally_form_id"],
+          value: formId,
+        },
+        claimedOrgId: typeof root.organisation_id === "string" ? root.organisation_id : null,
+      });
+
+      if (!resolved.ok) {
+        await logStage(supabase, `org_binding_failed:${resolved.reason}`, {
+          submission_id: submissionId,
+          form_id: formId,
+        });
+        return machineOrgDenial(resolved, corsHeaders);
+      }
+      organisationId = resolved.orgId;
+      resolvedVia = resolved.via;
     }
-    organisationId = resolved.orgId;
 
     // --- validation ---------------------------------------------------------
     const contact = extractContact(flat);
     // Question NAMES only (never answers) so a mapping mismatch is diagnosable
     // without storing personal data in the log.
     const fieldNames = Object.keys(flat).slice(0, 100);
-    const valid = validateEnquirySubmission(contact);
+    const valid = isSignedCall ? validatePhoneOrEmail(contact) : validateEnquirySubmission(contact);
     if (!valid.ok) {
       await logStage(supabase, "validation_failed", {
         submission_id: submissionId,
         organisation_id: organisationId,
         reason: valid.error,
-        field_names: fieldNames,
+        ...(isSignedCall ? {} : { field_names: fieldNames }),
       });
       return json({ success: false, error: valid.error }, 400);
     }
@@ -237,7 +293,7 @@ Deno.serve(async (req) => {
           organisation_id: organisationId,
           user_id: ownerUserId,
           name: contact.name || "New boiler enquiry",
-          phone: phone ?? contact.phone,
+          phone: phone ?? contact.phone ?? "",
           email: contact.email,
           address: (fields.address as string | null) ?? null,
           eircode: (fields.eircode as string | null) ?? null,
@@ -407,7 +463,7 @@ Deno.serve(async (req) => {
     await logStage(supabase, `success:enquiry=${enquiry.id}`, {
       submission_id: submissionId,
       organisation_id: organisationId,
-      via: resolved.via,
+      via: isSignedCall ? "tally_signature" : resolvedVia,
       photos_stored: storedPhotos,
       photos_rejected: rejectedPhotos,
       customer_matched: matched,

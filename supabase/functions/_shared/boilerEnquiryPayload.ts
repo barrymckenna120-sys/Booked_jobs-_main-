@@ -578,6 +578,19 @@ export const validateEnquirySubmission = (contact: BoilerEnquiryContact): Enquir
   return { ok: true };
 };
 
+/**
+ * Signed Tally forms (e.g. Zjq5rA): never drop a lead — reject ONLY when both
+ * a usable phone and a usable email are missing. A name alone is not enough.
+ */
+export const validatePhoneOrEmail = (contact: BoilerEnquiryContact): EnquiryValidation => {
+  const hasPhone = Boolean(contact.phone && looksLikePhone(contact.phone));
+  const hasEmail = Boolean(contact.email && looksLikeEmail(contact.email));
+  if (!hasPhone && !hasEmail) {
+    return { ok: false, error: "A contact phone number or email is required" };
+  }
+  return { ok: true };
+};
+
 /** Should the Heat Pump section be shown at all? */
 export const showsHeatPumpSection = (enquiry: {
   heat_pump_interest?: string | null;
