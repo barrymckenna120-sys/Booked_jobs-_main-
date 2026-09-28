@@ -80,7 +80,7 @@ export const handle = async (req: Request, deps: HandlerDeps): Promise<Response>
       if (!canonical) return jsonResponse(200, [], allowed);
       const { data, error } = await deps.db
         .from("boiler_fault_models")
-        .select("id, brand, model_name, status, draft_test_excluded")
+        .select("id, brand, model_name, status")
         .eq("status", "published")
         .ilike("brand", canonical);
       if (error) throw new Error(error.message);
