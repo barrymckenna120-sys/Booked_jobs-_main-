@@ -162,3 +162,6 @@ project_id = "ktkfuquqxbrmuqrmbmdj"
 
 [functions.process-post-payment-messages]
   verify_jwt = false
+
+[functions.public-fault-lookup]
+  verify_jwt = false
