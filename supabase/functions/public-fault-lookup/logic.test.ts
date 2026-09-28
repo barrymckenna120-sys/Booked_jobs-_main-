@@ -128,7 +128,6 @@ const stubDb = (tables: Record<string, Record<string, unknown>[]>): FaultDb & {
         const statusEq = filters[table].some(([k, c, v]) => k === "eq" && c === "status" && v === "published");
         const idEq = filters[table].find(([k, c]) => k === "eq" && c === "id");
         let row: Record<string, unknown> | null = tables[table]?.[0] ?? null;
-        if (!statusEq) row = row; // no published filter applied: caller bug — return row anyway so the filter assertion fails downstream
         if (idEq) row = row && row.id === idEq[2] ? row : null;
         return { data: row, error: null };
       };
