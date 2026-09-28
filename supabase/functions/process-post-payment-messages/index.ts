@@ -73,18 +73,20 @@ Deno.serve(async (req) => {
   // Everything below is scoped to row.organisation_id — no other org source.
   const prepare = async (row: QueueRow): Promise<Prepared> => {
     const org = row.organisation_id;
-    const { data: job } = await sb
+    const { data: job, error: jobErr } = await sb
       .from("service_calls")
       .select("id, organisation_id, customer_id, job_type, completed_at")
       .eq("id", row.service_call_id)
       .eq("organisation_id", org)
       .maybeSingle();
+    if (jobErr) throw new Error(`service_calls read failed: ${jobErr.message}`);
     if (!job) return { skip: "job_not_found" };
 
-    const { data: tagRows } = await sb
+    const { data: tagRows, error: tagErr } = await sb
       .from("service_call_tags")
       .select("job_tags(name)")
       .eq("service_call_id", job.id);
+    if (tagErr) throw new Error(`service_call_tags read failed: ${tagErr.message}`);
     const tagNames = (tagRows || []).map((t: any) => t?.job_tags?.name ?? null);
     if (!isInstallJob(job, tagNames)) return { skip: "not_install" };
 
@@ -95,12 +97,14 @@ Deno.serve(async (req) => {
 
     const customerId = row.customer_id || job.customer_id;
     if (!customerId) return { skip: "customer_not_found" };
-    const { data: cust } = await sb
+    const { data: cust, error: custErr } = await sb
       .from("customers")
       .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years")
       .eq("id", customerId)
       .eq("organisation_id", org)
       .maybeSingle();
+    if (custErr) throw new Error(`customers read failed: ${custErr.message}`);
+    if (!cust) return { skip: "customer_not_found" };
     const opt = evaluateOptOut(cust);
     if (opt.skip) return { skip: opt.reason === "customer_opted_out" ? "opted_out" : opt.reason === "no_phone_number" ? "no_phone" : opt.reason };
     const phone = normalisePhone(String(cust!.phone));
@@ -116,7 +120,8 @@ Deno.serve(async (req) => {
     if (years == null) {
       const makeModel = [cust!.boiler_brand, cust!.boiler_model].filter(Boolean).join(" ") || cust!.boiler_make_model || "";
       if (makeModel) {
-        const { data: brands } = await sb.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default");
+        const { data: brands, error: brandErr } = await sb.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default");
+        if (brandErr) throw new Error(`boiler_brands read failed: ${brandErr.message}`);
         years = lookupWarrantyYears(makeModel, (brands || []) as BoilerBrandRow[]);
       }
     }
@@ -148,6 +153,18 @@ Deno.serve(async (req) => {
           : { id: row.id, status: "would_send", reason: null, message: p.message });
       }
       return json({ processed: results.length, sent: 0, skipped: 0, failed: 0, dry_run: true, results });
+    }
+
+    // Rows whose 10-minute sending lease expired: never resend, mark failed.
+    const { data: stuck, error: stuckErr } = await sb
+      .from("post_payment_messages")
+      .update({ status: "failed", last_error: "stuck_in_sending" })
+      .eq("status", "sending")
+      .lt("not_before", new Date().toISOString())
+      .select("id, organisation_id, service_call_id");
+    if (stuckErr) throw new Error(`stuck sweep failed: ${stuckErr.message}`);
+    for (const s of stuck || []) {
+      await logFn(s.organisation_id, "STUCK_SENDING", { queue_id: s.id, service_call_id: s.service_call_id });
     }
 
     const { data: claimed, error: claimErr } = await sb.rpc("claim_post_payment_messages", {
@@ -196,6 +213,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { Authorization: `Bearer ${p.apiKey}` },
           body: form,
+          signal: AbortSignal.timeout(15000),
         });
         const txt = await res.text();
         ok = res.ok;
