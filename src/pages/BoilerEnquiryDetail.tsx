@@ -314,6 +314,28 @@ const BoilerEnquiryDetail = () => {
         </Card>
       )}
 
+      {(["survey_answers", "other_answers"] as const).map((k) => {
+        const list = enquiry.office_review_notes?.[k] as { label: string; value: string }[] | undefined;
+        if (!Array.isArray(list) || list.length === 0) return null;
+        return (
+          <Card key={k}>
+            <CardContent className="p-4 space-y-2">
+              <h2 className="text-sm font-extrabold text-foreground">
+                {k === "survey_answers" ? "Survey answers" : "Other answers"}
+              </h2>
+              <ul className="space-y-1 text-sm">
+                {list.map((a, i) => (
+                  <li key={i} className="break-words">
+                    <span className="font-semibold text-foreground">{a.label}:</span>{" "}
+                    <span className="text-muted-foreground">{a.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        );
+      })}
+
       <Section title="Property">
         <Field label="Property type" value={enquiry.property_type} />
         <Field label="Bedrooms" value={enquiry.bedrooms} />
