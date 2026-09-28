@@ -344,9 +344,17 @@ const AppLayoutInner = () => {
                 </HeaderIconButton>
               )}
               <div className="mx-2 h-6 w-px bg-border" />
+              <HeaderIconButton
+                onClick={() => startTour()}
+                label="Take the tour"
+                title="Take the tour"
+                aria-label="Take the tour"
+              >
+                <HelpCircle />
+              </HeaderIconButton>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <HeaderIconButton label="Help" showLabel={false} title="Help" aria-label="Help">
+                  <HeaderIconButton label="Help" title="Help" aria-label="Help">
                     <LifeBuoy />
                   </HeaderIconButton>
                 </DropdownMenuTrigger>
