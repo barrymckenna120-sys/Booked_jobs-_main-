@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
 
   let submissionId: string | null = null;
   let organisationId: string | null = null;
+  let resolvedVia: string | null = null;
 
   try {
     // --- payload size limit -------------------------------------------------
@@ -174,6 +175,7 @@ Deno.serve(async (req) => {
         return machineOrgDenial(resolved, corsHeaders);
       }
       organisationId = resolved.orgId;
+      resolvedVia = resolved.via;
     }
 
     // --- validation ---------------------------------------------------------
