@@ -38,6 +38,30 @@ Deno.test("buildWarrantyWelcome variants", () => {
   for (const m of [noBrand, brandOnly, noPhone]) banned(m);
 });
 
+Deno.test("buildWarrantyWelcome warranty expiry priority", () => {
+  const today = "2026-09-28";
+  // (a) future expiry wins over years
+  const future = buildWarrantyWelcome({ ...base, brand: "Grant", warrantyYears: 5, warrantyExpiry: "2036-03-12", today });
+  assert(future.includes("covered by the manufacturer's warranty until 12 March 2036"), future);
+  assert(!future.includes("5-year"));
+  // (b) past expiry falls back to years
+  const past = buildWarrantyWelcome({ ...base, warrantyYears: 7, warrantyExpiry: "2020-01-01", today });
+  assert(past.includes("covered by a 7-year manufacturer's warranty"), past);
+  // today itself is not "after today" → falls back
+  const sameDay = buildWarrantyWelcome({ ...base, warrantyYears: 3, warrantyExpiry: today, today });
+  assert(sameDay.includes("covered by a 3-year manufacturer's warranty"), sameDay);
+  // invalid string falls back to years
+  const invalid = buildWarrantyWelcome({ ...base, warrantyYears: 2, warrantyExpiry: "not-a-date", today });
+  assert(invalid.includes("covered by a 2-year manufacturer's warranty"), invalid);
+  const invalid2 = buildWarrantyWelcome({ ...base, warrantyYears: 2, warrantyExpiry: "2026-13-40", today });
+  assert(invalid2.includes("covered by a 2-year manufacturer's warranty"), invalid2);
+  // both missing → no clause
+  const none = buildWarrantyWelcome({ ...base, warrantyYears: null, warrantyExpiry: null, today });
+  assert(none.includes("boiler is now fitted."), none);
+  assert(!none.includes("warranty until"), none);
+  for (const m of [future, past, invalid, none]) banned(m);
+});
+
 Deno.test("lookupWarrantyYears no fallback", () => {
   const brands = [
     { brand_name: "Worcester", model_name: null, warranty_years: 7, is_default: true },

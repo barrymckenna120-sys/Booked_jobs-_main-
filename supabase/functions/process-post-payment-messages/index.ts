@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     if (!customerId) return { skip: "customer_not_found" };
     const { data: cust, error: custErr } = await sb
       .from("customers")
-      .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years")
+      .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years, warranty_expiry_date")
       .eq("id", customerId)
       .eq("organisation_id", org)
       .maybeSingle();
