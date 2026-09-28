@@ -251,3 +251,20 @@ Deno.test("lookup hit and miss behave per spec", async () => {
   const miss = await handle(req(`action=lookup&model_id=${modelId}&code=ZZ9`), deps(db));
   assertEquals(await miss.json(), { found: false, manual_url: "https://www.baxi.co.uk/support/literature" });
 });
+
+/* ---------- shared matcher: "/" alternatives and empty searches ---------- */
+
+Deno.test("lookup: '/' alternatives, empty search never matches, existing codes still match", () => {
+  const rows = ["F1", "F4 / L4", "--", "F.22", "228", "Flame On Before Gas On"].map((code) => codeRow({ code }));
+  const code = (q: string) => { const r = buildLookup(rows as never, q, "Ideal"); return r.found ? r.code : null; };
+  assertEquals(code("f4"), "F4 / L4");
+  assertEquals(code("l4"), "F4 / L4");
+  assertEquals(code("F4/L4"), "F4 / L4");
+  assertEquals(code("F 1"), "F1");
+  assertEquals(code("--"), null);
+  assertEquals(code("-"), null);
+  assertEquals(code(""), null);
+  assertEquals(code("F22"), "F.22");
+  assertEquals(code("228"), "228");
+  assertEquals(code("flame on before gas on"), "Flame On Before Gas On");
+});
