@@ -3182,6 +3182,70 @@ export type Database = {
           },
         ]
       }
+      post_payment_messages: {
+        Row: {
+          attempts: number
+          created_at: string
+          customer_id: string | null
+          id: string
+          last_error: string | null
+          message_type: string
+          not_before: string
+          organisation_id: string
+          sent_at: string | null
+          service_call_id: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          message_type: string
+          not_before?: string
+          organisation_id: string
+          sent_at?: string | null
+          service_call_id: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          message_type?: string
+          not_before?: string
+          organisation_id?: string
+          sent_at?: string | null
+          service_call_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_payment_messages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_payment_messages_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "payment_reconciliation_exceptions"
+            referencedColumns: ["service_call_id"]
+          },
+          {
+            foreignKeyName: "post_payment_messages_service_call_id_fkey"
+            columns: ["service_call_id"]
+            isOneToOne: false
+            referencedRelation: "service_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean | null
@@ -4629,6 +4693,28 @@ export type Database = {
         Returns: undefined
       }
       can_view_draft_faults: { Args: { _user_id: string }; Returns: boolean }
+      claim_post_payment_messages: {
+        Args: { p_limit?: number; p_service_call_id?: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          customer_id: string | null
+          id: string
+          last_error: string | null
+          message_type: string
+          not_before: string
+          organisation_id: string
+          sent_at: string | null
+          service_call_id: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "post_payment_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       count_org_data: { Args: { _org_id: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
