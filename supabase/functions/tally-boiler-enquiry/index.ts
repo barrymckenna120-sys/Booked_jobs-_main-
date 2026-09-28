@@ -62,16 +62,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  if (!(await isMachineCaller(req))) {
-    console.warn(`${FN}: rejected unauthenticated caller`);
-    return json({ success: false, error: "Unauthorized" }, 401);
-  }
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
+
+  // Signed Tally path: a request carrying `tally-signature` is authenticated by
+  // HMAC against the signing secret configured for its form id. The org comes
+  // ONLY from that form-id binding.
+  const tallySignature = req.headers.get("tally-signature");
+  const isSignedCall = tallySignature !== null;
+  if (!isSignedCall && !(await isMachineCaller(req))) {
+    console.warn(`${FN}: rejected unauthenticated caller`);
+    return json({ success: false, error: "Unauthorized" }, 401);
+  }
 
   let submissionId: string | null = null;
   let organisationId: string | null = null;
