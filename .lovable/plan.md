@@ -1,40 +1,34 @@
-# Replace warranty welcome with install-date setting + grace-window reminders
+# Verify Dublin Gas quote follow-ups (day 3 and day 6)
 
-The schedule for the payment queue stays paused throughout. No WhatsApp messages get sent.
+Check first, and only fix if something is proven wrong. No real customers get messages. Both schedules stay as they are unless you approve a change.
 
-## 1. Payment queue function (process-post-payment-messages)
-- For `warranty_welcome` rows, stop sending WhatsApp messages. Remove the 360messenger send code and the `buildWarrantyWelcome` import.
-- Keep the current eligibility check (`isInstallJob`), organisation-scoped reads and retry-on-database-error behaviour.
-- Install date = the job's `completed_at` as a Europe/Dublin date. If that's missing, use `paid_at`.
-- Scoped update: `customers.boiler_installation_date = installDate`, filtered by `id = row.customer_id`, `organisation_id = row.organisation_id`, and (`date IS NULL` or `date < installDate`).
-- Queue row outcome:
-  - `sent` / `install_date_set` if the date was written.
-  - `sent` / `install_date_unchanged` if the customer already had the same or a later date.
-  - `skipped` / `not_install` for non-install jobs, as now.
-- When the date is set, add a customer_activity entry: "Boiler install date set from job <job_reference>".
-- Opted-out customers: no message is sent any more, so the opt-out skip isn't needed for this. The install date is still recorded, and warranty-auto-send already excludes opted-out customers.
-- Dry run returns `would_set_install_date` with the date, or `would_leave_unchanged`, or `would_skip`.
-- Delete `_shared/warrantyWelcome.ts` and its test file. Move `isInstallJob` and its tests into a small shared file, `_shared/installJob.ts` plus its test, keeping the existing tests. Remove any other imports of the deleted file.
+## Step 1: Check the setup (read only)
+- Schedules: read the `quote-followup-day3` and `quote-followup-day6` cron rows (schedule, active, how each one authenticates). Workspace notes say these were broken before because `current_setting` returned NULL. Confirm whether that is still true.
+- Real runs: read the last 14 days of edge_function_logs and message_log for `quote_followup_day3/day6`, split by organisation.
+- Dublin Gas quotes: list quotes currently inside the 3–4 day and 6–7 day windows, and whether they are eligible.
+- Code: 24-hour selection windows, the `decideFollowup` rules, WhatsApp key lookup for Dublin Gas, and the flags that stop a second send.
 
-## 2. Warranty reminders (warranty-auto-send)
-- Use Europe/Dublin "today" instead of UTC.
-- Day 14 reminder: install date between today−21 and today−14 inclusive, with no `warranty_day14` entry in the log.
-- Day 28 reminder: install date between today−35 and today−28 inclusive, with no `warranty_day28` entry in the log, and renewal_stage not Booked In, Confirmed or Paid.
-- Nothing else changes, including the query, the wording and send-warranty-whatsapp.
+## Step 2: Controlled test (Dublin Gas, QA customers only)
+Create six QA quotes on a scratch customer. The phone number comes from you. Set `sent_at` so each quote falls in the right window:
+- Q1: 3.5 days old, unread and unapproved → day 3 would send
+- Q2: 3.5 days old, viewed → skip (quote_read)
+- Q3: 3.5 days old, approved → skip (quote_approved)
+- Q4: 6.5 days old, day 3 already sent → day 6 would send
+- Q5: 6.5 days old, day 3 not sent → skip (day3_not_sent)
+- Q6: 2 days old → not picked up (too early)
 
-## 3. Deploy
-Deploy both functions with deploy_edge_functions. Record the timestamps.
+First run both functions as dry runs, with no `quote_id`, so the time windows get tested too. Paste the message text: Dublin Gas name and phone, the link on the Dublin Gas domain, no "Karl" or "K&N". Then do one real send each for Q1 and Q4 to your number. Run each again right after to show it doesn't send twice. Read back the flags and the message_log rows.
 
-## 4. Read-only report (raw output)
-- a) Commit hash on origin/dev, plus the deploy timestamps.
-- b) For K&N and Dublin Gas: how many customers have an install date set, and how many of those are missing boiler_brand or boiler_model.
-- c) Mary Black's install date, brand, model and warranty_reminder_log. If she's due a reminder at tomorrow's 9am run, I'll say so and change nothing.
-- d) Dry run for DG-1037, expected `would_set_install_date` 2026-09-28. DG-1037 is still unpaid and has no queue row, so this runs the dry-run path using its service_call_id. If the function requires an existing queue row, I'll report that instead of creating one.
+## Step 3: Tenant isolation
+- Show a batch run only sends each quote with its own organisation's key and branding: one K&N QA quote in the window uses K&N branding (dry run only).
+- Confirm a call from a user session or without credentials is refused, because the functions only accept the scheduler's credentials.
 
-## Risk to confirm (live customers)
-The wider windows mean any real customer with an install date 14–21 or 28–35 days ago, who hasn't had a reminder, will get one at the next 9am run. Today, K&N and Dublin Gas customers in that range never receive one. Check b) will list how many are affected, grouped by organisation, before tomorrow morning. If the number is unexpected, say so and I'll pause warranty-auto-send.
+## Step 4: Fix only if a defect is confirmed
+Change 1–3 files at most. Likely candidates: the cron command, if it's broken (a DB change, reviewed on its own), or the selection window. Add one regression test. Run the existing quoteFollowup tests and the typecheck.
 
-## Technical notes
-- Dublin date helper: `Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Dublin' })` gives YYYY-MM-DD, and date arithmetic works on that value at T12:00:00.
-- The "later date" guard lives in the UPDATE filter, which keeps it idempotent across retries.
-- One commit covers the function changes. No database schema changes and no data writes beyond what the function does at runtime.
+## Step 5: Clean up
+Mark QA quotes expired, or leave them if you want. Report in your six-section format.
+
+## Needs from you
+- A test mobile number for the QA customer.
+- Approval for the two real sends in Step 2.
