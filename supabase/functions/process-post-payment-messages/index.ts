@@ -9,8 +9,10 @@ import { logMessage } from "../_shared/logMessage.ts";
 import {
   buildWarrantyWelcome,
   firstNameOf,
+  futureExpiryClause,
   isInstallJob,
   lookupWarrantyYears,
+  todayDublin,
   type BoilerBrandRow,
 } from "../_shared/warrantyWelcome.ts";
 
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
     if (!customerId) return { skip: "customer_not_found" };
     const { data: cust, error: custErr } = await sb
       .from("customers")
-      .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years")
+      .select("id, name, phone, opted_out, boiler_brand, boiler_model, boiler_make_model, warranty_years, warranty_expiry_date")
       .eq("id", customerId)
       .eq("organisation_id", org)
       .maybeSingle();
@@ -116,13 +118,19 @@ Deno.serve(async (req) => {
     const branding = await getCanonicalOrgBranding(sb, org);
     if (!branding.org_name) return { skip: "no_tenant_name" };
 
-    let years: number | null = cust!.warranty_years ?? null;
-    if (years == null) {
-      const makeModel = [cust!.boiler_brand, cust!.boiler_model].filter(Boolean).join(" ") || cust!.boiler_make_model || "";
-      if (makeModel) {
-        const { data: brands, error: brandErr } = await sb.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default");
-        if (brandErr) throw new Error(`boiler_brands read failed: ${brandErr.message}`);
-        years = lookupWarrantyYears(makeModel, (brands || []) as BoilerBrandRow[]);
+    const expiry = cust!.warranty_expiry_date ?? null;
+    // Only look up boiler_brands years when a valid future expiry date doesn't apply.
+    const expiryApplies = futureExpiryClause(expiry, todayDublin()) !== null;
+    let years: number | null = null;
+    if (!expiryApplies) {
+      years = cust!.warranty_years ?? null;
+      if (years == null) {
+        const makeModel = [cust!.boiler_brand, cust!.boiler_model].filter(Boolean).join(" ") || cust!.boiler_make_model || "";
+        if (makeModel) {
+          const { data: brands, error: brandErr } = await sb.from("boiler_brands").select("brand_name, model_name, warranty_years, is_default");
+          if (brandErr) throw new Error(`boiler_brands read failed: ${brandErr.message}`);
+          years = lookupWarrantyYears(makeModel, (brands || []) as BoilerBrandRow[]);
+        }
       }
     }
 
@@ -132,6 +140,7 @@ Deno.serve(async (req) => {
       brand: cust!.boiler_brand,
       model: cust!.boiler_model,
       warrantyYears: years,
+      warrantyExpiry: expiry,
       tenantPhone: branding.org_phone,
       footer: branding.footer && branding.footer !== branding.org_name ? branding.footer : "",
     });
