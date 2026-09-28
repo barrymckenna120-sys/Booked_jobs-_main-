@@ -138,7 +138,19 @@ Deno.serve(async (req) => {
         return json({ success: false, error: "Unauthorized" }, 401);
       }
       if (!(await verifyTallySignature(raw, tallySignature, secret))) {
-        await logStage(supabase, "invalid_signature", { submission_id: submissionId, form_id: formId });
+        // TEMP diagnostic (lengths/booleans only — never values). Remove after fix.
+        await logStage(supabase, "invalid_signature", {
+          submission_id: submissionId,
+          form_id: formId,
+          diag: {
+            header_len: tallySignature?.length ?? 0,
+            secret_len: secret.length,
+            secret_has_outer_whitespace: secret !== secret.trim(),
+            trimmed_secret_verifies: secret !== secret.trim()
+              ? await verifyTallySignature(raw, tallySignature, secret.trim())
+              : null,
+          },
+        });
         return json({ success: false, error: "Unauthorized" }, 401);
       }
       const claimed = typeof root.organisation_id === "string" ? root.organisation_id.trim() : "";
