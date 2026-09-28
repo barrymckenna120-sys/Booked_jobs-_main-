@@ -117,3 +117,7 @@
 - [x] Karl cleanup 5: Settings placeholders + import template
 - [x] Karl cleanup 6: delete unused SendAllQuotes / SendServiceReminders / RenewalsCard after search
 - [x] NGBD 22/09 rows: Karl's Gas true/false + sender
+
+## BJ — Fault Finder (28/09/26)
+- [ ] Result card reorder: code heading first, then explanation (FaultFinderSheet.tsx) + DOM-order test.
+- [ ] New public read-only Edge Function `public-fault-lookup` (models/codes/lookup, published-only, origin allow-list) + Deno tests + config.toml block. Awaiting Barry to set secret `PUBLIC_FAULT_ALLOWED_ORIGINS`.
