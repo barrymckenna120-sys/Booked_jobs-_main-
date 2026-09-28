@@ -132,10 +132,11 @@ const stubDb = (tables: Record<string, Record<string, unknown>[]>): FaultDb & {
         if (!statusEq) row = null; // published filter missing is a caller bug — behave as "not found" and let the filter assertion catch it
         return { data: row, error: null };
       };
-      const thenable = b as unknown as FaultQuery;
-      thenable.then = (
-        res?: (v: unknown) => unknown, rej?: (e: unknown) => unknown,
-      ): Promise<unknown> => Promise.resolve({ data: tables[table] ?? [], error: null }).then(res, rej);
+      const anyB = b as unknown as { then: (res?: unknown, rej?: unknown) => Promise<unknown> };
+      anyB.then = (res, rej) =>
+        Promise.resolve({ data: tables[table] ?? [], error: null }).then(
+          res as (v: unknown) => unknown, rej as (e: unknown) => unknown,
+        );
       return b as unknown as FaultQuery;
     },
   };
