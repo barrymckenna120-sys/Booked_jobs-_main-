@@ -93,6 +93,64 @@ const SearchField = ({
   );
 };
 
+export interface FaultFoundCardProps {
+  fault: PublishedFaultCode & { status?: string };
+  brand: string;
+  model: string;
+  isDraft: boolean;
+  showTech: boolean;
+  onToggleTech: () => void;
+}
+
+/** Found-result card: the code is the first, largest element; explanation sits below it as body text. */
+export const FaultFoundCard = ({ fault, brand, model, isDraft, showTech, onToggleTech }: FaultFoundCardProps) => (
+  <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
+    {isDraft && (
+      <div className="rounded-lg bg-warning/15 border border-warning/40 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground">
+        DRAFT — NOT TECHNICALLY VERIFIED
+      </div>
+    )}
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {model}</div>
+      <h3 className="text-xl font-extrabold text-foreground break-words">{fault.code}</h3>
+      {fault.category === "status" && (
+        <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
+      )}
+      {fault.category === "message" && (
+        <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Display message (no numbered code)</div>
+      )}
+      <div className="text-base font-semibold text-foreground mt-1 break-words">{fault.explanation}</div>
+    </div>
+    {(fault.possible_causes?.length ?? 0) > 0 && (
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{isDraft ? "Possible causes — unverified, not repair instructions" : "Possible causes"}</div>
+        <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
+          {fault.possible_causes.map((c) => <li key={c}>{c}</li>)}
+        </ul>
+      </div>
+    )}
+    <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(fault.manual_url)}>
+      <ExternalLink className="w-4 h-4" /> Open official manual
+    </Button>
+    <button type="button" aria-expanded={showTech} onClick={onToggleTech}
+      className="w-full min-h-[44px] flex items-center justify-between text-sm font-semibold text-foreground border-t border-border pt-2">
+      Technical details &amp; manual reference
+      <ChevronDown className={`w-4 h-4 transition-transform ${showTech ? "rotate-180" : ""}`} />
+    </button>
+    {showTech && (
+      <div className="text-sm text-foreground space-y-2">
+        {isDraft && <p className="text-xs font-bold text-foreground">Unverified draft notes — confirm against the official manual before acting.</p>}
+        {fault.technical_details && <p className="whitespace-pre-line">{fault.technical_details}</p>}
+        <p className="text-xs text-muted-foreground">
+          {fault.manual_title}
+          {fault.manual_revision && <> · {fault.manual_revision}</>}
+          {fault.manual_page && <> · page {fault.manual_page}</>}
+        </p>
+      </div>
+    )}
+  </div>
+);
+
 const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const recent = useMemo(() => loadRecent(), []);
   const hasPrefill = !!(prefill?.brand?.trim() || prefill?.model?.trim());
@@ -312,69 +370,14 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
         )}
 
         {result.status === "found" && (
-          <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-found">
-            {resultIsDraft && (
-              <div className="rounded-lg bg-warning/15 border border-warning/40 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground">
-                DRAFT — NOT TECHNICALLY VERIFIED
-              </div>
-            )}
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {model} · {result.fault.code}</div>
-              {result.fault.category === "status" && (
-                <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Status message — not a fault</div>
-              )}
-              {result.fault.category === "message" && (
-                <div className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-muted-foreground">Display message (no numbered code)</div>
-              )}
-              <div className="text-base font-extrabold text-foreground mt-0.5">{result.fault.explanation}</div>
-            </div>
-            {(result.fault.possible_causes?.length ?? 0) > 0 && (
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{resultIsDraft ? "Possible causes — unverified, not repair instructions" : "Possible causes"}</div>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
-                  {result.fault.possible_causes.map((c) => <li key={c}>{c}</li>)}
-                </ul>
-              </div>
-            )}
-            <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.fault.manual_url)}>
-              <ExternalLink className="w-4 h-4" /> Open official manual
-            </Button>
-            <button type="button" aria-expanded={showTech} onClick={() => setShowTech((v) => !v)}
-              className="w-full min-h-[44px] flex items-center justify-between text-sm font-semibold text-foreground border-t border-border pt-2">
-              Technical details &amp; manual reference
-              <ChevronDown className={`w-4 h-4 transition-transform ${showTech ? "rotate-180" : ""}`} />
-            </button>
-            {showTech && (
-              <div className="text-sm text-foreground space-y-2">
-                {resultIsDraft && <p className="text-xs font-bold text-foreground">Unverified draft notes — confirm against the official manual before acting.</p>}
-                {result.fault.technical_details && <p className="whitespace-pre-line">{result.fault.technical_details}</p>}
-                <p className="text-xs text-muted-foreground">
-                  {result.fault.manual_title}
-                  {result.fault.manual_revision && <> · {result.fault.manual_revision}</>}
-                  {result.fault.manual_page && <> · page {result.fault.manual_page}</>}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {result.status === "unknown" && (
-          <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-unknown">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {code.trim().toUpperCase()}</div>
-              <div className="text-base font-extrabold text-foreground mt-0.5">No verified explanation available for this code yet</div>
-              <div className="text-sm text-muted-foreground mt-1">
-                Check this code in the official manual for the exact model.
-              </div>
-            </div>
-            {result.manualUrl ? (
-              <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.manualUrl!)}>
-                <ExternalLink className="w-4 h-4" /> Open official {brand} manual
-              </Button>
-            ) : (
-              <div className="text-sm text-foreground">No official manual link on file for this brand — check the manufacturer's website.</div>
-            )}
-          </div>
+          <FaultFoundCard
+            fault={result.fault}
+            brand={brand}
+            model={model}
+            isDraft={resultIsDraft}
+            showTech={showTech}
+            onToggleTech={() => setShowTech((v) => !v)}
+          />
         )}
         <div className="rounded-xl bg-warning/10 border border-warning/30 p-3 flex gap-2.5">
           <ShieldAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
