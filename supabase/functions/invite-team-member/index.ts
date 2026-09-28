@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveOrgBranding } from "../_shared/orgBranding.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -108,6 +109,23 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Tenant business name for the email footer, via the shared branding
+    // resolver (Settings business name → organisation name → blank).
+    const [{ data: brandSettings }, { data: brandIntegrations }, { data: brandOrg }] = await Promise.all([
+      supabaseAdmin.from("settings").select("business_name, company_name, business_phone, company_phone, business_address, message_footer").eq("organisation_id", resolvedOrgId).limit(1).maybeSingle(),
+      supabaseAdmin.from("tenant_integrations").select("integration_type, config").eq("organisation_id", resolvedOrgId),
+      supabaseAdmin.from("organisations").select("name").eq("id", resolvedOrgId).maybeSingle(),
+    ]);
+    const resolvedBrand = resolveOrgBranding({
+      organisationId: resolvedOrgId,
+      settings: brandSettings as any,
+      integrations: (brandIntegrations as any) || [],
+      organisation: brandOrg as any,
+    });
+    const orgName = String(resolvedBrand.org_name || "").trim();
+    const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const footerOrg = escHtml(orgName);
 
     const { data: waIntegration } = await supabaseAdmin
       .from("tenant_integrations")
