@@ -16,7 +16,7 @@ Deno.test("bad signature rejected", async () => {
 
 Deno.test("tampered body rejected", async () => {
   const sig = await tallySignatureFor(body, "s3cret");
-  assertEquals(await verifyTallySignature(body + " ", sig, "s3cret"), false);
+  assertEquals(await verifyTallySignature(body.replace("r1", "r2"), sig, "s3cret"), false);
 });
 
 Deno.test("missing signature or secret rejected", async () => {
