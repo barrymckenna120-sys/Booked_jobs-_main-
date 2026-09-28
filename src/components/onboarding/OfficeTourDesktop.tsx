@@ -114,9 +114,12 @@ const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFi
             </div>
           ) : (<>
           <div className="mt-6 grid grid-cols-[55%_1fr] gap-8 items-center">
-            <div className="aspect-[16/10] overflow-hidden rounded-xl shadow-md bg-accent">
+            <div
+              className={`aspect-[16/10] overflow-hidden rounded-xl shadow-md ${step.hasImage ? "" : "bg-accent"}`}
+              style={step.hasImage ? { backgroundColor: "#ffffff" } : undefined}
+            >
               {step.hasImage ? (
-                <img src={step.image} alt={step.alt} loading="lazy" className="h-full w-full object-cover" />
+                <img src={step.image} alt={step.alt} loading="lazy" className="h-full w-full object-contain object-center" />
               ) : (
                 <div role="img" aria-label={step.alt} className="flex h-full w-full items-center justify-center p-6 text-center text-sm font-medium text-primary">
                   Screenshot: {step.label} — to be added
