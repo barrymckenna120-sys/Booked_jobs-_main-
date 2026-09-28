@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
           organisation_id: organisationId,
           user_id: ownerUserId,
           name: contact.name || "New boiler enquiry",
-          phone: phone ?? contact.phone,
+          phone: phone ?? contact.phone ?? "",
           email: contact.email,
           address: (fields.address as string | null) ?? null,
           eircode: (fields.eircode as string | null) ?? null,
