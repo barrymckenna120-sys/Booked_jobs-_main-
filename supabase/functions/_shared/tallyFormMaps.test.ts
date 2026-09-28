@@ -30,7 +30,7 @@ Deno.test("Zjq5rA: contact, columns, fixed source/type", () => {
   assertEquals(m.columns.eircode, "D01 X2Y3");
   assertEquals(m.columns.property_type, "Semi-detached");
   assertEquals(m.source, "kn-website-new-boiler");
-  assertEquals(m.enquiryType, "Boiler Replacement");
+  assertEquals(m.enquiryType, "new_boiler");
 });
 
 Deno.test("Zjq5rA: notes in order, unknown field to other_answers, photos kept", () => {

@@ -13,7 +13,7 @@ export type TallyFormMap = {
 export const TALLY_FORM_MAPS: Record<string, TallyFormMap> = {
   Zjq5rA: {
     source: "kn-website-new-boiler",
-    enquiryType: "Boiler Replacement",
+    enquiryType: "new_boiler",
     contact: { name: "question_OBVJg7", phone: "question_4NGoqk", email: "question_EbaJgX" },
     columns: {
       question_V1xMdJ: "eircode",
