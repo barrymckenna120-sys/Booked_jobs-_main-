@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
     await logStage(supabase, `success:enquiry=${enquiry.id}`, {
       submission_id: submissionId,
       organisation_id: organisationId,
-      via: resolved.via,
+      via: isSignedCall ? "tally_signature" : resolvedVia,
       photos_stored: storedPhotos,
       photos_rejected: rejectedPhotos,
       customer_matched: matched,
