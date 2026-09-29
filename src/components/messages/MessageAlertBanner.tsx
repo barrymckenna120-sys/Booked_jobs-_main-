@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { X, Mail } from "lucide-react";
-import { playMessageBeep } from "@/utils/audio";
+import { shouldShowOnSurface, type NotificationSurface } from "@/lib/notificationSurface";
 import { resolveNotificationTarget } from "@/lib/notificationTarget";
+import { NOTIFICATIONS_CHANGED_EVENT } from "@/lib/engineerChat";
 
 interface MessageAlert {
   id: string;
@@ -19,9 +20,11 @@ interface MessageAlert {
 interface Props {
   /** Route prefix for job links: "/jobs" in the office app, "/engineer/job" in the engineer app. */
   jobPathPrefix?: string;
+  /** Same surface filter as useNotifications: "engineer" or "office". */
+  surface?: NotificationSurface;
 }
 
-const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
+const MessageAlertBanner = ({ jobPathPrefix = "/jobs", surface }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<MessageAlert[]>([]);
@@ -35,7 +38,7 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
     if (!userId) return;
 
     const channel = supabase
-      .channel("message-alerts")
+      .channel(`message-alerts-${surface ?? "any"}`)
       .on(
         "postgres_changes",
         {
@@ -48,8 +51,8 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
           const n = payload.new as any;
           console.log("[MessageAlertBanner] notif received", { type: n.notification_type, id: n.id, recipient: n.recipient_user_id });
           if (n.notification_type !== "message") return;
-
-          playMessageBeep();
+          if (!shouldShowOnSurface(n.role ?? null, surface)) return;
+          // Sound is played once by useNotifications (respects sound_alerts_enabled).
 
           const senderName = n.title || "Unknown";
           const alert: MessageAlert = {
@@ -69,14 +72,16 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, surface]);
 
 
   const handleView = useCallback((e: React.MouseEvent | React.TouchEvent, alert: MessageAlert) => {
     e.stopPropagation();
     e.preventDefault();
     // Mark notification as read
-    supabase.from("notifications").update({ is_read: true }).eq("id", alert.notificationId).then(() => {});
+    supabase.from("notifications").update({ is_read: true }).eq("id", alert.notificationId).then(() => {
+      window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+    });
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
     const target = resolveNotificationTarget(
       {
@@ -114,13 +119,13 @@ const MessageAlertBanner = ({ jobPathPrefix = "/jobs" }: Props) => {
           <span className="flex-1 min-w-0 truncate">
             📩 {alert.senderName}: {alert.message.substring(0, 60)}{alert.message.length > 60 ? "…" : ""}
           </span>
-          {alert.jobId && (
+          {(alert.jobId || (surface === "engineer" && typeof alert.metadata?.sender_id === "string")) && (
             <button
               onClick={(e) => handleView(e, alert)}
               onTouchEnd={(e) => handleView(e, alert)}
               className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
-              View Job
+              {alert.jobId ? "View Job" : "Open Chat"}
             </button>
           )}
           <button

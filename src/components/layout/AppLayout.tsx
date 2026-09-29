@@ -439,7 +439,7 @@ const AppLayoutInner = () => {
         onMarkRead={markAsRead}
         jobPathPrefix="/jobs"
       />
-      <MessageAlertBanner jobPathPrefix="/jobs" />
+      <MessageAlertBanner jobPathPrefix="/jobs" surface="office" />
       {user && (
         <OnboardingTour
           open={showTour}
