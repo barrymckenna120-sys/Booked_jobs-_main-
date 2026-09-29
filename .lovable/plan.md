@@ -1,22 +1,19 @@
-# Undo footer rebuild — WhatsApp footer = trading name only
+# Footer data update and evidence (approved "Go")
 
-Scope: undo the footer rebuild only. Nothing else changes.
+## 1. Data
+- Run the UPDATE exactly as you wrote it, with RETURNING. Confirm it returns exactly 2 rows and paste them.
+- If it doesn't return exactly 2 rows, stop and report.
+- Read back both companies again, and confirm the settings count for other companies is unchanged.
 
-## 1. Code (one commit)
-- `src/lib/messageFooter.ts`: delete `rebuildMessageFooter`. `buildContactSyncPatch({ phone?: string | null })` returns only `{ company_phone }`: the trimmed phone, or null if blank.
-- `src/components/settings/GeneralTab.tsx`: change only the call, to `buildContactSyncPatch({ phone: form.business_phone })`.
-- `src/pages/admin/TenantDetail.tsx` (~line 421): change the lookup back to `.select("id")`, still filtered by organisation_id. Call `buildContactSyncPatch({ phone: settingsForm.phone })`.
-- Tests: remove the footer tests and keep the company_phone tests. Add one test that the returned object has no `message_footer` key.
-- Also add this task to roadmap.md.
+## 2. Tests
+- Run the focused footer tests and the full test suite, and report both counts.
+- Run the type check and report the result.
 
-## 2. Data (two separate steps, each gated on your review)
-1. Run the SELECT exactly as written for real K&N and TEST K&N, and paste the output. **Then stop and wait for your go-ahead.**
-2. After you approve, run the UPDATE exactly as written, with RETURNING. It must return exactly 2 rows. Paste the output. No other orgs or columns change.
-
-## 3. Evidence
-- The commit hash on origin/dev, if I can check it. If I can't, I'll report the working-branch hash and say so.
-- Focused test count, full suite count and the typecheck result.
-- TEST K&N (c0aa41ac) only:
-  - Send one booking confirmation on a scratch job to a reserved test number. Paste the footer line from `message_log`. It must read exactly "K&N Gas Services".
-  - Generate one receipt PDF and one quote PDF. Confirm the header reads "K&N Gas Services Limited" using the PDF text or a screenshot.
+## 3. TEST K&N checks (c0aa41ac only)
+- Send one booking confirmation on a scratch TEST K&N job to a reserved test number. Paste the footer line from message_log, which must be exactly "K&N Gas Services".
+- Generate one receipt PDF and one quote PDF from existing TEST K&N records. Confirm the header reads "K&N Gas Services Limited" using the PDF text or a screenshot.
 - Nothing is sent or generated on real K&N.
+
+## 4. Report
+- The hash on the working branch, since origin/dev can't be confirmed.
+- Before/after data, test counts, the footer line and the PDF header evidence.
