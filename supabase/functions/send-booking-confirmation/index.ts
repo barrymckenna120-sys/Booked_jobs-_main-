@@ -4,6 +4,7 @@ import { bookingConfirmationSkip } from "../_shared/bookingConfirmationSkip.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
+import { buildBookingMessage, capitaliseFirst, formatBookingDate, parseMode } from "./message.ts";
   beginDelivery,
   completeDelivery,
   DeliveryBusyError,
@@ -39,6 +40,8 @@ serve(async (req) => {
     const service_call_id = reqBody?.service_call_id;
     /** resend-communication tracks the attempt itself; avoid double-recording. */
     const skipTracking = reqBody?.skip_delivery_tracking === true;
+    const mode = parseMode(reqBody?.mode);
+    const messageType = mode === "reschedule" ? "reschedule_notification" : "booking_confirmation";
 
 
     // IDOR guard: prove the caller belongs to the organisation owning this row.
@@ -121,7 +124,7 @@ serve(async (req) => {
           body: JSON.stringify({
             customer_id: job.customer_id,
             organisation_id: orgId,
-            message_type: "booking_confirmation",
+            message_type: messageType,
             channel: "whatsapp",
             direction: "outbound",
             content: `Skipped: ${message}`,
@@ -173,27 +176,15 @@ serve(async (req) => {
       }
       return parts[0];
     };
-    const firstName = getFirstName(customer.name) || "there";
-    const formattedDate = job.scheduled_date
-      ? (() => {
-          const d = new Date(job.scheduled_date + "T12:00:00");
-          const dd = String(d.getDate()).padStart(2, "0");
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const yyyy = d.getFullYear();
-          return `${dd}/${mm}/${yyyy}`;
-        })()
-      : "TBC";
+    const firstName = capitaliseFirst(getFirstName(customer.name)) || "there";
+    const formattedDate = formatBookingDate(job.scheduled_date, mode === "reschedule");
     const timeSlot = job.time_block || "TBC";
     const engineerName = job.assigned_engineer || "TBC";
 
     // Build message body (360Messenger /v2/sendMessage only supports free text)
-    const message =
-      `Hi ${firstName}, your booking with ${companyName || "us"} is confirmed.\n\n` +
-      `📅 Date: ${formattedDate}\n` +
-      `⏰ Time: ${timeSlot}\n` +
-      `👷 Engineer: ${engineerName}\n\n` +
-      `If you need to make any changes please reply to this message.` +
-      (messageFooter ? `\n\n${messageFooter}` : "");
+    const message = buildBookingMessage({
+      mode, firstName, companyName, formattedDate, timeSlot, engineerName, messageFooter,
+    });
 
     // Send via 360Messenger free-text endpoint (template name retained for reference: ${templateName})
     const cleanNumber = customer.phone.replace(/^\+/, "");
@@ -206,7 +197,7 @@ serve(async (req) => {
       body: JSON.stringify({
         customer_id: job.customer_id,
         organisation_id: orgId,
-        message_type: "booking_confirmation",
+        message_type: messageType,
         channel: "whatsapp",
         direction: "outbound",
         content: message,
@@ -332,7 +323,7 @@ serve(async (req) => {
           customer_id: job.customer_id,
           service_call_id: service_call_id,
           event_type: "whatsapp_sent",
-          event_label: "WhatsApp sent — Booking Confirmation",
+          event_label: mode === "reschedule" ? "WhatsApp sent — Reschedule" : "WhatsApp sent — Booking Confirmation",
         }),
       });
     } catch {
