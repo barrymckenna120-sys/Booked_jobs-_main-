@@ -130,3 +130,4 @@
 - [ ] Part 3: migration — engineer→office direct-message notification branch (show SQL first)
 - [ ] Part 4: alerts — direct-message tap target, one sound, one banner (surface filter), clear bell+badge on open
 - [ ] Evidence: phone screenshots, live test on test org, commit hashes on origin/dev
+- Progress 29/09: Parts 1, 2, 4 code done (tests 892 pass; 1 unrelated pre-existing failure in boilerEnquiryPayloadMirror). Part 3 SQL drafted, waiting for approval before applying. Live test and screenshots come after the migration.
