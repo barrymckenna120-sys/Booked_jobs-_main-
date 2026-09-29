@@ -556,6 +556,18 @@ const JobDetail = () => {
     } else {
       logAudit({ action_type: "job_rescheduled", entity_type: "service_call", entity_id: job.id, detail: `Rescheduled to ${rescheduleDate} ${rescheduleTime || ""}`.trim() });
       toast({ title: "Job rescheduled" });
+      supabase.functions
+        .invoke('send-booking-confirmation', { body: { service_call_id: job.id, mode: "reschedule" } })
+        .then(({ error: waErr }) => {
+          if (waErr) {
+            console.error('send-booking-confirmation failed:', waErr);
+            toast({
+              title: "Job rescheduled — WhatsApp not sent",
+              description: "The reschedule message could not be delivered. Check the WhatsApp connection in Settings.",
+            });
+          }
+        })
+        .catch((err) => console.error('send-booking-confirmation failed:', err));
       setRescheduleOpen(false);
       fetchJob();
     }
