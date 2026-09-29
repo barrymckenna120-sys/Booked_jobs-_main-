@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   ENGINEER_CHAT_CHANGED_EVENT,
+  NOTIFICATIONS_CHANGED_EVENT,
   countEngineerUnread,
   type ChatMessageRow,
   type JobInfo,
@@ -87,7 +88,7 @@ export function useEngineerChatUnread() {
     const channel = supabase
       .channel(`engineer-chat-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_messages" }, () => {
-        refresh();
+        // The window listener below does the refresh (one path, no double fetch).
         window.dispatchEvent(new Event(ENGINEER_CHAT_CHANGED_EVENT));
       })
       .subscribe();
@@ -102,4 +103,38 @@ export function useEngineerChatUnread() {
   }, [userId, refresh]);
 
   return count;
+}
+
+/**
+ * Marks one thread read for the signed-in engineer: only office-sent messages
+ * in that thread, and only this user's own message notifications for it.
+ */
+export async function markEngineerThreadRead(
+  userId: string,
+  thread: { kind: "direct"; otherUserId: string } | { kind: "job"; jobId: string },
+) {
+  const now = new Date().toISOString();
+  let msgQ = supabase
+    .from("job_messages")
+    .update({ read_at: now })
+    .neq("sender_role", "engineer")
+    .is("read_at", null);
+  let notifQ = supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("recipient_user_id", userId)
+    .eq("notification_type", "message")
+    .eq("is_read", false);
+  if (thread.kind === "direct") {
+    msgQ = msgQ.is("job_id", null).eq("recipient_id", userId).eq("sender_id", thread.otherUserId);
+    notifQ = notifQ.is("job_id", null).eq("metadata->>sender_id", thread.otherUserId);
+  } else {
+    msgQ = msgQ.eq("job_id", thread.jobId);
+    notifQ = notifQ.eq("job_id", thread.jobId);
+  }
+  const [m, n] = await Promise.all([msgQ, notifQ]);
+  if (m.error) console.error("[engineer-chat] mark messages read failed", m.error);
+  if (n.error) console.error("[engineer-chat] mark notifications read failed", n.error);
+  window.dispatchEvent(new Event(ENGINEER_CHAT_CHANGED_EVENT));
+  window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
 }
