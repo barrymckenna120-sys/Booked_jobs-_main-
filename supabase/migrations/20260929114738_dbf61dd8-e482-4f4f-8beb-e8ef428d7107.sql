@@ -1,0 +1,1 @@
+ALTER TABLE public.notifications ADD COLUMN push_sent_at timestamptz NULL;
