@@ -506,9 +506,12 @@ export function useNotifications(
 
           // Always provide a visible toast fallback.
           // Useful when the browser/device blocks audio.
-          toast(n.title, {
-            description: n.body,
-          });
+          // Message rows get their one visible banner from MessageAlertBanner.
+          if (n.notification_type !== "message") {
+            toast(n.title, {
+              description: n.body,
+            });
+          }
 
           if (
             HIGH_PRIORITY_TYPES.has(

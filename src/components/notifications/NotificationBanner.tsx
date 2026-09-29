@@ -100,7 +100,8 @@ const NotificationBanner = ({ notifications, onDismiss, onMarkRead, jobPathPrefi
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
       onTouchEnd={(e) => { e.stopPropagation(); }}
     >
-      {notifications.map((n) => {
+      {/* Message rows are shown only by MessageAlertBanner (one banner per message). */}
+      {notifications.filter((n) => n.notification_type !== "message").map((n) => {
         const cfg = typeConfig[n.notification_type] || typeConfig.new_job;
         const Icon = cfg.icon;
         const jobRef = getJobRef(n);
