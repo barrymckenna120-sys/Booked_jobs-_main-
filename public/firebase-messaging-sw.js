@@ -16,11 +16,49 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification || {};
-  if (title) {
-    self.registration.showNotification(title, {
-      body: body || "",
+  // Firebase already displays payloads that carry `notification`; showing it
+  // here too would duplicate it. Only render data-only messages ourselves.
+  if (payload.notification) return;
+  const data = payload.data || {};
+  if (data.title) {
+    self.registration.showNotification(data.title, {
+      body: data.body || "",
       icon: "/icons/icon-192.png",
+      data: payload.data,
     });
   }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const d = event.notification.data || {};
+  const raw =
+    d.link ||
+    (d.FCM_MSG && d.FCM_MSG.notification && d.FCM_MSG.notification.click_action) ||
+    (d.FCM_MSG && d.FCM_MSG.data && d.FCM_MSG.data.link) ||
+    (d.FCM_MSG && d.FCM_MSG.fcmOptions && d.FCM_MSG.fcmOptions.link) ||
+    "/engineer/chat";
+  let target;
+  try {
+    target = new URL(raw, self.location.origin);
+    if (target.origin !== self.location.origin) target = new URL("/engineer/chat", self.location.origin);
+  } catch (_e) {
+    target = new URL("/engineer/chat", self.location.origin);
+  }
+  event.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const w of wins) {
+        if (new URL(w.url).origin === self.location.origin) {
+          await w.focus();
+          if ("navigate" in w) {
+            try { await w.navigate(target.href); return; } catch (_e) { /* fall through */ }
+          }
+          w.postMessage({ type: "navigate", url: target.pathname + target.search });
+          return;
+        }
+      }
+      await self.clients.openWindow(target.href);
+    })(),
+  );
 });
