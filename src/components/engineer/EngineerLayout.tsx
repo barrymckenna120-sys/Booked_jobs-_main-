@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, Briefcase, Package, Wrench, LogOut, ArrowLeft, HelpCircle } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, MessageCircle, Package, Wrench, LogOut, ArrowLeft, HelpCircle } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
@@ -10,6 +10,7 @@ import WorkspaceIdentity from "@/components/shared/WorkspaceIdentity";
 import WorkspaceSwitchButton from "@/components/shared/WorkspaceSwitchButton";
 import HeaderOverflowMenu from "@/components/shared/HeaderOverflowMenu";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useEngineerChatUnread } from "@/hooks/useEngineerChat";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationDrawer from "@/components/notifications/NotificationDrawer";
 import NotificationBanner from "@/components/notifications/NotificationBanner";
@@ -56,13 +57,16 @@ const EngineerLayout = () => {
     notifications, unreadCount, markAsRead, markAllRead, dismiss,
     soundPromptShown, enableSound, bannerNotifications, dismissBanner,
   } = useNotifications("engineer");
+  const chatUnread = useEngineerChatUnread();
   const { showTour, tourType, completeTour, skipTour, closeTour, startTour, isReplay: tourIsReplay } = useOnboardingTour(user, "engineer");
 
   // Unlock Web Audio on first user gesture (critical for iOS)
   useEffect(() => { unlockAudio(); }, []);
 
   // /engineer/parts lives inside the Completed section, so it keeps that tab lit.
-  const currentTab = location.pathname.includes("/upcoming")
+  const currentTab = location.pathname.includes("/engineer/chat")
+    ? "chat"
+    : location.pathname.includes("/upcoming")
     ? "upcoming"
     : location.pathname.includes("/completed") || location.pathname.includes("/parts")
     ? "completed"
@@ -95,7 +99,7 @@ const EngineerLayout = () => {
     { key: "today", label: "Today", icon: Clock, count: todayActive.length, path: "/engineer/today" },
     { key: "upcoming", label: "Upcoming", icon: CalendarDays, count: upcomingJobs.length, path: "/engineer/upcoming" },
     { key: "completed", label: "Completed", icon: CheckCircle2, count: completedJobs.length, path: "/engineer/completed" },
-    ...(canAccessOffice ? [{ key: "office", label: "Office", icon: Briefcase, count: 0, path: "/dashboard" }] : []),
+    { key: "chat", label: "Chat", icon: MessageCircle, count: chatUnread, path: "/engineer/chat" },
   ];
 
   return (
