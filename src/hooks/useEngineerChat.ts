@@ -5,7 +5,6 @@ import { fetchProfile } from "@/lib/profileCache";
 import {
   ENGINEER_CHAT_CHANGED_EVENT,
   NOTIFICATIONS_CHANGED_EVENT,
-  countEngineerUnread,
   type ChatMessageRow,
   type JobInfo,
 } from "@/lib/engineerChat";
@@ -114,8 +113,7 @@ export function useEngineerChatUnread() {
   const refresh = useCallback(async () => {
     if (!userId) return;
     try {
-      const { messages, assignedJobs } = await loadEngineerChat(userId);
-      setCount(countEngineerUnread(messages, userId, new Set(assignedJobs.keys())));
+      setCount(await countEngineerChatUnread(userId));
     } catch (e) {
       console.error("[engineer-chat] unread refresh failed", e);
     }
