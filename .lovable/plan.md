@@ -1,23 +1,64 @@
-# Zjq5rA iPhone photo: findings and proposed fix
+# Test data clean-up: TEST K&N (c0aa41ac) only
 
-## Findings (read-only)
-1. **Latest Zjq5rA lead:** `cb784c77-e443-45da-9b75-1903854cbe59`, created 29/09/26 13:22:45 UTC, submission `xV1lzgv`, test org `c0aa41ac`, status NEW, source `kn-website-new-boiler`, type `new_boiler`, name and phone present. No newer Zjq5rA row exists. The function has no logs left for today, so if you sent a later iPhone submission it never reached us (check Tally's event log for it).
-2. **Photo on that lead:** key `question_GB7Jgp` (unchanged), `image/png`, `.png`, 34,746 bytes (a screenshot, not a camera photo). It **was stored**: one `job_media` row, bucket `job-media`, path `c0aa41ac…/boiler-enquiries/cb784c77…/f3e49e50….png`, 13:23:50 UTC. Nothing was rejected. So "photo didn't come through" is either a later submission not arriving, or the photo not showing on the lead page. Unconfirmed which.
-3. **Field keys:** all 21 keys in the payload match the mapping. No renamed or new keys. Some labels changed but the mapping uses keys, so no impact.
-4. **Multiple choice:** Property, Bedrooms, Boiler type, Boiler working and Priority are now multiple choice. Notes show text ("Apartment", "1", "Gas", "yes", "Lower Price"), not IDs.
+Scope: only records in org `c0aa41ac-41ab-42d8-8085-972c072b0279` created **since 28/09/26**. No start date was given, so I used 28/09/26, when the Zjq5rA tests started. Tell me if you want a different date. Nothing has been deleted.
 
-## Current photo rules
-- Allowed types already include `image/heic` and `image/heif`, but they are stored as-is and won't display in Chrome/Android/desktop.
-- Limit 15 MB per photo, up to 10 photos: covers typical 3–8 MB iPhone photos.
-- A rejected photo does not block the lead, but the reason is only in the function response, not visible to the office.
+Everything matched traces back to **one customer**, "barry test". Nothing else in the org matched the rules for name, email, phone, Eircode, address or submission ID.
 
-## Proposed steps (each separately approved)
-1. **Confirm the gap:** open lead `cb784c77` signed in to the test org and screenshot the photo; ask you for the Tally event ID of the iPhone submission if it isn't this one.
-2. **HEIC to JPEG:** when a photo is HEIC/HEIF, convert it to JPEG before saving and store only the JPEG (simpler, displays everywhere). If conversion fails, treat as rejected (step 3). Needs a server-side image library; I'll confirm one works in the backend runtime before building, and stop if none does.
-3. **Visible note when a photo fails:** lead is still created; add "Photo couldn't be processed. Ask the customer to WhatsApp it." to the lead notes, shown on the lead page. The failure reason (e.g. too large) logged without personal data.
-4. **Mapping:** no change needed; keys are unchanged.
-5. **Tests:** HEIC converted to JPEG, PNG/JPEG unchanged, too-large photo gives note plus lead, multiple photos, 68qaMe unchanged. Then deploy with your approval and one iPhone test.
+## Customers (1)
+| id | name | email | phone | Eircode | created |
+|---|---|---|---|---|---|
+| f55d4ca0… | barry test | barrymckenna120@gmail.com | +353872354257 | D24 W289 | 29/09/26 10:14 |
 
-## Technical notes
-- Files: `tally-boiler-enquiry/index.ts` (photo loop ~392–445), `_shared/boilerEnquiryPayload.ts` (types/limits), notes display on the lead detail page.
-- Applies to 68qaMe too, since it shares the loop; verify both tenants.
+## Boiler enquiries (2)
+| id | name | submission | created |
+|---|---|---|---|
+| 3be7735b… | barry | vX1dvXd | 29/09/26 13:00 |
+| cb784c77… | Test Lead | xV1lzgv | 29/09/26 13:22 |
+
+## Jobs (2)
+| id | ref | type | status | flag |
+|---|---|---|---|---|
+| 3062381b… | KN-001 | Boiler Repair | Completed / paid | **FLAG: 2 payments recorded** |
+| 6de44ba2… | KN-002 | Boiler Replacement | Pending / unpaid | none |
+
+## Payments (2), both on KN-001: FLAG
+| id | amount | method | type | created |
+|---|---|---|---|---|
+| af5936e7… | €50 | SumUp | deposit | 29/09/26 10:16 |
+| 619fdca1… | €50 | card | balance | 29/09/26 10:21 |
+
+The €50 SumUp deposit went through a real card checkout. Because of this, I'm treating KN-001, its payments and its receipt message as **do not delete** unless you tell me otherwise. No invoices were found for this customer.
+
+## Quotes (2)
+| id | number | total | status | linked to |
+|---|---|---|---|---|
+| b48ca171… | Q-2026-0001 | €100 | converted | KN-001 (FLAG) |
+| ad3b569d… | Q-2026-0002 | €2,460 | viewed | enquiry 3be7735b + KN-002 |
+
+## Photos and videos (4)
+| id | file location | linked to |
+|---|---|---|
+| d6faf7c2… | job-media/customers/f55d4ca0…/3062381b…/1790677143546_image.jpg | KN-001 (FLAG) |
+| 440e09bb… | cloudinary/alzyhldqjbqmidx4r0rw (Cloudinary, not our storage) | KN-001 (FLAG) |
+| cfc6f734… | job-media/c0aa41ac…/boiler-enquiries/3be7735b…/ced2b3cd….png | enquiry 3be7735b |
+| 08e39648… | job-media/c0aa41ac…/boiler-enquiries/cb784c77…/f3e49e50….png | enquiry cb784c77 |
+
+## Activity (10)
+- **KN-001:** 7 rows (booked, 2 WhatsApps, 2 payments, completed, receipt). FLAG.
+- **KN-002:** 1 row (booked).
+- **Enquiries:** 2 rows, "New boiler enquiry received".
+
+## Message log (7)
+- **KN-001:** 6 rows (quote, payment link, SumUp confirmed, part payment, booking confirmation, receipt). FLAG.
+- **Q-2026-0002:** 1 row (quote).
+
+## Proposed delete (after you reply "approved")
+Two options:
+- **A (safe, recommended):** delete only records not tied to a payment:
+  - both enquiries and their 2 photos (database rows plus storage files)
+  - Q-2026-0002 and KN-002, with their 1 activity row and 1 message log row
+  - the 2 enquiry activity rows
+  - Keep "barry test", KN-001, its payments, Q-2026-0001, its media, activity and messages.
+- **B (everything):** also delete KN-001, its 2 payments, Q-2026-0001, its media and Cloudinary video, and the customer. You must say this explicitly, because payment history is append-only.
+
+Delete order: storage files, then photo rows, then activity and message log, then quotes, then jobs, then enquiries, then (B only) payments and the customer. Afterwards I'll read back every id to show 0 rows left. I'll also compare total row counts for this org and every other org before and after, so you can see nothing else changed. Each step runs separately.
