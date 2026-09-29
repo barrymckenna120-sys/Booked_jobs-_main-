@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { resolveOrgBranding } from "../_shared/orgBranding.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { isCrossOrgInviteConflict } from "../_shared/inviteOrgConflict.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -174,6 +175,18 @@ Deno.serve(async (req) => {
 
     if (existingUser) {
       console.log("Existing user found:", existingUser.id);
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("organisation_id")
+        .eq("user_id", existingUser.id)
+        .maybeSingle();
+      if (isCrossOrgInviteConflict((existingProfile as any)?.organisation_id, resolvedOrgId)) {
+        console.warn(`invite-team-member: existing login ${existingUser.id} belongs to another organisation; not linked`);
+        return new Response(
+          JSON.stringify({ error: "This email already has a login with another company." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       authUserId = existingUser.id;
 
       // Generate a password reset link for existing user
