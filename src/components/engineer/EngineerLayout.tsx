@@ -220,8 +220,8 @@ const EngineerLayout = () => {
               <div className="relative">
                 <item.icon className="w-6 h-6" strokeWidth={active ? 2.5 : 2} />
                 {item.count > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {item.count}
+                  <span className="absolute -top-1.5 -right-2.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-4 h-4 px-0.5 flex items-center justify-center">
+                    {item.key === "chat" && item.count > 9 ? "9+" : item.count}
                   </span>
                 )}
               </div>
