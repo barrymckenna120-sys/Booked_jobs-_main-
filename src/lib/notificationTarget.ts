@@ -29,6 +29,15 @@ export const resolveNotificationTarget = (
     return base;
   }
 
+  // Direct message (no job) on the Engineer App: open that office person's thread.
+  if (isEngineerSurface && n.notification_type === "message" && !n.job_id) {
+    const senderId = n.metadata?.sender_id;
+    if (typeof senderId === "string" && senderId.length > 0) {
+      return `/engineer/chat?with=${encodeURIComponent(senderId)}`;
+    }
+    return "/engineer/chat";
+  }
+
   if (n.job_id) return `${jobPathPrefix}/${n.job_id}`;
   return null;
 };
