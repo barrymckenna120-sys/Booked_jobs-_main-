@@ -285,12 +285,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
             logo_url: logoUrl,
             opening_hours: hours,
             service_areas: areas,
-            ...buildContactSyncPatch({
-              existingFooter: settings?.message_footer,
-              businessName: form.business_name,
-              address: form.business_address,
-              phone: form.business_phone,
-            }),
+            ...buildContactSyncPatch({ phone: form.business_phone }),
           })
         }
         disabled={saving}
