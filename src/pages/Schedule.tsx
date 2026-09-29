@@ -17,6 +17,7 @@ import JobSlotDrawer from "@/components/schedule/JobSlotDrawer";
 import CancelJobModal from "@/components/jobs/CancelJobModal";
 import { sanitizeServiceCallUpdatePayload } from "@/lib/serviceCallUpdate";
 import { buildManualCancelPatch } from "@/lib/cancelJobPatch";
+import { bookingConfirmationMode } from "@/lib/bookingConfirmationMode";
 
 const DEFAULT_TIME_BLOCKS = ["9am–11am", "11am–1pm", "2pm–5pm"];
 
@@ -342,7 +343,7 @@ const Schedule = () => {
     // Capture existing values BEFORE update for change detection
     const { data: prevJob } = await supabase
       .from("service_calls")
-      .select("assigned_engineer_id, scheduled_date, time_block, customer_id, job_reference, organisation_id, customers(name)")
+      .select("assigned_engineer_id, scheduled_date, time_block, customer_id, job_reference, organisation_id, status, needs_scheduling, customers(name)")
       .eq("id", jobId)
       .maybeSingle();
 
@@ -400,7 +401,19 @@ const Schedule = () => {
       // Single WhatsApp confirmation (send-booking-confirmation handles both new + reschedule).
       // Failures here must never break scheduling — surface as a soft warning only.
       supabase.functions
-        .invoke('send-booking-confirmation', { body: { service_call_id: jobId } })
+        .invoke('send-booking-confirmation', {
+          body: {
+            service_call_id: jobId,
+            ...(bookingConfirmationMode({
+              status: (prevJob as any)?.status ?? null,
+              needsScheduling: (prevJob as any)?.needs_scheduling ?? null,
+              oldDate,
+              oldBlock,
+              newDate: newDateStr,
+              newBlock: timeBlock,
+            }) === "reschedule" ? { mode: "reschedule" } : {}),
+          },
+        })
         .then(({ error: waErr }) => {
           if (waErr) {
             console.error('send-booking-confirmation failed:', waErr);

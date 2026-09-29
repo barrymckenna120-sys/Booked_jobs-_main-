@@ -152,11 +152,12 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
     trigger: "user action",
     channel: FREE_TEXT,
     functions: ["send-booking-confirmation"],
-    messageTypes: ["booking_confirmation"],
+    messageTypes: ["booking_confirmation", "reschedule_notification"],
     variables: [
-      { name: "firstName", source: "customers.name, first token", fallback: "(blank)" },
+      { name: "mode", source: 'request body "mode": "confirm" (default) | "reschedule"; other values → confirm', fallback: '"confirm"' },
+      { name: "firstName", source: "customers.name, first token, first character capitalised", fallback: '"there"' },
       { name: "companyName", source: "settings.business_name", fallback: '"us"' },
-      { name: "formattedDate", source: "service_calls.scheduled_date", fallback: '"TBC"' },
+      { name: "formattedDate", source: "service_calls.scheduled_date (DD/MM/YYYY; reschedule: Ddd DD/MM/YYYY)", fallback: '"TBC"' },
       { name: "timeSlot", source: "service_calls.time_slot", fallback: '"TBC"' },
       { name: "engineerName", source: "engineers.name", fallback: '"TBC"' },
       { name: "messageFooter", source: "settings.message_footer", fallback: "line omitted" },
@@ -174,6 +175,14 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
       "Reads settings.business_* while send-schedule-confirmation reads company_* — D10 / F4.",
     ],
     build: (v) =>
+      v.mode === "reschedule"
+        ? `Hi ${raw(v.firstName)}, there's been a change to our schedule and we've had to move your appointment with ${s(v.companyName) || "us"}. Apologies for any inconvenience.\n\n` +
+          `📅 New date: ${raw(v.formattedDate)}\n` +
+          `⏰ Time: ${raw(v.timeSlot)}\n` +
+          `👷 Engineer: ${raw(v.engineerName)}\n\n` +
+          `Does this new time suit? Please reply to this message to confirm, or let us know and we'll find another time.` +
+          (v.messageFooter ? `\n\n${raw(v.messageFooter)}` : "")
+        :
       `Hi ${raw(v.firstName)}, your booking with ${s(v.companyName) || "us"} is confirmed.\n\n` +
       `📅 Date: ${raw(v.formattedDate)}\n` +
       `⏰ Time: ${raw(v.timeSlot)}\n` +
