@@ -379,6 +379,24 @@ const FaultFinderSheet = ({ prefill, onClose }: Props) => {
             onToggleTech={() => setShowTech((v) => !v)}
           />
         )}
+        {result.status === "unknown" && (
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-unknown">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {code.trim().toUpperCase()}</div>
+              <div className="text-base font-extrabold text-foreground mt-0.5">No verified explanation available for this code yet</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Check this code in the official manual for the exact model.
+              </div>
+            </div>
+            {result.manualUrl ? (
+              <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(result.manualUrl!)}>
+                <ExternalLink className="w-4 h-4" /> Open official {brand} manual
+              </Button>
+            ) : (
+              <div className="text-sm text-foreground">No official manual link on file for this brand — check the manufacturer's website.</div>
+            )}
+          </div>
+        )}
         <div className="rounded-xl bg-warning/10 border border-warning/30 p-3 flex gap-2.5">
           <ShieldAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
           <div className="text-xs text-foreground leading-snug">
