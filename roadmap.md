@@ -123,3 +123,11 @@
 - [~] New public read-only Edge Function `public-fault-lookup` — built, tested (17 Deno tests), deployed 15:15 UTC 28/09/26. Awaiting Barry to set secret `PUBLIC_FAULT_ALLOWED_ORIGINS` (comma-separated allowed origins) before browser CORS works.
 
 - [ ] Viessmann (10 códigos Vitodens 100-W BPJA) ainda em draft — publicar depois de melhorar explicações (8/10 dizem "Burner blocked"); aguarda decisão.
+
+## BJ-NEW-V follow-up — Engineer Chat tab + message alerts (29/09/26)
+- [ ] Part 1: Chat footer tab + badge + /engineer/chat page
+- [ ] Part 2: DirectMessageThread perspective prop
+- [ ] Part 3: migration — engineer→office direct-message notification branch (show SQL first)
+- [ ] Part 4: alerts — direct-message tap target, one sound, one banner (surface filter), clear bell+badge on open
+- [ ] Evidence: phone screenshots, live test on test org, commit hashes on origin/dev
+- Progress 29/09: Parts 1, 2, 4 code done (tests 892 pass; 1 unrelated pre-existing failure in boilerEnquiryPayloadMirror). Part 3 SQL drafted, waiting for approval before applying. Live test and screenshots come after the migration.

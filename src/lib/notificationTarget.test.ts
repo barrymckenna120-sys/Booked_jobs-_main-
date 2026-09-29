@@ -60,4 +60,34 @@ describe("parts_requested", () => {
       resolveNotificationTarget({ notification_type: "parts_requested", job_id: "job-1" }, "/jobs"),
     ).toBe("/parts");
   });
+
+  it("opens the engineer chat thread for a direct message using metadata.sender_id", () => {
+    expect(
+      resolveNotificationTarget(
+        { notification_type: "message", job_id: null, metadata: { sender_id: "office-user-1" } },
+        "/engineer/job",
+      ),
+    ).toBe("/engineer/chat?with=office-user-1");
+  });
+
+  it("falls back to the chat list when a direct message has no sender_id", () => {
+    expect(
+      resolveNotificationTarget({ notification_type: "message", job_id: null, metadata: {} }, "/engineer/job"),
+    ).toBe("/engineer/chat");
+  });
+
+  it("keeps job messages opening the job", () => {
+    expect(
+      resolveNotificationTarget(
+        { notification_type: "message", job_id: "job-9", metadata: { sender_id: "office-user-1" } },
+        "/engineer/job",
+      ),
+    ).toBe("/engineer/job/job-9");
+  });
+
+  it("leaves office direct-message behaviour unchanged", () => {
+    expect(
+      resolveNotificationTarget({ notification_type: "message", job_id: null, metadata: { sender_id: "e1" } }, "/jobs"),
+    ).toBeNull();
+  });
 });
