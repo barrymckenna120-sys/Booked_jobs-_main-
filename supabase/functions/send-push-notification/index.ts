@@ -10,7 +10,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { recipient_user_id, title, body, job_id } = await req.json();
+    const reqBody = await req.json();
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const caller = await resolveCaller(req);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Server-side path: DB trigger passes notification_id only ----------
+    if (reqBody?.notification_id !== undefined) {
+      return await sendForNotification(supabase, caller, reqBody.notification_id, corsHeaders);
+    }
+
+    const { recipient_user_id, title, body, job_id } = reqBody;
 
     if (!recipient_user_id) {
       return new Response(JSON.stringify({ error: "recipient_user_id required" }), {
@@ -19,21 +39,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // --- Authorization -----------------------------------------------------
-    // recipient_user_id is NOT authorization. Authenticate the caller, derive
-    // their organisation server-side, and prove the target belongs to it.
-    const caller = await resolveCaller(req);
-    if (!caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const target = await getUserOrg(recipient_user_id);
     if (!target.orgId) {
