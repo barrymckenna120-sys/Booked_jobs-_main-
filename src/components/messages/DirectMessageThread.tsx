@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { markEngineerThreadRead } from "@/hooks/useEngineerChat";
 
 interface Message {
   id: string;
@@ -21,9 +22,11 @@ interface Props {
   recipientAuthId: string;
   engineerName: string;
   onBack: () => void;
+  /** Whose side of the thread this is. Defaults to "office" (unchanged behaviour). */
+  perspective?: "office" | "engineer";
 }
 
-const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) => {
+const DirectMessageThread = ({ recipientAuthId, engineerName, onBack, perspective = "office" }: Props) => {
   const { user } = useAuth();
   const { orgId } = useOrgId();
   const { toast } = useToast();
@@ -66,6 +69,17 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
   // Mark unread messages as read
   useEffect(() => {
     if (!user || messages.length === 0) return;
+    if (perspective === "engineer") {
+      // Engineer: only office→engineer messages addressed to me, plus my own
+      // message notifications for this thread (clears Chat badge + bell).
+      const unreadFromOffice = messages.some(
+        (m) => m.sender_role !== "engineer" && m.sender_id === recipientAuthId && !m.read_at
+      );
+      if (unreadFromOffice) {
+        markEngineerThreadRead(user.id, { kind: "direct", otherUserId: recipientAuthId });
+      }
+      return;
+    }
     const unread = messages.filter(
       (m) => m.sender_id !== user.id && !m.read_at
     );
@@ -76,7 +90,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
         .in("id", unread.map((m) => m.id))
         .then();
     }
-  }, [messages, user]);
+  }, [messages, user, perspective, recipientAuthId]);
 
   // Realtime
   useEffect(() => {
@@ -107,7 +121,7 @@ const DirectMessageThread = ({ recipientAuthId, engineerName, onBack }: Props) =
       organisation_id: orgId!,
       job_id: null,
       sender_id: user.id,
-      sender_role: "office",
+      sender_role: perspective === "engineer" ? "engineer" : "office",
       message: newMessage.trim(),
       recipient_id: recipientAuthId,
     } as any);
