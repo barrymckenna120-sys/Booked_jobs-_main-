@@ -32,7 +32,7 @@ import {
   validateEnquirySubmission,
   validatePhoneOrEmail,
 } from "../_shared/boilerEnquiryPayload.ts";
-import { verifyTallySignature } from "../_shared/tallySignature.ts";
+import { tallySignatureDiagnostics, verifyTallySignature } from "../_shared/tallySignature.ts";
 import { mapTallyForm, TALLY_FORM_MAPS, type MappedTallyForm } from "../_shared/tallyFormMaps.ts";
 
 const FN = "tally-boiler-enquiry";
@@ -132,23 +132,25 @@ Deno.serve(async (req) => {
       }
       const binding = signedBindings[0];
       const secretName = String(binding.config.boiler_enquiry_signing_secret_name);
-      const secret = Deno.env.get(secretName) ?? "";
+      const untrimmedSecret = Deno.env.get(secretName) ?? "";
+      const secret = untrimmedSecret.trim();
       if (!secret) {
         await logStage(supabase, "signing_secret_not_configured", { submission_id: submissionId, form_id: formId });
         return json({ success: false, error: "Unauthorized" }, 401);
       }
       if (!(await verifyTallySignature(raw, tallySignature, secret))) {
-        // TEMP diagnostic (lengths/booleans only — never values). Remove after fix.
+        const diag = await tallySignatureDiagnostics(raw, tallySignature, secret);
         await logStage(supabase, "invalid_signature", {
           submission_id: submissionId,
           form_id: formId,
           diag: {
-            header_len: tallySignature?.length ?? 0,
+            secret_source: secretName,
+            header_present: diag.headerPresent,
+            header_len: diag.headerLength,
+            computed_len: diag.computedLength,
+            match: diag.match,
             secret_len: secret.length,
-            secret_has_outer_whitespace: secret !== secret.trim(),
-            trimmed_secret_verifies: secret !== secret.trim()
-              ? await verifyTallySignature(raw, tallySignature, secret.trim())
-              : null,
+            secret_had_outer_whitespace: untrimmedSecret !== secret,
           },
         });
         return json({ success: false, error: "Unauthorized" }, 401);

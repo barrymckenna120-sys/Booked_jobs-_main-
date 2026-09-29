@@ -1,5 +1,10 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { tallyFieldSchema, tallySignatureFor, verifyTallySignature } from "./tallySignature.ts";
+import {
+  tallyFieldSchema,
+  tallySignatureDiagnostics,
+  tallySignatureFor,
+  verifyTallySignature,
+} from "./tallySignature.ts";
 import { validatePhoneOrEmail } from "./boilerEnquiryPayload.ts";
 
 const body = JSON.stringify({ formId: "Zjq5rA", data: { responseId: "r1" } });
@@ -7,6 +12,13 @@ const body = JSON.stringify({ formId: "Zjq5rA", data: { responseId: "r1" } });
 Deno.test("valid signature verifies", async () => {
   const sig = await tallySignatureFor(body, "s3cret");
   assert(await verifyTallySignature(body, sig, "s3cret"));
+  assert(await verifyTallySignature(body, sig, "  s3cret\n"));
+  assertEquals(await tallySignatureDiagnostics(body, sig, "s3cret"), {
+    headerPresent: true,
+    headerLength: 44,
+    computedLength: 44,
+    match: true,
+  });
 });
 
 Deno.test("bad signature rejected", async () => {
