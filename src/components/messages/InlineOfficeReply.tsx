@@ -53,28 +53,8 @@ const InlineOfficeReply = ({ jobId, engineerAuthUserId }: Props) => {
       } as any);
       if (error) throw error;
 
-      if (engineerAuthUserId) {
-        const { data: jobInfo } = await supabase
-          .from("service_calls")
-          .select("job_reference, customers(name)")
-          .eq("id", jobId)
-          .maybeSingle();
-        const fullName = (jobInfo as any)?.customers?.name || "Customer";
-        const invoiceNumber = (jobInfo as any)?.job_reference || "";
-        const notifTitle = `New message – ${fullName} (${invoiceNumber})`;
-        // notifications row is now inserted by the notify_on_job_message DB trigger.
-
-
-        // Send FCM push notification
-        supabase.functions.invoke("send-push-notification", {
-          body: {
-            recipient_user_id: engineerAuthUserId,
-            title: notifTitle,
-            body: message.trim(),
-            job_id: jobId,
-          },
-        }).catch(() => {/* non-critical */});
-      }
+      // notifications row is inserted by the notify_on_job_message DB trigger;
+      // the phone push is sent server-side from that row (single source).
 
       setMessage("");
       setIsPreset(false);
