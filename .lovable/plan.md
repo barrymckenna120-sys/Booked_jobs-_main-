@@ -1,39 +1,25 @@
-# BJ-NEW-Z — Reschedule WhatsApp wording
+# Undo footer rebuild — WhatsApp footer = trading name only
 
-Two commits, only the files listed in the brief.
+Scope: undo the footer rebuild only. Nothing else changes.
 
-## Commit 1 — booking confirmation function + catalogue + tests
-Files: `supabase/functions/send-booking-confirmation/index.ts`, `supabase/functions/_shared/whatsappCatalogue.ts`, `src/lib/whatsappCatalogue.generated.ts` (regenerated via `scripts/generate-whatsapp-catalogue.mjs`), plus one new unit test file.
+## 1. Code (one commit)
+- `src/lib/messageFooter.ts`: delete `rebuildMessageFooter`. `buildContactSyncPatch` returns only `{ company_phone }` (trimmed phone, or null).
+  - The input type keeps the optional `existingFooter` / `businessName` / `address` fields, which the function now ignores. That lets `GeneralTab.tsx` stay byte-identical and still compile. Its phone sync keeps working.
+- `src/pages/admin/TenantDetail.tsx` (~line 421): change the lookup back to `.select("id")`. Call `buildContactSyncPatch({ phone })` only, without footer or address.
+- Tests (`messageFooter` test file): remove the footer tests and keep the company_phone tests. Add one test that the returned object has no `message_footer` key.
 
-- Read optional `mode` from the body; anything other than `"reschedule"` is treated as `"confirm"`.
-- First name: uppercase first character only (`barry` → `Barry`, `McKenna` unchanged). Applies to both modes, including the existing salutation handling and the `"there"` fallback (becomes `There` only if blank name — see question below).
-- Confirm text: byte-identical to today apart from the capitalised name.
-- Reschedule text:
-  ```text
-  Hi {firstName}, there's been a change to our schedule and we've had to move your appointment with {companyName || "us"}. Apologies for any inconvenience.
+## 2. Data (a separate step that needs your review)
+1. SELECT `organisation_id, business_name, message_footer` from settings for `8c37827f-ce2c-4507-a821-a5e807d89856` and `c0aa41ac-41ab-42d8-8085-972c072b0279`, and show you the output.
+2. UPDATE only those two orgs: `message_footer = 'K&N Gas Services'` and `business_name = 'K&N Gas Services Limited'`. No other columns and no other orgs change.
+3. Run the same SELECT again and show you the before and after. Also confirm the row count for all other orgs is unchanged.
 
-  📅 New date: {Ddd DD/MM/YYYY}
-  ⏰ Time: {timeSlot}
-  👷 Engineer: {engineerName}
+## 3. Evidence
+- The commit hash on origin/dev, if I can check it. If I can't, I'll report the working-branch hash and say so.
+- Focused test count, full suite count and the typecheck result.
+- TEST K&N only:
+  - Send one booking confirmation on a scratch job with a test number (never a real customer). Paste the footer line from `message_log`.
+  - Generate one receipt PDF and one quote PDF on TEST K&N records. Confirm the header reads "K&N Gas Services Limited" using the PDF text or a screenshot.
 
-  Does this new time suit? Please reply to this message to confirm, or let us know and we'll find another time.
-
-  {messageFooter, if set}
-  ```
-  Weekday comes from the same `scheduled_date + "T12:00:00"` date; `"TBC"` when no date (no weekday).
-- Reschedule mode only: `message_log.message_type = "reschedule_notification"` (both the send path and the existing replay/decision path at line ~124), activity label `WhatsApp sent — Reschedule`. Delivery `commType` stays `booking_confirmation`. Opt-out skip, delivery tracking and logging otherwise unchanged.
-- Catalogue `booking_confirmation` entry documents `mode` and the reschedule wording; generated mirror regenerated.
-- Tests: confirm text unchanged, reschedule text exact, `barry` → `Barry`, `McKenna` unchanged. To test without restructuring, the message builder is extracted as a small pure function inside the function folder (still only within the listed function).
-- Deploy `send-booking-confirmation` explicitly.
-
-## Commit 2 — callers
-- `src/pages/Schedule.tsx` `handleAssign`: pass `mode: "reschedule"` when `oldDate` is set AND (`oldDate.slice(0,10)` ≠ new date OR `oldBlock` ≠ new time block); otherwise send no mode.
-- `src/pages/JobDetail.tsx` `handleReschedule`: after a successful update, non-blocking invoke with `{ service_call_id, mode: "reschedule" }`; on failure show the same soft-warning toast pattern as Schedule.
-- No other callers or reschedule/schedule functions touched.
-
-## Assumptions (flag if wrong)
-- Footer keeps the existing blank-line separator (`\n\n`), same as confirm mode.
-- Name fallback `"there"` stays lowercase (capitalisation only applied to a real name), keeping "Hi there".
-
-## Verification / report
-Unit test output, full test suite + typecheck, deploy timestamp, both commit hashes and full diff. Commits land on the working branch; I cannot push or confirm `origin/dev` myself. No live WhatsApp sends to real customers.
+## Notes
+- Real K&N receives the data change only. No messages or PDFs will be generated on real K&N.
+- The `send-booking-confirmation` function is not changed, so no redeploy is needed.
