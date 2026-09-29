@@ -131,4 +131,4 @@
 - [ ] Part 4: alerts — direct-message tap target, one sound, one banner (surface filter), clear bell+badge on open
 - [ ] Evidence: phone screenshots, live test on test org, commit hashes on origin/dev
 - Progress 29/09: Parts 1, 2, 4 code done (tests 892 pass; 1 unrelated pre-existing failure in boilerEnquiryPayloadMirror). Part 3 SQL drafted, waiting for approval before applying. Live test and screenshots come after the migration.
-- [x] BJ — Undo footer rebuild: Business Information saves write only company_phone (never message_footer); settings data for real K&N + TEST K&N awaiting approval; evidence on TEST K&N (booking confirmation footer, receipt/quote PDF header).
+- [ ] BJ — Undo footer rebuild: Business Information saves write only company_phone (never message_footer); settings data for real K&N + TEST K&N awaiting approval; evidence on TEST K&N (booking confirmation footer, receipt/quote PDF header). Done: code, data, footer + quote PDF verified. Open: receipt PDF text read-back (private file, sandbox session is a different org).
