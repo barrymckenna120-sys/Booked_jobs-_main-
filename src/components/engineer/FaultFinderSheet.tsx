@@ -151,6 +151,62 @@ export const FaultFoundCard = ({ fault, brand, model, isDraft, showTech, onToggl
   </div>
 );
 
+export interface FaultUnknownCardProps {
+  brand: string;
+  code: string;
+  manualUrl: string | null;
+}
+
+/** Unknown-result card: the code is not in the verified library for this brand/model. */
+export const FaultUnknownCard = ({ brand, code, manualUrl }: FaultUnknownCardProps) => (
+  <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="fault-unknown">
+    <div>
+      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{brand} · {code.trim().toUpperCase()}</div>
+      <div className="text-base font-extrabold text-foreground mt-0.5">No verified explanation available for this code yet</div>
+      <div className="text-sm text-muted-foreground mt-1">
+        Check this code in the official manual for the exact model.
+      </div>
+    </div>
+    {manualUrl ? (
+      <Button type="button" className="w-full h-12 text-base font-bold gap-2" onClick={() => openExternalUrl(manualUrl)}>
+        <ExternalLink className="w-4 h-4" /> Open official {brand} manual
+      </Button>
+    ) : (
+      <div className="text-sm text-foreground">No official manual link on file for this brand — check the manufacturer's website.</div>
+    )}
+  </div>
+);
+
+export interface FaultResultViewProps {
+  result: LiveFaultResult;
+  brand: string;
+  model: string;
+  code: string;
+  isDraft: boolean;
+  showTech: boolean;
+  onToggleTech: () => void;
+}
+
+/** Found/unknown switch — renders nothing for idle. */
+export const FaultResultView = ({ result, brand, model, code, isDraft, showTech, onToggleTech }: FaultResultViewProps) => {
+  if (result.status === "found") {
+    return (
+      <FaultFoundCard
+        fault={result.fault}
+        brand={brand}
+        model={model}
+        isDraft={isDraft}
+        showTech={showTech}
+        onToggleTech={onToggleTech}
+      />
+    );
+  }
+  if (result.status === "unknown") {
+    return <FaultUnknownCard brand={brand} code={code} manualUrl={result.manualUrl} />;
+  }
+  return null;
+};
+
 const FaultFinderSheet = ({ prefill, onClose }: Props) => {
   const recent = useMemo(() => loadRecent(), []);
   const hasPrefill = !!(prefill?.brand?.trim() || prefill?.model?.trim());
