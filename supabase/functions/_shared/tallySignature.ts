@@ -39,7 +39,7 @@ export async function verifyTallySignature(
   secret: string | null | undefined,
 ): Promise<boolean> {
   const provided = String(header ?? "").trim();
-  const s = String(secret ?? "");
+  const s = String(secret ?? "").trim();
   if (!provided || !s) return false;
   if (safeEqual(await tallySignatureFor(rawBody, s), provided)) return true;
   // Tally's reference implementation signs JSON.stringify(parsedBody), which can
@@ -51,6 +51,26 @@ export async function verifyTallySignature(
     // not JSON → raw comparison only
   }
   return false;
+}
+
+/** Privacy-safe signature diagnostics: lengths and booleans only. */
+export async function tallySignatureDiagnostics(
+  rawBody: string,
+  header: string | null | undefined,
+  secret: string | null | undefined,
+): Promise<{ headerPresent: boolean; headerLength: number; computedLength: number; match: boolean }> {
+  const provided = String(header ?? "").trim();
+  const s = String(secret ?? "").trim();
+  if (!provided || !s) {
+    return { headerPresent: Boolean(provided), headerLength: provided.length, computedLength: 0, match: false };
+  }
+  const computed = await tallySignatureFor(rawBody, s);
+  return {
+    headerPresent: true,
+    headerLength: provided.length,
+    computedLength: computed.length,
+    match: await verifyTallySignature(rawBody, provided, s),
+  };
 }
 
 /**
