@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { fetchProfile } from "@/lib/profileCache";
 import {
   ENGINEER_CHAT_CHANGED_EVENT,
   NOTIFICATIONS_CHANGED_EVENT,
-  countEngineerUnread,
   type ChatMessageRow,
   type JobInfo,
 } from "@/lib/engineerChat";
@@ -14,18 +14,57 @@ export interface EngineerChatData {
   assignedJobs: Map<string, JobInfo>;
 }
 
+/** The signed-in user's engineer row, scoped to their own organisation. */
+async function findMyEngineerId(userId: string): Promise<string | null> {
+  const { organisation_id } = await fetchProfile(userId);
+  if (!organisation_id) return null;
+  const { data, error } = await supabase
+    .from("engineers")
+    .select("id")
+    .eq("auth_user_id", userId)
+    .eq("organisation_id", organisation_id)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
+/**
+ * Unread count for the Chat tab badge using count-only queries (no rows).
+ * Same rule as countEngineerUnread: office-sent, unread, and either a direct
+ * message to me or on a job currently assigned to me.
+ */
+export async function countEngineerChatUnread(userId: string): Promise<number> {
+  const engId = await findMyEngineerId(userId);
+  const direct = supabase
+    .from("job_messages")
+    .select("id", { count: "exact", head: true })
+    .is("job_id", null)
+    .eq("recipient_id", userId)
+    .neq("sender_role", "engineer")
+    .is("read_at", null);
+  const job = engId
+    ? supabase
+        .from("job_messages")
+        .select("id, service_calls!inner(assigned_engineer_id)", { count: "exact", head: true })
+        .not("job_id", "is", null)
+        .eq("service_calls.assigned_engineer_id", engId)
+        .neq("sender_role", "engineer")
+        .is("read_at", null)
+    : null;
+  const [d, j] = await Promise.all([direct, job]);
+  if (d.error) throw d.error;
+  if (j?.error) throw j.error;
+  return (d.count ?? 0) + (j?.count ?? 0);
+}
+
 /**
  * Loads the messages the engineer can chat about: direct messages to/from
  * them, and messages on jobs currently assigned to them. RLS keeps it
  * tenant-scoped; the assignment filter keeps it engineer-scoped.
  */
 export async function loadEngineerChat(userId: string): Promise<EngineerChatData> {
-  const { data: eng, error: engErr } = await supabase
-    .from("engineers")
-    .select("id")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
-  if (engErr) throw engErr;
+  const engId = await findMyEngineerId(userId);
+  const eng = engId ? { id: engId } : null;
 
   const assignedJobs = new Map<string, JobInfo>();
   let jobRows: ChatMessageRow[] = [];
@@ -74,8 +113,7 @@ export function useEngineerChatUnread() {
   const refresh = useCallback(async () => {
     if (!userId) return;
     try {
-      const { messages, assignedJobs } = await loadEngineerChat(userId);
-      setCount(countEngineerUnread(messages, userId, new Set(assignedJobs.keys())));
+      setCount(await countEngineerChatUnread(userId));
     } catch (e) {
       console.error("[engineer-chat] unread refresh failed", e);
     }
