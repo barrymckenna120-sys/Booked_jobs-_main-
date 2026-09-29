@@ -27,6 +27,15 @@ Deno.serve(async (req) => {
 
     // --- Server-side path: DB trigger passes notification_id only ----------
     if (reqBody?.notification_id !== undefined) {
+      // Only the DB trigger may use this route: require CRON_SHARED_SECRET exactly.
+      const cronSecret = (Deno.env.get("CRON_SHARED_SECRET") ?? "").trim();
+      const presented = (req.headers.get("x-webhook-secret") ?? "").trim();
+      if (!cronSecret || presented !== cronSecret) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return await sendForNotification(supabase, caller, reqBody.notification_id, corsHeaders);
     }
 
