@@ -417,9 +417,18 @@ export default function TenantDetail() {
       };
       const { data: existing } = await supabase
         .from("settings")
-        .select("id")
+        .select("id, message_footer, business_address")
         .eq("organisation_id", orgId)
         .maybeSingle();
+      Object.assign(
+        payload,
+        buildContactSyncPatch({
+          existingFooter: existing?.message_footer,
+          businessName: settingsForm.business_name,
+          address: existing?.business_address,
+          phone: settingsForm.phone,
+        }),
+      );
       let error;
       if (existing?.id) {
         ({ error } = await supabase

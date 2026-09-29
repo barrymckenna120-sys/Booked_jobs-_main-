@@ -11,7 +11,7 @@ import { Copy, Loader2, Plus, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { buildLogoStoragePath } from "@/lib/logoStoragePath";
-import { rebuildMessageFooter } from "@/lib/messageFooter";
+import { buildContactSyncPatch } from "@/lib/messageFooter";
 
 interface Props {
   settings: any;
@@ -285,8 +285,7 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
             logo_url: logoUrl,
             opening_hours: hours,
             service_areas: areas,
-            company_phone: form.business_phone,
-            message_footer: rebuildMessageFooter({
+            ...buildContactSyncPatch({
               existingFooter: settings?.message_footer,
               businessName: form.business_name,
               address: form.business_address,
