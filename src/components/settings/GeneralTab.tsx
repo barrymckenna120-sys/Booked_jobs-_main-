@@ -11,6 +11,7 @@ import { Copy, Loader2, Plus, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { buildLogoStoragePath } from "@/lib/logoStoragePath";
+import { rebuildMessageFooter } from "@/lib/messageFooter";
 
 interface Props {
   settings: any;
@@ -277,7 +278,25 @@ const GeneralTab = ({ settings, onSave, saving }: Props) => {
         </CardContent>
       </Card>
 
-      <Button onClick={() => onSave({ ...form, logo_url: logoUrl, opening_hours: hours, service_areas: areas })} disabled={saving} className="w-full md:w-auto">
+      <Button
+        onClick={() =>
+          onSave({
+            ...form,
+            logo_url: logoUrl,
+            opening_hours: hours,
+            service_areas: areas,
+            company_phone: form.business_phone,
+            message_footer: rebuildMessageFooter({
+              existingFooter: settings?.message_footer,
+              businessName: form.business_name,
+              address: form.business_address,
+              phone: form.business_phone,
+            }),
+          })
+        }
+        disabled={saving}
+        className="w-full md:w-auto"
+      >
         {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save General Settings
       </Button>
     </div>
