@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { buildContactSyncPatch } from "@/lib/messageFooter";
 import { invokeFunction } from "@/lib/invokeFunction";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -417,9 +418,18 @@ export default function TenantDetail() {
       };
       const { data: existing } = await supabase
         .from("settings")
-        .select("id")
+        .select("id, message_footer, business_address")
         .eq("organisation_id", orgId)
         .maybeSingle();
+      Object.assign(
+        payload,
+        buildContactSyncPatch({
+          existingFooter: existing?.message_footer,
+          businessName: settingsForm.business_name,
+          address: existing?.business_address,
+          phone: settingsForm.phone,
+        }),
+      );
       let error;
       if (existing?.id) {
         ({ error } = await supabase
