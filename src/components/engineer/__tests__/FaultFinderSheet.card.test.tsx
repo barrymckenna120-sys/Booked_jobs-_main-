@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FaultFoundCard } from "../FaultFinderSheet";
+import { FaultFoundCard, FaultResultView } from "../FaultFinderSheet";
 
 const fault = {
   id: "1",
