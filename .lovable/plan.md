@@ -1,18 +1,35 @@
-# Read-only report: how booking-form photos reach Cloudinary (nothing changed)
+# Zjq5rA lead: it exists and shows; photos are blocked by storage permissions
 
-1. **Function / helper.** Only `tally-incoming-job/index.ts` uploads to Cloudinary. There is **no shared helper**: the upload is written inline (lines 637–840). `mediaUrls.ts` only turns the Tally answer into a list of URLs (`collectMediaUrls`, used at index.ts:686). `tally-webhook` is retired (returns 410) and uploads nothing.
-2. **Method.** An **unsigned upload preset** is sent straight to the upload URL, with no API key or signature: index.ts:781 (`upload_preset`) and 785–787 (`POST https://api.cloudinary.com/v1_1/<cloud>/auto/upload`). The preset name comes from the secret `CLOUDINARY_TALLY_UPLOAD_PRESET` (index.ts:19). Its value can't be seen from here. If it is missing, the photo is skipped and logged (707–710).
-3. **Folders.** `tally-uploads/<organisation_id>/<job_id>` (index.ts:782), tagged `org:<id>,job:<id>,source:tally` (783). So yes, photos are filed by organisation. With an unsigned preset, though, Cloudinary only uses the folder the caller asks for if the preset lets it.
-4. **Delivery.** Public. The row keeps `secure_url` as `public_url` (822). App screens show Cloudinary items by passing that public link through unchanged (`src/lib/mediaUrl.ts:6,12-13,23`), while photos kept in our own storage get links that expire after 1 hour (`MediaGallery.tsx:45-49`).
-5. **Recorded in** `job_media` (813–824) with `organisation_id: orgData.id` set, plus `job_id`, `customer_id`, `storage_bucket: "cloudinary"`, `storage_path = public_id`, `uploaded_by: "customer"`.
-6. **Secret names.** `CLOUDINARY_CLOUD_NAME` (falls back to the hardcoded name `ddx2gnklt` if unset, index.ts:18) and `CLOUDINARY_TALLY_UPLOAD_PRESET` (19). No Cloudinary API key or secret is used anywhere.
-7. **Zjq5rA today.** `tally-boiler-enquiry/index.ts:392-442` downloads each photo, checks its type and size, and stores it in our own **private** storage bucket (`BUCKET`) at `<org>/boiler-enquiries/<enquiry_id>/<uuid>.<ext>` (417). It records a `job_media` row with `organisation_id` and `boiler_enquiry_id` (428–437). It does not use Cloudinary.
-   **To use the same pattern:** first move the upload code out of index.ts:779–811 into a shared helper, then call it from `tally-boiler-enquiry` with folder `orgs/<org>/leads/<lead_id>`. Store the result as `storage_bucket: "cloudinary"` and `public_url`, and keep `boiler_enquiry_id`. Note that this would make lead photos **less** private than they are today (public links instead of private storage).
+## Evidence (read-only, nothing changed)
 
-## Weak points in the booking form (flagged, not fixed)
-- Unsigned preset: anyone who learns the preset name and cloud name can upload to the account.
-- The photo links are public and never expire. Anyone who has a link can see a customer's photo, with no login.
-- The cloud name has a hardcoded fallback (index.ts:18).
-- The organisation folder is only requested by the caller, not enforced.
-- The upload code is not shared, so a second copy would drift.
-- Files up to 25MB are read fully into memory (739–750).
+**1. Did the retry return 200?** Yes in effect. A new lead row was created today at 13:00:32 UTC. Note: Tally's retry used a **new** submission ID `vX1dvXd` — `xV1lzgv` never got past the signature check (edge_function_logs shows `stage=invalid_signature` for it and the earlier retries). No success log line for vX1dvXd has reached the log table yet (logs lag), but the enquiry + photo rows below prove the request completed.
+
+**2. The lead row exists** in `boiler_enquiries`:
+- id `3be7735b-f182-4fc2-b87e-484e3c6a23f9`, organisation_id `c0aa41ac-41ab-42d8-8085-972c072b0279` (test org only)
+- status `QUOTED` (a quote has already been made from it), source `kn-website-new-boiler`, enquiry_type `new_boiler`, contact barry / +353872354257
+
+**3. Page/route:** Pipeline → Leads renders the same `BoilerEnquiries` component as `/boiler-enquiries` (`src/pages/Pipeline.tsx:5,81`). Its query is `from("boiler_enquiries").select("*, customers(...)")` with **no status/source/type filter** — only org scoping via RLS (`src/pages/BoilerEnquiries.tsx:94-97`). So this lead **does** appear in Pipeline → Leads for anyone signed into the test org. (You are currently on its detail page: `/boiler-enquiries/3be7735b-...`.)
+
+**4. Photos — root cause found.** One `job_media` row exists: bucket `job-media`, path `c0aa41ac.../boiler-enquiries/3be7735b.../ced2b3cd....png`, `boiler_enquiry_id` set, `public_url` null. The detail page queries by `boiler_enquiry_id` (`BoilerEnquiryDetail.tsx:92-94`) and builds signed links via `createSignedUrls` on `job-media` (`src/lib/mediaUrl.ts:57-58`). **But** the storage read policy `job_media_select_own_org` on `storage.objects` only allows paths where the **second folder segment is a customer id** (`(storage.foldername(name))[2]` → customers). Enquiry photos are stored at `<org>/boiler-enquiries/<enquiry>/...`, so segment 2 is the literal text `boiler-enquiries` — the policy never matches, the signed URL is refused, and the photo can't render.
+
+**5. 68qaMe leads:** same table, same page, same photo code path — they show as leads because the list query is unaffected; their photos have the same storage-policy problem.
+
+## Proposed smallest fix (one migration, no code changes)
+
+Add one SELECT policy on `storage.objects` for bucket `job-media` allowing org members to read paths whose **first** folder segment is their organisation id and whose second segment is `boiler-enquiries`:
+
+```sql
+create policy job_media_select_enquiry_photos
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'job-media'
+  and (storage.foldername(name))[1] = get_my_org_id()::text
+  and (storage.foldername(name))[2] = 'boiler-enquiries'
+);
+```
+
+- Read-only for org members; no write/delete change; no other bucket or path affected.
+- Verified against 68qaMe enquiry photos too (same path pattern), so both forms' photos start rendering.
+- After applying: reload the lead detail page and confirm the photo appears; check a 68qaMe lead's photo as the second-tenant check.
+
+Awaiting approval before applying the migration.
