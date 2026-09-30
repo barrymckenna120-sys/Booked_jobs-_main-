@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.protect_whatsapp_test_mode() FROM PUBLIC, anon, authenticated;

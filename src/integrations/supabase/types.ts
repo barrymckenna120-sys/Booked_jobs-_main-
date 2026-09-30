@@ -2815,6 +2815,38 @@ export type Database = {
         }
         Relationships: []
       }
+      organisation_whatsapp_allowed_numbers: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          phone: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          phone: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organisation_whatsapp_allowed_numbers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisations: {
         Row: {
           address: string | null
@@ -2845,6 +2877,7 @@ export type Database = {
           stripe_customer_id: string | null
           subscription_status: string
           tenant_config_version: number
+          whatsapp_test_mode: boolean
         }
         Insert: {
           address?: string | null
@@ -2875,6 +2908,7 @@ export type Database = {
           stripe_customer_id?: string | null
           subscription_status?: string
           tenant_config_version?: number
+          whatsapp_test_mode?: boolean
         }
         Update: {
           address?: string | null
@@ -2905,6 +2939,7 @@ export type Database = {
           stripe_customer_id?: string | null
           subscription_status?: string
           tenant_config_version?: number
+          whatsapp_test_mode?: boolean
         }
         Relationships: []
       }
