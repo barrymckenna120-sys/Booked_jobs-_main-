@@ -1,17 +1,23 @@
-# Read-only audit: TEST K&N (c0aa41ac-41ab-42d8-8085-972c072b0279)
+# DATA CLEAR addendum G4–G6: TEST K&N (c0aa41ac) only
 
-I will run the uploaded brief exactly as written, Steps 0 to 12 plus the final summary table. Nothing is changed: no data, schema, code or storage changes, no deletes, and no delete proposal. The real K&N org (8c37827f…) is read only once, for the phone-overlap count in 11i.
+## Important: the main DATA CLEAR has already run
+The clear ran after the audit and wrote one `tenant_test_data_cleared` audit row. The test org now holds data that was **not there when the clear ran**:
+- 5 lead enquiries
+- 2 customers
+- 5 lead photos
 
-## Order of work
-1. **Step 0 guard:** check that the org's name is exactly `K&N gas services Ltd`. If it isn't, stop and report.
-2. **Check columns first:** read information_schema for every table used in the brief. I will state the exact column or rule used wherever the brief asks for one: job origin, the quote-to-job link, how SumUp checkouts are matched, the post_payment_messages "pending" rule, and the storage path prefixes.
-3. **Run Steps 1–11** in the brief's order. Each step shows its raw SQL and raw output. Ids are shortened to 8 characters, phones to the last 4 digits and emails to the domain only. Dates are DD/MM/YY.
-4. **Apply the test flag everywhere it's asked for:** LIKELY TEST, INTERNAL (0873685252) or POSSIBLY REAL, across customers, leads, chats and message recipients.
-5. **Step 7 and Step 9d:** read the source of every DELETE trigger function and check whether it can send anything. List every post-payment message that could still send.
-6. **Step 12 gaps:** compare the Step 1 counts against the tables covered in Steps 2–11.
-7. **Final table** at the top of the report: POSSIBLY REAL records, REAL MONEY rows, pending post-payment messages, and DELETE triggers that can send.
+All of these were probably created after 29/09/26 21:20. Under G4/G5 that makes them "possibly real", so the addendum will most likely only list rows and stop. Nothing gets deleted without your approval.
+
+## Steps (nothing is deleted until you approve)
+1. **Guard:** confirm the org name is exactly `K&N gas services Ltd` and the org id is c0aa41ac. Never read or write real K&N (8c37827f).
+2. **G4, enquiries:** list every row with its id (first 8 characters), contact_name, source, created time (DD/MM/YY HH:MM), linked customer, number of linked quotes and number of photos. Mark each row as BEFORE or AFTER the 29/09/26 21:20 cutoff.
+3. **G5, customers:** list every customer with its created time. Also list anything linked to it that was created after the cutoff: jobs, quotes, enquiries, payments, messages or photos. Mark each customer as DELETABLE or HOLD.
+4. **Stop and report.** If any row is AFTER or HOLD, I wait for your approval and delete nothing.
+5. **Only if some rows qualify and you approve:** run one transaction, child tables first.
+   - For each lead photo (G6), delete the storage file through the Storage API as well as its database row.
+   - Report the number of files removed, then list the lead-photo files still in the test org's storage folders, so you can see none are orphaned.
+6. **Read-back:** check every deleted id and confirm 0 rows are left. Compare before and after row counts for every other org to show nothing else changed. Write one audit_log row for the run.
 
 ## Technical notes
-- Database reads use only the read-only query tool. Storage counts come from `storage.objects` via SELECT.
-- Every query is filtered by the target organisation_id, or by joins scoped to it.
-- The output will be long. The full raw SQL and output also go into a Files document (`/mnt/documents/audit-test-kn-c0aa41ac.md`), and chat gets the summary table plus the file.
+- Lists use read-only queries. Ids are shortened to 8 characters, phones to the last 4 digits and emails to the domain only.
+- Deletions and Storage API removals are separate steps that each need your approval, as your process requires.
