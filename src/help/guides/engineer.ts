@@ -123,7 +123,7 @@ export const engineerGuide: HelpGuide = {
         "From the job screen you can communicate with the office, add media and update the job status.",
         "The bottom navigation gives quick access to Today, Upcoming, Completed and Office/Chat.",
       ],
-      screenshots: [{ src: e13.url, device: "mobile", alt: "Messages with quick replies, Note, Media, Video and Fault Finder actions" }, { src: e02.url, device: "mobile", alt: "Job screen with Service History, Notes, Photos & Videos and Messages" }],
+      screenshots: [{ src: e02.url, device: "mobile", alt: "Job screen with Messages, quick replies and Note, Media, Video and Fault Finder actions" }],
       keywords: ["messages", "chat", "office", "message office", "upcoming", "completed"],
     },
     {
