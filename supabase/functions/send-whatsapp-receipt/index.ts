@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
-import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import {
@@ -8,7 +8,7 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { abandonDelivery, beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
 
 
 
@@ -212,11 +212,17 @@ Deno.serve(async (req) => {
     let sendResult: { success: boolean; error?: string; status?: number } = { success: false };
 
     try {
-      const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${messengerKey}` },
-        body: formData,
+      const guarded = await sendWhatsAppGuarded({
+        organisationId: job.organisation_id, apiKey: messengerKey, body: formData, messageType: "receipt",
+        customerId: job.customer_id, relatedId: job_id, relatedType: "service_call", sentBy: "system",
+        existingLogId: logId ?? null,
       });
+      if (guarded.status === "suppressed") {
+        // Test mode: receipt_sent / receipt_sent_at left unchanged.
+        await abandonDelivery(supabase, deliveryHandle);
+        return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const response = guarded.response;
 
       const resultText = await response.text();
       let result: Record<string, unknown>;

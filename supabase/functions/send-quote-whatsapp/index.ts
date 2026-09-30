@@ -7,7 +7,8 @@ import {
 import { getPublicUrlWithPlatformFallback } from "../_shared/tenantDomain.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { abandonDelivery, beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -520,17 +521,17 @@ YES ${refNumber}`;
       message
     );
 
-    const response =
-      await fetch(
-        "https://api.360messenger.com/v2/sendMessage",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: formData,
-        }
-      );
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: formData, messageType: "quote",
+      customerId: resolvedCustomerId ?? null, relatedId: quote_id, relatedType: "quote", sentBy: "system",
+      existingLogId: logId ?? null,
+    });
+    if (guarded.status === "suppressed") {
+      // Test mode: quote status / sent_at / delivery outcome left unchanged.
+      if (deliveryHandle) await abandonDelivery(trackingClient, deliveryHandle);
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const resultText =
       await response.text();

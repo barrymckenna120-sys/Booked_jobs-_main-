@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -165,11 +165,14 @@ Job has been created — open BookedJobs to schedule.${messageFooter ? `\n\n${me
       formData.append("phonenumber", cleanNumber);
       formData.append("text", alertMsg);
 
-      const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${apiKey}` },
-        body: formData,
+      const guarded = await sendWhatsAppGuarded({
+        organisationId: orgIdForKey, apiKey, body: formData, messageType: "quote_accepted_alert",
+        relatedId: quote.id ?? null, relatedType: "quote", sentBy: "system", existingLogId: logId,
       });
+      if (guarded.status === "suppressed") {
+        return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const res = guarded.response;
 
       const resultText = await res.text();
       let result: any;

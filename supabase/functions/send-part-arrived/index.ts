@@ -6,6 +6,7 @@ import {
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 serve(async (req) => {
@@ -191,11 +192,15 @@ serve(async (req) => {
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: formData, messageType: "part_arrived",
+      customerId: jobRow.customer_id, relatedId: job_id, relatedType: "service_call", sentBy: "system",
+      existingLogId: logId,
     });
+    if (guarded.status === "suppressed") {
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const resultText = await response.text();
     let result: any;

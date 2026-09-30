@@ -3,6 +3,7 @@ import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts
 import { formatReceiptAmount, resolveReceiptAmount } from "../_shared/receiptAmount.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 
@@ -229,11 +230,15 @@ Deno.serve(async (req) => {
     formData.append("phonenumber", phone);
     formData.append("text", message);
 
-    const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: job.organisation_id, apiKey, body: formData, messageType: "payment_received",
+      customerId: job.customer_id, relatedId: service_call_id, relatedType: "service_call", sentBy: "system",
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: payment_received_whatsapp_sent left false.
+      return json(suppressedPayload({ whatsapp_sent: false }), 200);
+    }
+    const resp = guarded.response;
 
     const respText = await resp.text();
     const ok = resp.ok;

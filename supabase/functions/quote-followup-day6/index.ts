@@ -4,6 +4,7 @@ import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
 import { decideFollowup, renderFollowupMessage } from "../_shared/quoteFollowup.ts";
+import { sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 
 const STAGE = 6 as const;
 const TAG = "[quote-followup-day6]";
@@ -157,11 +158,15 @@ Deno.serve(async (req) => {
       console.log(`${TAG} WhatsApp message attempted`, { quote_id: q.id, phone });
 
       try {
-        const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: formData,
+        const guarded = await sendWhatsAppGuarded({
+          organisationId: q.organisation_id, apiKey, body: formData, messageType: "quote_followup_day6",
+          customerId: q.customer_id, relatedId: q.id, relatedType: "quote", sentBy: "system",
         });
+        if (guarded.status === "suppressed") {
+          // Test mode: follow-up/reminder markers left unchanged.
+          continue;
+        }
+        const resp = guarded.response;
         respStatus = resp.status;
         respBody = await resp.text();
         try {

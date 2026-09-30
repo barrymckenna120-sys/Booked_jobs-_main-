@@ -7,6 +7,7 @@ import {
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 serve(async (req) => {
@@ -261,11 +262,16 @@ serve(async (req) => {
     formData.append("text", message);
     formData.append("doc_url", docUrl);
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId as string, apiKey, body: formData, messageType: "certificate",
+      customerId: cert.customer_id ?? null, relatedId: certificate_id, relatedType: "certificate", sentBy: "system",
+      existingLogId: logId,
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: no certificate_sent activity / sent status recorded.
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const resultText = await response.text();
     let result: any;

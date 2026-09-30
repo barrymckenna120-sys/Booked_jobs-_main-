@@ -150,6 +150,11 @@ Deno.serve(async (req) => {
       } catch (_e) {
         parsed = null;
       }
+      if (res.ok && parsed?.status === "suppressed") {
+        // WhatsApp test mode: nothing was sent — do not record the resend as accepted.
+        if (handle) await abandonDelivery(supabase, handle);
+        return json({ success: true, sent: false, status: "suppressed", reason: "suppressed_test_mode", message: "Not sent: WhatsApp test mode is on" });
+      }
       ok = res.ok && parsed?.success !== false && !parsed?.error;
       providerMessageId = typeof parsed?.provider_message_id === "string"
         ? parsed.provider_message_id

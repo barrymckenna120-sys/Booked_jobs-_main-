@@ -4,6 +4,7 @@ import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { shouldSendCancellationNotice } from "../_shared/cancellationNotice.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 
@@ -104,11 +105,15 @@ serve(async (req) => {
     fd.append("phonenumber", phone);
     fd.append("text", message);
 
-    const waRes = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: fd,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: fd, messageType: "cancellation",
+      customerId: (job as any).customer_id ?? null, relatedId: service_call_id, relatedType: "service_call", sentBy: "system",
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: cancellation_notice_sent left false.
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const waRes = guarded.response;
     const waText = await waRes.text();
     const status = waRes.ok ? "sent" : "failed";
 

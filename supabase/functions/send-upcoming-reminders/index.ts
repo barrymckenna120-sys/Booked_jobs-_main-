@@ -12,6 +12,7 @@ import {
 import { getUserOrg } from "../_shared/orgAuth.ts";
 import { resolveSweepScope } from "../_shared/sweepScope.ts";
 import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 serve(async (req) => {
@@ -248,11 +249,17 @@ serve(async (req) => {
       formData.append("text", message);
 
       try {
-        const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          body: formData,
+        const guarded = await sendWhatsAppGuarded({
+          organisationId: orgId, apiKey, body: formData, messageType: "appointment_reminder",
+          customerId: job.customer_id, relatedId: job.id, relatedType: "service_call", sentBy: "system",
+          existingLogId: logId,
         });
+        if (guarded.status === "suppressed") {
+          skipped++;
+          results.push({ job_id: job.id, customer_name: customerName, status: "suppressed_test_mode" });
+          continue;
+        }
+        const response = guarded.response;
 
         const resultText = await response.text();
         let result: any;
