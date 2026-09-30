@@ -141,3 +141,11 @@
 ## Tenant detail fails on first click (/admin → tenant)
 - [x] Step 1 diagnose 30/09/26: A, B, B2 not reproduced; C inconclusive (expired session → /auth). Awaiting Barry browser capture
 - [ ] Step 2 fix in TenantDetail.tsx + test file — blocked on Step 1 approval
+
+## Help & Training Centre V1 (approved 30/09/26)
+- [ ] Routes /help, /help/:guideSlug, /help/:guideSlug/:stepSlug (auth-protected, no auth/RLS/role changes, no migration)
+- [ ] Engineer guide (header, controls, todays-jobs, travel, messages, media, fault-finder, request-parts, complete-job, payment) — confirmed wording only
+- [ ] Team & Users guide at /help/team-users (add-member, engineer-availability, job-time-blocks, manage-user, block-unblock)
+- [ ] Search, step progress, prev/next, tap-to-enlarge screenshots, Help item in engineer overflow + office user menu
+- [ ] Demo checks at 390px + 1280px, completion report
+- Blocked: waiting for Barry's clean mobile screenshots (test/demo data only)
