@@ -173,3 +173,4 @@
 - [x] WhatsApp test mode Stage 1 (schema/security) — done, awaiting review
 - [ ] WhatsApp test mode Stages 2-6 — blocked on Stage 1 review. Staged, one function at a time. TEST tenant = c0aa41ac (K&N gas services Ltd; set test mode ON at the data-change stage). LIVE = 8c37827f (K&N Gas Services, never touch). Dublin Gas = DEMO, no test sends. Cavan not used. Verify by org ID only. Before any send: show approved number for c0aa41ac and confirm all others suppressed. Test mode is in addition to opt-out checks.
 - [ ] Later: add an obvious TEST label to the c0aa41ac tenant name (needs approval)
+- [ ] Stage 1 report extras: 360 API call-site audit vs guard, send-whatsapp-guarded existence/secret, c0aa41ac vs 8c37827f profile
