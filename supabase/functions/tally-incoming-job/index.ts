@@ -7,7 +7,13 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
-import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
+import {
+  attachServiceCallToClaim,
+  bookingInProgressResponse,
+  claimBookingIntake,
+  recordFailedBookingIntake,
+  releaseBookingIntakeClaim,
+} from "../_shared/bookingIntakeClaim.ts";
 
 
 const MAX_NAME_LEN = 200;
@@ -59,6 +65,42 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // Set once this arrival owns a booking; used to undo partial work on failure
+  // so a resend can succeed, and to record the booking for the office.
+  let failure: {
+    orgId: string;
+    submissionId: string | null;
+    claimId: string | null;
+    createdCustomerId: string | null;
+    payload: unknown;
+  } | null = null;
+  const handleFinalFailure = async (message: string) => {
+    if (!failure) return;
+    const f = failure;
+    failure = null;
+    // Remove a customer this attempt created, so a resend doesn't duplicate it.
+    if (f.createdCustomerId) {
+      try {
+        const { error } = await supabase
+          .from("customers")
+          .delete()
+          .eq("id", f.createdCustomerId)
+          .eq("organisation_id", f.orgId);
+        if (error) console.error("[tally-incoming-job] orphan customer cleanup failed:", error.message);
+      } catch (_e) {
+        console.error("[tally-incoming-job] orphan customer cleanup threw:", (_e as Error)?.message ?? _e);
+      }
+    }
+    if (f.claimId) await releaseBookingIntakeClaim(supabase, f.claimId, "tally-incoming-job");
+    await recordFailedBookingIntake(supabase, {
+      organisationId: f.orgId,
+      submissionId: f.submissionId,
+      sourceFunction: "tally-incoming-job",
+      errorMessage: message,
+      payload: f.payload,
+    });
+  };
 
   try {
     // Sanitize control characters that Make/Tally may inject into string values
@@ -393,6 +435,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (claim.outcome === "pending") {
+      console.log("[tally-incoming-job] identical booking still in progress:", claim.fingerprint);
+      return bookingInProgressResponse(corsHeaders);
+    }
+
+    failure = {
+      orgId: orgData.id,
+      submissionId: submissionId ?? null,
+      claimId: claim.outcome === "claimed" ? claim.claimId : null,
+      createdCustomerId: null,
+      payload: body,
+    };
+
     // Upsert customer (match by phone)
     let customerId: string;
 
@@ -465,12 +520,14 @@ Deno.serve(async (req) => {
 
       if (insertErr || !newCustomer) {
         console.error("Customer creation failed:", insertErr);
+        await handleFinalFailure(`customer_insert_failed:${insertErr?.message ?? "unknown"}`);
         return new Response(JSON.stringify({ success: false, error: "Unable to process submission." }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       customerId = newCustomer.id;
+      if (failure) failure.createdCustomerId = newCustomer.id;
     }
 
     console.log("[tally-incoming-job] customerId:", customerId);
@@ -556,6 +613,7 @@ Deno.serve(async (req) => {
       }
       console.error("Job creation failed:", jobErr);
       await logSubmission("failed", { error: (jobErr as { message?: string } | null)?.message ?? null });
+      await handleFinalFailure(`job_insert_failed:${(jobErr as { message?: string } | null)?.message ?? "unknown"}`);
       return new Response(JSON.stringify({ success: false, error: "Unable to process submission." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -574,6 +632,7 @@ Deno.serve(async (req) => {
     if (claim.outcome === "claimed") {
       await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-incoming-job");
     }
+    failure = null;
 
 
     // BJ-0131a — advisory job-level duplicate detection. Runs only after the
@@ -862,6 +921,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("tally-incoming-job error:", err);
+    await handleFinalFailure(`exception:${err instanceof Error ? err.message : String(err)}`);
     try {
       await supabase.from("edge_function_logs").insert({
         function_name: "tally-incoming-job",
