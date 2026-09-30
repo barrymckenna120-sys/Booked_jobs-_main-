@@ -55,8 +55,8 @@ export const engineerGuide: HelpGuide = {
         device: "mobile",
         alt: "More menu with Order Parts, Fault Finder, Take the tour, Report a Bug and Sign Out",
         markers: [
-          { number: 1, x: 79.5, y: 6.7, label: "Notification bell", text: "Shows alerts, notifications and changes sent from the Office App." },
-          { number: 2, x: 89.5, y: 6.7, label: "Three-dot menu", text: "Opens More Options, including Fault Finder, Order Parts, Take a Tour and Sign Out." },
+          { number: 1, x: 79, y: 9.8, label: "Notification bell", text: "Shows alerts, notifications and changes sent from the Office App." },
+          { number: 2, x: 90, y: 9.8, label: "Three-dot menu", text: "Opens More Options, including Fault Finder, Order Parts, Take a Tour and Sign Out." },
         ],
       }],
       keywords: ["header", "bell", "notifications", "three dots", "more options", "sign out", "take a tour"],

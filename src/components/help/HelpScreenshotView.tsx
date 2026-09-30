@@ -9,7 +9,7 @@ const ScreenshotMarkers = ({ shot }: { shot: HelpScreenshot }) => (
       <span
         key={marker.number}
         aria-hidden="true"
-        className="pointer-events-none absolute z-10 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-[11px] font-bold leading-none text-primary-foreground ring-2 ring-background shadow-sm"
+        className="pointer-events-none absolute z-10 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-primary-foreground ring-1 ring-background shadow-sm"
         style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
       >
         {marker.number}
