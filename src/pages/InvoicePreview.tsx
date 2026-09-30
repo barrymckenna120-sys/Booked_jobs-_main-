@@ -225,6 +225,13 @@ const InvoicePreview = () => {
             <span className="text-sm font-bold text-[hsl(35,92%,50%)]">Invoice — Payment Due</span>
           </div>
 
+          {!hasPrice && (
+            <div className="mx-5 mb-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm font-bold text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {MISSING_PRICE_ERROR}
+            </div>
+          )}
+
           {/* Invoice info */}
           <div className="mx-5 border-t border-[hsl(220,13%,91%)]" />
           <div className="px-5 py-3 flex justify-between text-xs">
@@ -331,6 +338,7 @@ const InvoicePreview = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2"
             onClick={handleDownloadPdf}
+            disabled={!hasPrice}
           >
             <Download className="w-4 h-4" />
             Download PDF Invoice
@@ -338,7 +346,7 @@ const InvoicePreview = () => {
           <Button
             className="w-full h-12 text-sm font-extrabold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={handleSendPaymentLink}
-            disabled={sending || sent}
+            disabled={!hasPrice || sending || sent}
           >
             {retrying ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Retrying…</>
