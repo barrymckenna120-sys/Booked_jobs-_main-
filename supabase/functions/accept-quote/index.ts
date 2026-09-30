@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 import { sendDepositLink } from "../_shared/depositLink.ts";
 import { decideAlreadyActionedRecovery } from "../_shared/quoteApprovalRecovery.ts";
 import { classifyDepositStage } from "../_shared/quoteApprovalStages.ts";
@@ -321,10 +321,10 @@ async function sendWhatsAppAlert(
         formData.append("phonenumber", cleanNumber);
         formData.append("text", alertMsg);
 
-        await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          body: formData,
+        // Office alert — test-mode guarded (suppressed unless office number is allow-listed).
+        await sendWhatsAppGuarded({
+          organisationId: alertOrgId, apiKey, body: formData, messageType: "quote_accepted_office_alert",
+          relatedType: "quote", sentBy: userId ?? null,
         });
       } catch (e) {
         const msg = (e as Error).message;

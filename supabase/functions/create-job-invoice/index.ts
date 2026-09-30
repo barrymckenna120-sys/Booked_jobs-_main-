@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
-import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure } from "../_shared/whatsapp.ts";
+import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import {
   requireCustomerMessagingConsent,
@@ -444,6 +444,7 @@ Deno.serve(async (req) => {
     const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
 
     let whatsappSent = false;
+    let whatsappSuppressed = false;
 
     // Consent gate for the customer-facing WhatsApp step. The invoice itself is
     // still created/stored; only the outbound message is suppressed.
@@ -502,11 +503,16 @@ Deno.serve(async (req) => {
         formData.append("text", waMessage);
 
         try {
-          const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${apiKey}` },
-            body: formData,
+          const guarded = await sendWhatsAppGuarded({
+            organisationId: job.organisation_id, apiKey, body: formData, messageType: "invoice",
+            customerId: job.customer_id ?? null, relatedType: "invoice", sentBy: job.user_id ?? null,
+            existingLogId: logId,
           });
+          if (guarded.status === "suppressed") {
+            // Test mode: invoice still created; no WhatsApp, no customer_activity.
+            whatsappSuppressed = true;
+          } else {
+          const response = guarded.response;
 
           const resultText = await response.text();
           let result: any;
@@ -547,6 +553,7 @@ Deno.serve(async (req) => {
               payload: { api_response: result, sent_to: invoiceConsent.allowed ? invoiceConsent.phone : null, invoice_id: invoice.id },
             });
           }
+          }
         } catch (waErr) {
           const msg = (waErr as Error).message;
           console.error("WhatsApp send error:", waErr);
@@ -576,6 +583,7 @@ Deno.serve(async (req) => {
       invoice_number: invNum,
       pdf_url: pdfUrl,
       whatsapp_sent: whatsappSent,
+      ...(whatsappSuppressed ? { whatsapp_status: "suppressed", whatsapp_message: "Not sent: WhatsApp test mode is on" } : {}),
       whatsapp_error: whatsappFailReason,
       customer_name: cust.name,
       balance_due: balance,

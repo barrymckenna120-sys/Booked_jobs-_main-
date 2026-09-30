@@ -2,7 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
-import { buildSendMessageForm, WHATSAPP_SEND_URL } from "../_shared/whatsappPayload.ts";
+import { buildSendMessageForm } from "../_shared/whatsappPayload.ts";
+import { sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 
 
 Deno.serve(async (req) => {
@@ -125,11 +126,13 @@ Deno.serve(async (req) => {
 
       const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-      const response = await fetch(WHATSAPP_SEND_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${messengerKey}` },
-        body: formData,
+      const guarded = await sendWhatsAppGuarded({
+        organisationId: orgId, apiKey: messengerKey, body: formData, messageType: "deposit_reminder",
+        customerId: job.customer_id, relatedId: job.id, relatedType: "service_call", sentBy: "system",
+        existingLogId: logId,
       });
+      if (guarded.status === "suppressed") continue; // Test mode: reminder markers unchanged.
+      const response = guarded.response;
 
       const resultText = await response.text();
       let result: any;

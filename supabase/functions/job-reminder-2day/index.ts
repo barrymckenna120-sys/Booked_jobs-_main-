@@ -3,6 +3,7 @@ import { logMessage } from "../_shared/logMessage.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineCaller } from "../_shared/machineAuth.ts";
 import { buildCatalogueMessage } from "../_shared/whatsappCatalogue.ts";
+import { sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -207,11 +208,16 @@ Deno.serve(async (req) => {
         formData.append("phonenumber", cleanNumber);
         formData.append("text", message);
 
-        const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          body: formData,
+        const guarded = await sendWhatsAppGuarded({
+          organisationId: orgId as string, apiKey, body: formData, messageType: "job_reminder_2day",
+          customerId: job.customer_id, relatedId: job.id, relatedType: "service_call", sentBy: "system",
         });
+        if (guarded.status === "suppressed") {
+          // Test mode: leave reminder_2day_sent unset so it is picked up once LIVE.
+          skipped++;
+          continue;
+        }
+        const response = guarded.response;
 
         const resultText = await response.text();
         let result: any;

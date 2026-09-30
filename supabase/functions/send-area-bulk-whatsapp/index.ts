@@ -3,6 +3,7 @@ import { fetchWhatsappApiKey } from "../_shared/whatsappCredentials.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isDenied, requireCallerOrg } from "../_shared/orgAuth.ts";
 import { cooldownWindowStart, isDuplicateRenewalSend } from "../_shared/renewalSendGuard.ts";
+import { sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 
 
 serve(async (req) => {
@@ -226,11 +227,15 @@ ${companyName}`;
       formData.append("text", message);
 
       try {
-        const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${apiKey}` },
-          body: formData,
+        const guarded = await sendWhatsAppGuarded({
+          organisationId: orgId, apiKey, body: formData, messageType: "area_bulk",
+          customerId: customer_id, relatedType: "customer", sentBy: "system",
         });
+        if (guarded.status === "suppressed") {
+          // Test mode: last_reminder_sent / reminder_30_days_sent left unchanged.
+          continue;
+        }
+        const response = guarded.response;
 
         const resultText = await response.text();
         let result: any;

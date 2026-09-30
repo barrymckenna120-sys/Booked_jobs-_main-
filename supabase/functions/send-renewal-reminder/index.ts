@@ -5,13 +5,14 @@ import {
   isDuplicateRenewalSend,
 } from "../_shared/renewalSendGuard.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { beginDelivery, completeDelivery, markOptedOut } from "../_shared/deliveryStatus.ts";
+import { abandonDelivery, beginDelivery, completeDelivery, markOptedOut } from "../_shared/deliveryStatus.ts";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import {
   consentSkipBody,
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
 import { hasOpenFutureJob, OPEN_JOB_STATUSES } from "../_shared/renewalDedup.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 /**
  * Renewal reminder (WhatsApp).
@@ -306,11 +307,18 @@ Deno.serve(async (req) => {
     console.log("Calling 360 Messenger API...");
     console.log("API key present:", !!apiKey, "length:", apiKey?.length);
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId as string, apiKey, body: formData, messageType: "renewal_reminder",
+      customerId: customer_id ?? null, relatedId: customer_id ?? null, relatedType: "renewal", sentBy: "system",
+      existingLogId: logId ?? null,
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: renewal_stage / last-reminded markers are NOT updated, so the
+      // customer is picked up normally once the company is LIVE.
+      await abandonDelivery(supabase, deliveryHandle);
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const resultText = await response.text();
     console.log("360 Messenger response status:", response.status);

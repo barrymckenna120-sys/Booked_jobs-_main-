@@ -7,6 +7,7 @@ import {
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getResourceOrg } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 Deno.serve(async (req) => {
@@ -415,17 +416,15 @@ ${companyName} ☎ ${companyPhone}`;
     };
 
     try {
-      const response =
-        await fetch(
-          "https://api.360messenger.com/v2/sendMessage",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${messengerKey}`,
-            },
-            body: formData,
-          }
-        );
+      const guarded = await sendWhatsAppGuarded({
+        organisationId: orgId, apiKey: messengerKey, body: formData, messageType: "extra_work_payment_link",
+        relatedType: "service_call", sentBy: "system", existingLogId: logId ?? null,
+      });
+      if (guarded.status === "suppressed") {
+        // Test mode: whatsapp_sent / sent markers left unchanged.
+        return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const response = guarded.response;
 
       const resultText =
         await response.text();

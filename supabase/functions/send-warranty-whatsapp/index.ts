@@ -6,6 +6,7 @@ import { getOrgBranding } from "../_shared/orgBranding.ts";
 import { evaluateOptOut } from "../_shared/optOut.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { requireMachineOrUser, resolveCaller } from "../_shared/machineAuth.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -527,17 +528,15 @@ serve(async (req) => {
       message
     );
 
-    const response =
-      await fetch(
-        "https://api.360messenger.com/v2/sendMessage",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${THREESIXTY_API_KEY}`,
-          },
-          body: formData,
-        }
-      );
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId as string, apiKey: THREESIXTY_API_KEY, body: formData, messageType: message_type,
+      customerId: customer_id, relatedId: customer_id, relatedType: "customer", sentBy: "system",
+    });
+    if (guarded.status === "suppressed") {
+      // Test mode: warranty_reminder_log not appended, so the reminder is picked up once LIVE.
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const result =
       await response.text();

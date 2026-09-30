@@ -3,6 +3,7 @@ import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { assertSameOrganisation, isDenied, requireBoundOrg } from "../_shared/orgAuth.ts";
 import { requireCustomerMessagingConsent } from "../_shared/messagingConsent.ts";
+import { sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 
 /**
  * Outstanding-invoice chase (WhatsApp + payment link).
@@ -221,11 +222,15 @@ Deno.serve(async (req) => {
       let responseStatus = 0;
 
       try {
-        const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: formData,
+        const guarded = await sendWhatsAppGuarded({
+          organisationId: organisation_id as string, apiKey, body: formData, messageType: "outstanding_invoice",
+          customerId: (j as any).customer_id, relatedId: (j as any).id, relatedType: "service_call", sentBy: "system",
         });
+        if (guarded.status === "suppressed") {
+          // Test mode: follow-up/reminder markers left unchanged.
+          continue;
+        }
+        const resp = guarded.response;
         responseStatus = resp.status;
         responseBody = await resp.text();
         // 360Messenger may return HTTP 200 even when the payload reports failure.

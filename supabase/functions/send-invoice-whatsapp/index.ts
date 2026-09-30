@@ -1,7 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isDenied, requireResourceOrgAccess } from "../_shared/orgAuth.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { abandonDelivery, beginDelivery, completeDelivery } from "../_shared/deliveryStatus.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 
@@ -389,17 +390,16 @@ Deno.serve(async (req) => {
       message
     );
 
-    const resp =
-      await fetch(
-        "https://api.360messenger.com/v2/sendMessage",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: formData,
-        }
-      );
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: job.organisation_id, apiKey, body: formData, messageType: "invoice",
+      customerId: job.customer_id ?? null, relatedId: job.id ?? null, relatedType: "service_call", sentBy: "system",
+    });
+    if (guarded.status === "suppressed") {
+      // Test mode: invoice_sent_at / delivery outcome left unchanged.
+      await abandonDelivery(supabase, deliveryHandle);
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const resp = guarded.response;
 
     const respText =
       await resp.text();

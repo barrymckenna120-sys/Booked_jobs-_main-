@@ -5,6 +5,7 @@ import {
   consentSkipResponse,
   requireCustomerMessagingConsent,
 } from "../_shared/messagingConsent.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -255,11 +256,15 @@ Deno.serve(async (req) => {
 
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: job.organisation_id, apiKey, body: formData, messageType: "payment_link",
+      customerId: job.customer_id, relatedId: service_call_id, relatedType: "service_call", sentBy: "system",
+      existingLogId: logId,
     });
+    if (guarded.status === "suppressed") {
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const response = guarded.response;
 
     const resultText = await response.text();
     let result: any;

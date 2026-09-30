@@ -7,6 +7,7 @@ import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts
 import { logMessage } from "../_shared/logMessage.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 const SKIP_REASONS = new Set([
@@ -161,11 +162,14 @@ Deno.serve(async (req) => {
     form.append("phonenumber", to);
     form.append("text", text);
 
-    const resp = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: form, messageType: "cancel_job_notify",
+      customerId: (sc as any).customer_id ?? null, relatedType: "service_call", sentBy: (sc as any).user_id ?? null,
     });
+    if (guarded.status === "suppressed") {
+      return new Response(JSON.stringify(suppressedPayload()), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const resp = guarded.response;
     const respText = await resp.text();
 
     if (!resp.ok) {

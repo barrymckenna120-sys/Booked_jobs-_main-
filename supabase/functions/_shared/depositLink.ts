@@ -17,7 +17,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { normalisePhone, logWhatsAppFailure } from "./whatsapp.ts";
+import { normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "./whatsapp.ts";
 import { fetchWhatsappApiKeyWithClient } from "./whatsappCredentials.ts";
 import { buildSumUpReturnUrl, createSumUpDepositCheckout } from "./sumupCheckout.ts";
 import { resolveSumUpCredentials, makeRestSumUpConfigLoader } from "./sumupCredentials.ts";
@@ -292,11 +292,16 @@ export async function sendDepositLink(
     const logRows = await logRes.json();
     const logId = Array.isArray(logRows) ? logRows[0]?.id : null;
 
-    const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: formData, messageType: "payment_link",
+      customerId, relatedId: serviceCallId, relatedType: "service_call", sentBy: "system",
+      existingLogId: logId,
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: no send, no customer_activity. Payment link stays on the job as before.
+      return { ok: true, sent: false, skipped: "suppressed_test_mode", paymentLink };
+    }
+    const res = guarded.response;
 
     const resultText = await res.text();
     let result: any;

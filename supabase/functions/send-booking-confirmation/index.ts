@@ -8,8 +8,10 @@ import {
   completeDelivery,
   DeliveryBusyError,
   markOptedOut,
+  abandonDelivery,
 } from "../_shared/deliveryStatus.ts";
 import { buildBookingMessage, capitaliseFirst, formatBookingDate, parseMode } from "./message.ts";
+import { sendWhatsAppGuarded, suppressedPayload } from "../_shared/whatsapp.ts";
 
 
 
@@ -238,11 +240,17 @@ serve(async (req) => {
     formData.append("phonenumber", cleanNumber);
     formData.append("text", message);
 
-    const response = await fetch("https://api.360messenger.com/v2/sendMessage", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+    const guarded = await sendWhatsAppGuarded({
+      organisationId: orgId, apiKey, body: formData, messageType,
+      customerId: job.customer_id, relatedId: service_call_id, relatedType: "service_call", sentBy: "system",
+      existingLogId: logId,
     });
+    if (guarded.status === "suppressed") {
+      // Test mode: no delivery outcome / customer_activity recorded.
+      if (!skipTracking && deliveryHandle) await abandonDelivery(trackingClient, deliveryHandle);
+      return json(suppressedPayload({ recipient: customer.phone }));
+    }
+    const response = guarded.response;
 
     const resultText = await response.text();
     let result: any;

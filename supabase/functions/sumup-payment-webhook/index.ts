@@ -23,7 +23,7 @@ import {
 
 import { fetchWhatsappApiKeyWithClient } from "../_shared/whatsappCredentials.ts";
 import { getOrgBrandingClient } from "../_shared/orgBranding.ts";
-import { normalisePhone } from "../_shared/whatsapp.ts";
+import { normalisePhone, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
 import { getTenantPublicUrl } from "../_shared/tenantDomain.ts";
 import { buildPartialPaymentRecordPath } from "../_shared/partialPaymentRecord.ts";
 
@@ -585,11 +585,13 @@ Deno.serve(async (req) => {
       formData.append("phonenumber", normalisePhone(customer.phone));
       formData.append("text", message);
 
-      const res = await fetch("https://api.360messenger.com/v2/sendMessage", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${keyResolution.apiKey}` },
-        body: formData,
+      const guarded = await sendWhatsAppGuarded({
+        organisationId: e.organisationId, apiKey: keyResolution.apiKey, body: formData,
+        messageType: "part_payment_received", customerId: e.customerId,
+        relatedId: e.serviceCallId, relatedType: "service_call", sentBy: "system",
       });
+      if (guarded.status === "suppressed") return; // Test mode: no message; payment processing unaffected.
+      const res = guarded.response;
       const resultText = await res.text();
       let ok = res.ok;
       try { ok = res.ok && JSON.parse(resultText)?.success !== false; } catch { /* keep res.ok */ }

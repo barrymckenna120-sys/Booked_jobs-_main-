@@ -2,7 +2,7 @@
 // Used when we need to alert superadmins about auth/security events
 // (e.g. a user account being auto-locked after too many failed logins).
 
-const WHATSAPP_ENDPOINT = "https://api.360messenger.com/v2/sendMessage";
+import { sendPlatformAlertWhatsApp } from "./whatsapp.ts";
 
 export async function notifyAdminWhatsApp(text: string): Promise<{
   ok: boolean;
@@ -31,11 +31,7 @@ export async function notifyAdminWhatsApp(text: string): Promise<{
   fd.append("text", text);
 
   try {
-    const res = await fetch(WHATSAPP_ENDPOINT, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: fd,
-    });
+    const res = await sendPlatformAlertWhatsApp(apiKey, fd);
     const body = await res.text();
     if (!res.ok) {
       console.error(`[notifyAdmin] WhatsApp send failed (${res.status}): ${body}`);
