@@ -157,3 +157,11 @@
 - [x] Framework + Customer Import guide (7 steps, 9 screenshots) live at /help/customer-import — 30/09/26
 - [ ] Demo checks at 390px + 1280px, completion report
 - Blocked: Engineer + Team & Users guides waiting on Barry's clean mobile screenshots (test/demo data only)
+
+## Help Centre — all four approved guides imported (30/09/26)
+- [x] Customer Profile, Team & Users (6 steps), Engineer App (10 steps) text imported from approved PDFs
+- [ ] Engineer App: clean unframed screenshots needed (blocked: user to supply)
+- [ ] Team & Users "Add a Team Member": clean screenshot needed (blocked: user to supply)
+- [ ] Confirm exact Unblock/Restore wording in the app for Team & Users step 6
+- [ ] Manual visual sign-off at 390px and 1280px for all four guides (user)
+- [ ] Login return URL for Help deep links — future improvement
