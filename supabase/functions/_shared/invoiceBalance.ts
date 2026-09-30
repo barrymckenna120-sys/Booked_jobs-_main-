@@ -19,6 +19,7 @@ export type LedgerPayment = {
 export type InvoiceJobPaymentState = {
   deposit_paid?: boolean | null;
   deposit_amount?: number | string | null;
+  payment_status?: string | null;
 };
 
 const num = (v: unknown): number => {
@@ -41,6 +42,19 @@ export function paymentsReceived(job: InvoiceJobPaymentState, ledger: LedgerPaym
   }
   if (job.deposit_paid === true && !ledgerHasDeposit) total += num(job.deposit_amount);
   return round2(Math.max(total, 0));
+}
+
+/**
+ * Jobs settled before the payment ledger existed are marked paid but have no
+ * ledger rows; they stay fully paid rather than suddenly showing money owed.
+ */
+export function legacyPaidWithoutLedger(job: InvoiceJobPaymentState, ledger: LedgerPayment[]): boolean {
+  return job.payment_status === "paid" && ledger.length === 0;
+}
+
+export function jobInvoiceBalance(total: number, job: InvoiceJobPaymentState, ledger: LedgerPayment[]): number {
+  if (legacyPaidWithoutLedger(job, ledger)) return 0;
+  return invoiceBalanceDue(total, paymentsReceived(job, ledger));
 }
 
 export function invoiceBalanceDue(total: number, received: number): number {

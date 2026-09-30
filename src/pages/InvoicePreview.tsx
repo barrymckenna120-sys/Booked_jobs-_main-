@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
-import { hasInvoiceablePrice, invoiceBalanceDue, MISSING_PRICE_ERROR, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
+import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR } from "../../supabase/functions/_shared/invoiceBalance";
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -105,7 +105,7 @@ const InvoicePreview = () => {
   const paymentPresentation = resolvePaymentPresentation(job);
   const hasDeposit = paymentPresentation.showDepositBreakdown;
   const depositAmount = hasDeposit ? Number(job.deposit_amount) : 0;
-  const balanceDue = invoiceBalanceDue(totalAmount, paymentsReceived(job, ledger));
+  const balanceDue = jobInvoiceBalance(totalAmount, job, ledger);
 
   const handleDownloadPdf = () => {
     printReceipt({

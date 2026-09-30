@@ -1,4 +1,4 @@
-import { hasInvoiceablePrice, invoiceBalanceDue, MISSING_PRICE_ERROR, paymentsReceived } from "../_shared/invoiceBalance.ts";
+import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../_shared/invoiceBalance.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
@@ -111,12 +111,13 @@ Deno.serve(async (req) => {
       .eq("service_call_id", job_id)
       .eq("organisation_id", job.organisation_id);
     const received = paymentsReceived(job, ledgerRows ?? []);
+    // Deposit Paid line: amount received (legacy paid jobs show the full total).
 
     if (quote) {
       lineItems = (quote.quote_line_items || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
       totalAmount = Number(quote.total_amount || 0);
       depositPaid = received;
-      balanceDue = invoiceBalanceDue(totalAmount, received);
+      balanceDue = jobInvoiceBalance(totalAmount, job, ledgerRows ?? []);
       vatEnabled = !!quote.vat_enabled;
       discount = Number(quote.discount || 0);
       description = quote.description || description;
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
       // Fallback to job revenue
       totalAmount = Number(job.revenue || 0);
       depositPaid = received;
-      balanceDue = invoiceBalanceDue(totalAmount, received);
+      balanceDue = jobInvoiceBalance(totalAmount, job, ledgerRows ?? []);
     }
 
     // ── Create invoice record ──
