@@ -10,7 +10,7 @@ import {
   CalendarCheck, Layers, Shield, BarChart2, Hammer, Loader2, Briefcase,
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { LifeBuoy, HelpCircle } from "lucide-react";
+import { LifeBuoy, HelpCircle, CircleHelp } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
@@ -314,6 +314,7 @@ const AppLayoutInner = () => {
               { label: "New Job", icon: Plus, primary: true, onSelect: () => setShowNewJob(true) },
               { label: "Settings", icon: Settings, onSelect: () => guardedNavigate("/settings") },
               { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
+              { label: "Help & Training", icon: CircleHelp, onSelect: () => guardedNavigate("/help") },
               { label: "Report an issue", icon: LifeBuoy, onSelect: () => setReportOpen(true) },
               {
                 label: "Sign Out",
@@ -360,6 +361,7 @@ const AppLayoutInner = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => startTour()}>Take the tour</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => guardedNavigate("/help")}>Help & Training</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
-import { Clock, CalendarDays, CheckCircle2, MessageCircle, Package, Wrench, LogOut, ArrowLeft, HelpCircle } from "lucide-react";
+import { Clock, CalendarDays, CheckCircle2, MessageCircle, Package, Wrench, LogOut, ArrowLeft, HelpCircle, CircleHelp } from "lucide-react";
 import { useEngineerJobs } from "@/hooks/useEngineerJobs";
 import HeaderIconButton from "@/components/shared/HeaderIconButton";
 import MobileWorkspaceHeader from "@/components/shared/MobileWorkspaceHeader";
@@ -130,6 +130,7 @@ const EngineerLayout = () => {
               { label: "Order Parts", icon: Package, onSelect: () => navigate("/engineer/parts") },
               { label: "Fault Finder", icon: SearchCode, onSelect: () => openFaultFinder?.() },
               { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
+              { label: "Help & Training", icon: CircleHelp, onSelect: () => navigate("/help") },
               { label: "Report a Bug", icon: Bug, onSelect: () => setReportOpen(true) },
               { label: "Sign Out", icon: LogOut, separatorBefore: true, onSelect: () => signOut() },
             ]}
