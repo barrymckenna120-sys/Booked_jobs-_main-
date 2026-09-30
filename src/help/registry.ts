@@ -1,13 +1,13 @@
 import type { HelpComingSoon, HelpGuide, HelpStep } from "./types";
 import { customerImportGuide } from "./guides/customerImport";
 import { customerProfileGuide } from "./guides/customerProfile";
+import { teamUsersGuide } from "./guides/teamUsers";
 
 /** Published guides. Add a guide by adding a data file here — no new page code. */
-export const HELP_GUIDES: HelpGuide[] = [customerImportGuide, customerProfileGuide];
+export const HELP_GUIDES: HelpGuide[] = [customerImportGuide, customerProfileGuide, teamUsersGuide];
 
 export const HELP_COMING_SOON: HelpComingSoon[] = [
   { slug: "engineer", title: "Engineer App", description: "Jobs, navigation, photos, fault finding, parts and payments" },
-  { slug: "team-users", title: "Team & Users", description: "Add staff, manage engineers, availability and access" },
 ];
 
 export const findGuide = (slug?: string) => HELP_GUIDES.find((g) => g.slug === slug) ?? null;
