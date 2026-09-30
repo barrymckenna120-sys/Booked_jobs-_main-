@@ -42,26 +42,22 @@ export const engineerGuide: HelpGuide = {
   steps: [
     {
       slug: "header",
-      title: "Understanding the Engineer App Header",
-      shortDescription: "Quick access to the main views, notifications and extra tools.",
-      body: ["The strip at the top of the Engineer App gives you quick access to the main views, notifications and extra tools."],
-      callouts: [
-        { number: 1, label: "Engineer / Office", text: "Owners and managers can switch between the Engineer App and Office App without signing out." },
-        { number: 2, label: "Bell", text: "Shows alerts, notifications and changes sent from the Office App." },
-        { number: 3, label: "Three dots (•••) — More Options", text: "Fault Finder — find boiler fault codes and explanations; Order Parts — request parts needed for a customer job; Take a Tour — view a guided tour of the main BookedJobs screens; Sign Out — securely sign out of the app." },
-      ],
+      title: "Engineer & Office Controls",
+      shortDescription: "Switch screens, check notifications and open more options.",
+      body: ["The controls at the top of the Engineer App let you switch screens, check notifications and open more options."],
       screenshots: [{
-        src: e07.url,
+        // Clean, full-brightness Today screen (the More-menu shot is dimmed by the open sheet).
+        src: e01.url,
         device: "mobile",
-        alt: "More menu with Order Parts, Fault Finder, Take the tour, Report a Bug and Sign Out",
+        alt: "Top of the Engineer App showing Engineer, Office, the notifications bell and the three-dot More menu",
         markers: [
-          { number: 1, x: 23.5, y: 9.1, label: "Engineer", text: "Opens the Engineer App." },
-          { number: 2, x: 71, y: 9.1, label: "Office", text: "Switches to the Office App for owners/managers with access." },
-          { number: 3, x: 80.5, y: 6, label: "Notifications", text: "Shows notifications and changes from the office." },
-          { number: 4, x: 91, y: 6, label: "More", text: "Opens additional Engineer tools." },
+          { number: 1, x: 37.5, y: 8.4, label: "Engineer", text: "Your Engineer App.", icon: "engineer" },
+          { number: 2, x: 58, y: 8.4, label: "Office", text: "Owners and managers can switch to the Office App.", icon: "office" },
+          { number: 3, x: 80, y: 8.4, label: "Notifications", text: "Shows alerts and updates from the office.", icon: "bell" },
+          { number: 4, x: 91.5, y: 8.4, label: "More", text: "Opens additional Engineer tools.", icon: "more" },
         ],
       }],
-      keywords: ["header", "bell", "notifications", "three dots", "more options", "sign out", "take a tour"],
+      keywords: ["engineer", "office", "switch", "bell", "notifications", "three dots", "more"],
     },
     {
       slug: "controls",

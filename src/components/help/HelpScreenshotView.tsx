@@ -1,7 +1,23 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
-import type { HelpScreenshot } from "@/help/types";
+import { X, Wrench, ArrowLeft, Bell, MoreVertical } from "lucide-react";
+import type { HelpScreenshot, HelpScreenshotMarker } from "@/help/types";
+
+/** Static copies of the real Engineer App top controls (same icons/styles), non-interactive. */
+const ControlPreview = ({ icon }: { icon: NonNullable<HelpScreenshotMarker["icon"]> }) => {
+  if (icon === "engineer") return (
+    <span aria-hidden="true" className="flex items-center gap-1.5 text-[11px] font-bold text-foreground">
+      <Wrench className="h-5 w-5 text-muted-foreground" strokeWidth={2.25} />Engineer
+    </span>
+  );
+  if (icon === "office") return (
+    <span aria-hidden="true" className="flex min-h-[40px] items-center gap-1 rounded-lg border border-border bg-card px-2 text-[11px] font-bold text-primary">
+      <ArrowLeft className="h-5 w-5" strokeWidth={2.25} />Office
+    </span>
+  );
+  const Icon = icon === "bell" ? Bell : MoreVertical;
+  return <Icon aria-hidden="true" className="h-5 w-5 text-muted-foreground" strokeWidth={2.25} />;
+};
 
 const ScreenshotMarkers = ({ shot }: { shot: HelpScreenshot }) => (
   <>
@@ -59,11 +75,14 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
         </span>
       </button>
       {shot.markers?.length ? (
-        <ol className="mt-3 space-y-2 text-sm md:hidden" aria-label="Screenshot callouts">
+        <ol className={shot.markers.some((m) => m.icon) ? "mt-4 space-y-3" : "mt-3 space-y-2 text-sm md:hidden"} aria-label="Screenshot callouts">
           {shot.markers.map((marker) => (
-            <li key={marker.number} className="flex gap-2.5">
+            <li key={marker.number} className="flex items-center gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{marker.number}</span>
-              <span><strong>{marker.label}:</strong> {marker.text}</span>
+              {marker.icon ? <span className="flex w-[92px] shrink-0 justify-center"><ControlPreview icon={marker.icon} /></span> : null}
+              <span className="min-w-0">
+                {marker.icon ? <><strong className="block">{marker.label}</strong><span className="text-muted-foreground">{marker.text}</span></> : <><strong>{marker.label}:</strong> {marker.text}</>}
+              </span>
             </li>
           ))}
         </ol>
