@@ -1,3 +1,4 @@
+import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../_shared/invoiceBalance.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
@@ -95,19 +96,36 @@ Deno.serve(async (req) => {
     let discount = 0;
     let description = job.job_issue || job.job_type || "Service";
 
+    // A job with no price and no quote must not be invoiced: balance_due can be
+    // stale, so it is never used as the source of an invoice total.
+    if (!hasInvoiceablePrice(job.revenue, !!quote)) {
+      return new Response(JSON.stringify({ error: MISSING_PRICE_ERROR }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Every payment actually received (ledger + deposit only if marked paid).
+    const { data: ledgerRows } = await sb
+      .from("job_payments")
+      .select("amount, payment_type, reverses_payment_id")
+      .eq("service_call_id", job_id)
+      .eq("organisation_id", job.organisation_id);
+    const received = paymentsReceived(job, ledgerRows ?? []);
+    // Deposit Paid line: amount received (legacy paid jobs show the full total).
+
     if (quote) {
       lineItems = (quote.quote_line_items || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
       totalAmount = Number(quote.total_amount || 0);
-      depositPaid = Number(quote.deposit_amount || quote.deposit || 0);
-      balanceDue = Number(quote.balance_due || Math.max(totalAmount - depositPaid, 0));
+      depositPaid = received;
+      balanceDue = jobInvoiceBalance(totalAmount, job, ledgerRows ?? []);
       vatEnabled = !!quote.vat_enabled;
       discount = Number(quote.discount || 0);
       description = quote.description || description;
     } else {
       // Fallback to job revenue
       totalAmount = Number(job.revenue || 0);
-      depositPaid = Number(job.deposit_amount || 0);
-      balanceDue = Math.max(totalAmount - depositPaid, 0);
+      depositPaid = received;
+      balanceDue = jobInvoiceBalance(totalAmount, job, ledgerRows ?? []);
     }
 
     // ── Create invoice record ──
@@ -314,7 +332,8 @@ Deno.serve(async (req) => {
     const afterDisc = Math.max(subtotal - discount, 0);
     const vatAmt = vatEnabled ? afterDisc * 0.23 : 0;
     const total = Math.max(afterDisc + vatAmt, 0);
-    const balance = Math.max(total - depositPaid, 0);
+    // Same figure as the invoice record, WhatsApp and the office preview.
+    const balance = balanceDue;
 
     const tLabelX = M + CW - 80;
     const tValueX = M + CW - 3;

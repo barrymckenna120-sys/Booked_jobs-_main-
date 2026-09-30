@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
+import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR } from "../../supabase/functions/_shared/invoiceBalance";
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -32,6 +33,8 @@ const InvoicePreview = () => {
   const [sending, setSending] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [sent, setSent] = useState(false);
+  const [quoteTotal, setQuoteTotal] = useState<number | null>(null);
+  const [ledger, setLedger] = useState<any[]>([]);
 
 
   useEffect(() => {
@@ -52,10 +55,14 @@ const InvoicePreview = () => {
       return;
     }
 
-    const [settingsRes, custRes] = await Promise.all([
+    const [settingsRes, custRes, quoteRes, ledgerRes] = await Promise.all([
       supabase.from("settings").select("*").eq("organisation_id", jobData.organisation_id).maybeSingle(),
       supabase.from("customers").select("*").eq("id", jobData.customer_id).maybeSingle(),
+      supabase.from("quotes").select("total_amount").eq("converted_job_id", jobData.id).maybeSingle(),
+      supabase.from("job_payments").select("amount, payment_type, reverses_payment_id").eq("service_call_id", jobData.id),
     ]);
+    setQuoteTotal(quoteRes.data ? Number(quoteRes.data.total_amount || 0) : null);
+    setLedger(ledgerRes.data ?? []);
 
     setJob(jobData);
     setCustomer(custRes.data);
@@ -92,17 +99,13 @@ const InvoicePreview = () => {
   const jobRef = job.job_reference || `KN-${job.id.slice(0, 6).toUpperCase()}`;
   const serviceType = job.job_type || "Boiler Service";
 
-  const totalAmount = job.revenue ? Number(job.revenue) : 0;
+  // Same total and balance rules as create-job-invoice (shared helper).
+  const hasPrice = hasInvoiceablePrice(job.revenue, quoteTotal != null);
+  const totalAmount = quoteTotal != null ? quoteTotal : job.revenue ? Number(job.revenue) : 0;
   const paymentPresentation = resolvePaymentPresentation(job);
   const hasDeposit = paymentPresentation.showDepositBreakdown;
   const depositAmount = hasDeposit ? Number(job.deposit_amount) : 0;
-  const balanceDue = job.balance_due != null
-    ? Number(job.balance_due)
-    : hasDeposit
-      ? totalAmount - depositAmount
-      : paymentPresentation.isFullyPaid
-        ? 0
-        : totalAmount;
+  const balanceDue = jobInvoiceBalance(totalAmount, job, ledger);
 
   const handleDownloadPdf = () => {
     printReceipt({
@@ -129,6 +132,11 @@ const InvoicePreview = () => {
       // Generate invoice PDF first if not already done
       let invoiceNumberForLookup = job.invoice_number;
       if (!invoiceNumberForLookup) {
+        if (!hasPrice) {
+          toast({ title: MISSING_PRICE_ERROR, variant: "destructive" });
+          setSending(false);
+          return;
+        }
         const { data: created } = await supabase.functions.invoke("create-job-invoice", {
           body: { job_id: job.id },
         });
