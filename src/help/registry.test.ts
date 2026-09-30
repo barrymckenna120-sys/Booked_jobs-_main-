@@ -37,4 +37,10 @@ describe("help registry", () => {
       "Review and confirm", "Check the import result",
     ]);
   });
+  it.each([
+    ["merge","customer-import"],["import customer","customer-import"],["service reminder","customer-profile"],
+    ["customer payment","customer-profile"],["order a part","engineer"],["request part","engineer"],
+    ["fault finder","engineer"],["take payment","engineer"],["add engineer","team-users"],
+    ["engineer availability","team-users"],["reset password","team-users"],["block user","team-users"],
+  ])("search %s finds %s", (q, g) => expect(searchHelp(q)[0]?.guide.slug).toBe(g));
 });
