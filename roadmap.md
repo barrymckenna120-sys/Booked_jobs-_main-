@@ -160,8 +160,8 @@
 
 ## Help Centre — all four approved guides imported (30/09/26)
 - [x] Customer Profile, Team & Users (6 steps), Engineer App (10 steps) text imported from approved PDFs
-- [ ] Engineer App: clean unframed screenshots needed (blocked: user to supply)
-- [ ] Team & Users "Add a Team Member": clean screenshot needed (blocked: user to supply)
+- [x] Engineer App clean screenshots added (13)
+- [x] Add a Team Member screenshot added
 - [ ] NEEDS PRODUCTION UI VERIFICATION: exact Unblock/Restore wording, Team & Users step 6 (not a blocker)
 - [ ] Full visual QA at 390px + 1280px for every step of all four guides, then sign-off table (after screenshots arrive)
 - [ ] Login return URL for Help deep links — future improvement

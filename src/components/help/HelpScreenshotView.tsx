@@ -9,7 +9,7 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const c = shot.mobileCrop;
   return (
-    <figure className="mx-auto w-[94%] md:w-full">
+    <figure className={shot.device === "mobile" ? "mx-auto w-[94%] max-w-[380px]" : "mx-auto w-[94%] md:w-full"}>
       <button
         type="button"
         onClick={() => setOpen(true)}
