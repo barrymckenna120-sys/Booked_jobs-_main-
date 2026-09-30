@@ -942,7 +942,7 @@ const Auth = () => {
             <div className="flex justify-center">
               <Link
                 to="/help/iphone-setup"
-                className="inline-flex min-h-[44px] items-center text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                className="inline-flex min-h-[44px] items-center justify-center text-center text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
               >
                 New iPhone? Set up BookedJobs on your phone ›
               </Link>
