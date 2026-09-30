@@ -132,3 +132,8 @@
 - [ ] Evidence: phone screenshots, live test on test org, commit hashes on origin/dev
 - Progress 29/09: Parts 1, 2, 4 code done (tests 892 pass; 1 unrelated pre-existing failure in boilerEnquiryPayloadMirror). Part 3 SQL drafted, waiting for approval before applying. Live test and screenshots come after the migration.
 - [ ] BJ — Undo footer rebuild: Business Information saves write only company_phone (never message_footer); settings data for real K&N + TEST K&N awaiting approval; evidence on TEST K&N (booking confirmation footer, receipt/quote PDF header). Done: code, data, footer + quote PDF verified. Open: receipt PDF text read-back (private file, sandbox session is a different org).
+
+## TEST K&N (c0aa41ac) data clear addendum
+- [ ] G4/G5 listing run 30/09/26: all 5 enquiries + 2 customers created after cutoff — awaiting Barry approval before any delete
+- [ ] G6 lead-photo storage removal (5 files) — blocked on same approval
+- [ ] organisations.is_test is FALSE for c0aa41ac — reset/clear tooling will refuse; confirm intended
