@@ -9,16 +9,18 @@
 
 ## Step 1: diagnose (read-only, then stop and report)
 1. Use Playwright on the preview, signed in as the superadmin account, and record every request plus localStorage.
+   - Sign-in uses only a session minted by the platform (no password). No password is typed, hard-coded, logged or stored anywhere: code, plan, fixtures or output. If that isn't possible, I stop and you do the capture.
 2. Runs:
    - A. Fresh sign-in: /admin, then click a tenant.
    - B. The same after using View-as and then exiting it.
+   - B2. View-as still active (not exited): go to /admin and click a different tenant. This is the case most likely to send a stale x-org-impersonation-token / x-org-id.
    - C. The same with an expired access token in the session, to stand in for the 1h+ idle tab. A real 1-hour wait isn't possible in the sandbox, so this is simulated and I'll label it that way.
    - Then click Back and the tenant again.
 3. For the first failing attempt and for the working second attempt, capture the organisations request:
    - status code and raw body (code/message)
    - whether Authorization, x-org-impersonation-token and x-org-id were sent (yes/no only; values are never printed)
    - `adminViewingOrgId` and `adminImpersonationTokenExp` at that moment
-4. If none of the runs reproduce the bug, I'll say so and ask you for a capture from your own browser.
+4. If A, B, B2 and C all load on the first click, I report "not reproduced" with no guessing. I then give you exact steps for a capture in your own browser: DevTools, Network tab, the organisations request, then its status, its response, and which headers were present.
 5. Report raw output only, then stop.
 
 ## Step 2: fix (only after you approve Step 1; `TenantDetail.tsx` only)
