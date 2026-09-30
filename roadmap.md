@@ -162,6 +162,6 @@
 - [x] Customer Profile, Team & Users (6 steps), Engineer App (10 steps) text imported from approved PDFs
 - [ ] Engineer App: clean unframed screenshots needed (blocked: user to supply)
 - [ ] Team & Users "Add a Team Member": clean screenshot needed (blocked: user to supply)
-- [ ] Confirm exact Unblock/Restore wording in the app for Team & Users step 6
-- [ ] Manual visual sign-off at 390px and 1280px for all four guides (user)
+- [ ] NEEDS PRODUCTION UI VERIFICATION: exact Unblock/Restore wording, Team & Users step 6 (not a blocker)
+- [ ] Full visual QA at 390px + 1280px for every step of all four guides, then sign-off table (after screenshots arrive)
 - [ ] Login return URL for Help deep links — future improvement
