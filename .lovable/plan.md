@@ -1,26 +1,50 @@
-# WhatsApp test mode: Stage 1 re-check and report
+# WhatsApp test mode: Stage 2, wire the guard into every send
 
-## Current state (checked just now)
-Stage 1 was applied before this approval. Nothing new needs to be built. A read-only check shows:
-- `organisations.whatsapp_test_mode` is a boolean with default true
-- `organisation_whatsapp_allowed_numbers` has these columns: id uuid, organisation_id uuid, phone text, added_by uuid, created_at timestamptz. It has 0 rows and one superadmin-only access rule
-- c0aa41ac = false, 8c37827f = false, Dublin Gas = false. No company is in test mode
+## Goal
+Every WhatsApp message to a customer goes through one shared send step. That step checks the company's test mode before contacting 360 Messenger. Message wording, templates and every company's setting stay exactly as they are. No messages are sent during this work.
 
-## Steps (no data changes)
-1. Run the three permission checks again as simulated users inside a transaction that is rolled back:
-   - a normal tenant owner tries to change test mode (should be blocked)
-   - a normal tenant owner tries to read or add allowed numbers (should be blocked)
-   - a superadmin changes test mode (should work, then be rolled back)
-2. Confirm a new company gets TEST by default by inserting one inside a rolled-back transaction.
-3. Read the three companies' current values again by ID and confirm that 0 companies are in test mode.
-4. Check the message logs to confirm no WhatsApp sends came from this work.
-5. Report every item on your list, including which migration files changed. Then stop.
+## Where the guard lives
+The two shared routines that send today each do one narrow job. One sends deposit links, the other sends platform admin alerts. Neither is a general sender. The guard therefore goes into the existing shared WhatsApp helper that every feature already uses for settings and phone formatting. No new shared file is created. The deposit-link routine is switched to call it.
 
-## Out of scope
-- Switching c0aa41ac into test mode
-- Any WhatsApp send
-- Stage 2
-- Renaming or labelling either K&N company
+## What the shared send step does
+1. It formats the recipient number with the existing phone helper, which handles 08x, 8x, +353 and 00353 numbers. It compares that number against the approved list, formatted the same way. The number sent to 360 Messenger keeps today's format: digits only, with no "+".
+2. It reads the company's test-mode setting. If the company can't be found or the setting can't be read, nothing is sent and the send is recorded as an error.
+3. If test mode is ON and the number is not on that company's approved list:
+   - nothing is sent
+   - a message log row is saved with status `suppressed_test_mode`
+   - the feature receives a "success, suppressed" result
+4. Otherwise it sends exactly as today.
+5. A badly formatted number, a missing key or a provider error is still reported as an error, never as "suppressed".
+6. The opt-out checks stay in place. Test mode is an extra check on top of them.
+
+## Batches (one feature at a time, message wording unchanged)
+1. Bookings and reminders: booking confirmation, schedule confirmation, reschedule, cancellation notice, cancel-job notify, 2-day reminder, upcoming reminders, renewal reminder, part arrived
+2. Quotes, invoices and payments: quote WhatsApp, quote follow-up day 3 and day 6, quote accepted alert, accept quote, create job invoice, invoice WhatsApp, outstanding invoice reminders, payment link, extra-work payment link, payment received, WhatsApp receipt, SumUp payment webhook, deposit-link routine
+3. Certificates, warranty, bulk and alerts: certificate, hazard, warranty, bulk area send
+
+## Not changed
+- The template-check routine
+- The incoming-reply routine
+- Test-mode settings and approved numbers for every company
+- Company names
+
+## Decisions to confirm
+- **Platform admin alerts.** These go to Barry's number when an account is locked, and they belong to no company. They will call the shared send step as "platform, no company", so tenant test mode does not apply to them. Otherwise security alerts would be silently blocked.
+- **Payment features.** Batch 2 includes payment code, which our rules require to go through the full review process. Only the send line changes in those files. Payment amounts, statuses and revenue logic are untouched, and each file gets a unit test. Please confirm this is acceptable.
+
+## Checks (no real sends)
+- Unit tests for the shared step, with 360 Messenger faked:
+  - test mode ON with an unapproved number: suppressed and logged
+  - test mode ON with an approved number, in each of the four number formats: sent
+  - test mode OFF: sent exactly as today
+  - unknown company: error
+  - badly formatted number: error
+  - approved number from another company: suppressed
+- The existing message-wording tests still pass.
+- A final code search lists every remaining direct call to 360 Messenger. Only the template check and incoming replies should be left.
+- Report: the files changed and the search result. Then stop. Functions are not deployed until you approve.
 
 ## Technical details
-Every test runs in a BEGIN…ROLLBACK transaction and simulates users with `set local role authenticated` plus JWT claims. No migrations are run and no data is written.
+- `_shared/whatsapp.ts` gains `sendWhatsApp({ supabase, organisationId | "platform", to, text, messageType, customerId?, related… })`. It uses `phoneMatchKey`/`toE164Digits` from `_shared/phone.ts` and posts with `buildSendMessageForm` and `WHATSAPP_SEND_URL`.
+- Each feature keeps its own API-key lookup and message text as they are today, and only its direct `fetch(...360messenger...)` call is replaced.
+- The `message_log` columns used by the suppressed row are checked before any code is written.
