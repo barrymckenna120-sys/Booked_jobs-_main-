@@ -1,3 +1,4 @@
+import { segmentStyles } from "@/components/help/HelpScreenshotView";
 import { describe, it, expect } from "vitest";
 import { findGuide, findStep, searchHelp, HELP_GUIDES } from "./registry";
 
