@@ -176,3 +176,4 @@
 - [ ] Stage 1 report extras: 360 API call-site audit vs guard, send-whatsapp-guarded existence/secret, c0aa41ac vs 8c37827f profile
 - [ ] WhatsApp test mode Stage 2 — shared guarded send, move all senders (sent-marker rule), tests, report; no deploy
 - [ ] Stage 2 UI — office manual-send success toast shows "Not sent: WhatsApp test mode is on" when suppressed
+- [ ] Super Admin WhatsApp test-mode controls — tenant badges; per-tenant Messaging controls, allow-list and suppressed log; Office read-only banner; SELECT-only suppressed-message policy for superadmins with tenant-isolation verification. No send-guard or tenant-setting changes.

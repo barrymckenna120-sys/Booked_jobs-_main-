@@ -29,6 +29,7 @@ import UnsavedChangesModal from "@/components/customer/UnsavedChangesModal";
 import { NavigationGuardProvider, useNavigationGuard } from "@/hooks/useNavigationGuard";
 import MessageAlertBanner from "@/components/messages/MessageAlertBanner";
 import WhatsAppConnectionBanner from "@/components/whatsapp/WhatsAppConnectionBanner";
+import WhatsAppTestModeBanner from "@/components/whatsapp/WhatsAppTestModeBanner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import OnboardingTour from "@/components/OnboardingTour";
@@ -208,6 +209,7 @@ const AppLayoutInner = () => {
           Stacked, not overlapping, when both are showing. */}
       <div ref={bannerStackRef} className="relative z-50 flex flex-col">
         <ConnectionBanner offline={!isOnline} />
+        <WhatsAppTestModeBanner />
         <WhatsAppConnectionBanner />
       </div>
 
