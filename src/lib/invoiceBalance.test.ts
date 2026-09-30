@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasInvoiceablePrice, invoiceBalanceDue, jobInvoiceBalance, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
+import { hasInvoiceablePrice, invoiceBalanceDue, isInvoiceableTotal, jobInvoiceBalance, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
 
 const bal = (total: number, job: any, ledger: any[] = []) => invoiceBalanceDue(total, paymentsReceived(job, ledger));
 
@@ -29,5 +29,14 @@ describe("invoice balance", () => {
     expect(hasInvoiceablePrice(0, false)).toBe(false);
     expect(hasInvoiceablePrice(120, false)).toBe(true);
     expect(hasInvoiceablePrice(null, true)).toBe(true);
+  });
+  it("zero-invoice rule refuses missing, non-numeric, zero and negative totals", () => {
+    for (const t of [null, undefined, "", "abc", NaN, 0, -50]) expect(isInvoiceableTotal(t)).toBe(false);
+    expect(isInvoiceableTotal(0.01)).toBe(true);
+    expect(isInvoiceableTotal(500)).toBe(true);
+  });
+  it("total > 0 fully paid is allowed with balance 0", () => {
+    expect(isInvoiceableTotal(160)).toBe(true);
+    expect(jobInvoiceBalance(160, {}, [{ amount: 160, payment_type: "full" }])).toBe(0);
   });
 });

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
-import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
+import { hasInvoiceablePrice, isInvoiceableTotal, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -100,8 +100,8 @@ const InvoicePreview = () => {
   const serviceType = job.job_type || "Boiler Service";
 
   // Same total and balance rules as create-job-invoice (shared helper).
-  const hasPrice = hasInvoiceablePrice(job.revenue, quoteTotal != null);
   const totalAmount = quoteTotal != null ? quoteTotal : job.revenue ? Number(job.revenue) : 0;
+  const hasPrice = hasInvoiceablePrice(job.revenue, quoteTotal != null) && isInvoiceableTotal(totalAmount);
   const paymentPresentation = resolvePaymentPresentation(job);
   const receivedAmount = paymentsReceived(job, ledger);
   const hasPayments = receivedAmount > 0;
