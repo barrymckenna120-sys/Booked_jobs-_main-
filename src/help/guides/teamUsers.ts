@@ -2,6 +2,7 @@ import type { HelpGuide } from "../types";
 import sUsers from "@/assets/help-team-users.png.asset.json";
 import sActions from "@/assets/help-team-actions.png.asset.json";
 import sAvailability from "@/assets/help-team-availability.png.asset.json";
+import sAdd from "@/assets/help-team-add-member.png.asset.json";
 import sBlocks from "@/assets/help-team-timeblocks.png.asset.json";
 
 export const teamUsersGuide: HelpGuide = {
@@ -64,7 +65,7 @@ export const teamUsersGuide: HelpGuide = {
         "Tap the Add button shown for the selected role.",
       ],
       note: { tone: "info", text: "For Engineer, the screen shows the engineer permissions before you add the person: own assigned jobs, start and complete jobs, call and navigate, completion notes and photo uploads." },
-      screenshots: [],
+      screenshots: [{ src: sAdd.url, device: "mobile", alt: "Add Team Member with role choices, engineer permissions, Full Name, Email and Phone" }],
       keywords: ["add member", "add engineer", "add user", "invite", "new staff", "role"],
     },
     {
