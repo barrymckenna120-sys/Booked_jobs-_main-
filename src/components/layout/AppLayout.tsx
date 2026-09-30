@@ -1,3 +1,4 @@
+import { rememberHelpReturn } from "@/help/returnPath";
 import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
@@ -313,7 +314,7 @@ const AppLayoutInner = () => {
               { label: "New Job", icon: Plus, primary: true, onSelect: () => setShowNewJob(true) },
               { label: "Settings", icon: Settings, onSelect: () => guardedNavigate("/settings") },
               { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
-              { label: "Help & Training", icon: CircleHelp, onSelect: () => guardedNavigate("/help") },
+              { label: "Help & Training", icon: CircleHelp, onSelect: () => { rememberHelpReturn(location.pathname + location.search); guardedNavigate("/help"); } },
               { label: "Report an issue", icon: LifeBuoy, onSelect: () => setReportOpen(true) },
               {
                 label: "Sign Out",
@@ -353,7 +354,7 @@ const AppLayoutInner = () => {
                 <HelpCircle />
               </HeaderIconButton>
               <HeaderIconButton
-                onClick={() => guardedNavigate("/help")}
+                onClick={() => { rememberHelpReturn(location.pathname + location.search); guardedNavigate("/help"); }}
                 label="Help & Training"
                 title="Help & Training"
                 aria-label="Help & Training"

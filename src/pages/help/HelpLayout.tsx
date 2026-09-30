@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CircleHelp, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { getHelpReturn } from "@/help/returnPath";
 
 /** Auth-protected shell: useAuth redirects signed-out visitors to /auth. */
 const HelpLayout = () => {
@@ -16,24 +17,25 @@ const HelpLayout = () => {
     );
   }
 
-  const back = () => {
-    if (pathname === "/help") navigate(-1);
-    else navigate(pathname.split("/").slice(0, -1).join("/") || "/help");
-  };
+  const exitHelp = () => navigate(getHelpReturn());
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-3">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-3">
           <button
             type="button"
-            onClick={back}
-            className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-muted"
-            aria-label="Back"
+            onClick={exitHelp}
+            className="flex h-11 items-center gap-1.5 rounded-xl px-2 text-sm font-semibold hover:bg-muted"
           >
             <ArrowLeft className="h-5 w-5" />
+            Back to BookedJobs
           </button>
-          <Link to="/help" className="flex items-center gap-2 font-semibold">
+          <Link
+            to="/help"
+            aria-current={pathname === "/help" ? "page" : undefined}
+            className="flex h-11 items-center gap-1.5 rounded-xl px-2 text-sm font-semibold hover:bg-muted"
+          >
             <CircleHelp className="h-5 w-5 text-primary" />
             Help & Training
           </Link>

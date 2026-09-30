@@ -1,3 +1,4 @@
+import { rememberHelpReturn } from "@/help/returnPath";
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
@@ -130,7 +131,7 @@ const EngineerLayout = () => {
               { label: "Order Parts", icon: Package, onSelect: () => navigate("/engineer/parts") },
               { label: "Fault Finder", icon: SearchCode, onSelect: () => openFaultFinder?.() },
               { label: "Take the tour", icon: HelpCircle, onSelect: () => startTour() },
-              { label: "Help & Training", icon: CircleHelp, onSelect: () => navigate("/help") },
+              { label: "Help & Training", icon: CircleHelp, onSelect: () => { rememberHelpReturn(location.pathname + location.search); navigate("/help"); } },
               { label: "Report a Bug", icon: Bug, onSelect: () => setReportOpen(true) },
               { label: "Sign Out", icon: LogOut, separatorBefore: true, onSelect: () => signOut() },
             ]}
@@ -174,7 +175,7 @@ const EngineerLayout = () => {
               <HelpCircle />
             </HeaderIconButton>
             <HeaderIconButton
-              onClick={() => navigate("/help")}
+              onClick={() => { rememberHelpReturn(location.pathname + location.search); navigate("/help"); }}
               className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Help & Training"
               title="Help & Training"
