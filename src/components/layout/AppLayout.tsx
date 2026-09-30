@@ -353,18 +353,14 @@ const AppLayoutInner = () => {
               >
                 <HelpCircle />
               </HeaderIconButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <HeaderIconButton label="Help" title="Help" aria-label="Help">
-                    <LifeBuoy />
-                  </HeaderIconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => startTour()}>Take the tour</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => guardedNavigate("/help")}>Help & Training</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <HeaderIconButton
+                onClick={() => guardedNavigate("/help")}
+                label="Help & Training"
+                title="Help & Training"
+                aria-label="Help & Training"
+              >
+                <LifeBuoy />
+              </HeaderIconButton>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
               <HeaderIconButton
                 onClick={() => guardedNavigate("/settings")}

@@ -174,6 +174,15 @@ const EngineerLayout = () => {
               <HelpCircle />
             </HeaderIconButton>
             <HeaderIconButton
+              onClick={() => navigate("/help")}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              label="Help & Training"
+              title="Help & Training"
+              aria-label="Help & Training"
+            >
+              <CircleHelp />
+            </HeaderIconButton>
+            <HeaderIconButton
               onClick={() => setReportOpen(true)}
               className="text-muted-foreground hover:text-foreground hover:bg-muted"
               label="Report a Bug"
