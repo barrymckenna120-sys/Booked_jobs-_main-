@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Wrench, ArrowLeft, Bell, MoreVertical } from "lucide-react";
-import type { HelpScreenshot, HelpScreenshotMarker } from "@/help/types";
+import type { HelpScreenshot, HelpScreenshotMarker, HelpScreenshotSegment } from "@/help/types";
 
 /** Static copies of the real Engineer App top controls (same icons/styles), non-interactive. */
 const ControlPreview = ({ icon }: { icon: NonNullable<HelpScreenshotMarker["icon"]> }) => {
@@ -34,12 +34,75 @@ const ScreenshotMarkers = ({ shot }: { shot: HelpScreenshot }) => (
   </>
 );
 
+/** Percent box styles that show only `crop` of a segment, scaled to the container width. */
+export const segmentStyles = (s: HelpScreenshotSegment) => ({
+  box: { aspectRatio: `${s.crop.width} / ${s.crop.height}` },
+  img: {
+    width: `${(s.naturalWidth / s.crop.width) * 100}%`,
+    left: `${(-s.crop.x / s.crop.width) * 100}%`,
+    top: `${(-s.crop.y / s.crop.height) * 100}%`,
+  },
+});
+
+/** Slices stacked with no gap — reads as one long capture. Outer container supplies rounding. */
+const StitchedImage = ({ segments, alt }: { segments: HelpScreenshotSegment[]; alt: string }) => (
+  <span role="img" aria-label={alt} className="block w-full">
+    {segments.map((s, i) => {
+      const st = segmentStyles(s);
+      return (
+        <span key={i} className="relative block w-full overflow-hidden" style={st.box}>
+          <img src={s.src} alt="" loading="lazy" className="absolute h-auto max-w-none" style={st.img} />
+        </span>
+      );
+    })}
+  </span>
+);
+
 /** Large screenshot; tap to enlarge full-screen, tap/Escape/X to dismiss.
  *  With mobileCrop, phones see the cropped area; enlarge always shows the full image. */
 export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
   const [open, setOpen] = useState(false);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
-  const c = shot.mobileCrop;
+  const c = shot.segments ? undefined : shot.mobileCrop;
+  if (shot.segments) {
+    const segs = shot.segments;
+    return (
+      <figure className={shot.device === "mobile" ? "mx-auto w-[94%] max-w-[380px]" : "mx-auto w-[94%] md:w-full"}>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="block w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Enlarge screenshot: ${shot.alt}`}
+        >
+          <StitchedImage segments={segs} alt={shot.alt} />
+        </button>
+        <figcaption className="mt-2 text-center text-sm text-muted-foreground">{shot.caption ?? "Tap to enlarge"}</figcaption>
+        <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/90" />
+            <DialogPrimitive.Content
+              className="fixed inset-0 z-50 overflow-auto overscroll-contain focus:outline-none"
+              onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+            >
+              <DialogPrimitive.Title className="sr-only">{shot.alt}</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="sr-only">Enlarged screenshot. Tap outside or press Escape to close.</DialogPrimitive.Description>
+              <div className="flex min-h-full items-start justify-center px-[2.5vw] pb-6 pt-14" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+                <div className={shot.device === "mobile" ? "w-[95vw] max-w-[720px] overflow-hidden rounded-lg" : "w-[95vw] overflow-hidden rounded-lg"}>
+                  <StitchedImage segments={segs} alt={shot.alt} />
+                </div>
+              </div>
+              <DialogPrimitive.Close
+                className="fixed right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </DialogPrimitive.Close>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
+      </figure>
+    );
+  }
   return (
     <figure className={shot.device === "mobile" ? "mx-auto w-[94%] max-w-[380px]" : "mx-auto w-[94%] md:w-full"}>
       <button
