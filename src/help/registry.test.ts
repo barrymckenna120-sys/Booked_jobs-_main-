@@ -30,6 +30,20 @@ describe("help registry", () => {
       expect(c.x + c.width).toBeLessThanOrEqual(100); expect(c.y + c.height).toBeLessThanOrEqual(100);
     })));
   });
+  it("screenshot markers stay inside the image and have unique numbers", () => {
+    HELP_GUIDES.forEach((g) => g.steps.forEach((s) => s.screenshots.forEach(({ markers = [] }) => {
+      expect(new Set(markers.map((marker) => marker.number)).size).toBe(markers.length);
+      markers.forEach((marker) => {
+        expect(marker.x).toBeGreaterThanOrEqual(0); expect(marker.x).toBeLessThanOrEqual(100);
+        expect(marker.y).toBeGreaterThanOrEqual(0); expect(marker.y).toBeLessThanOrEqual(100);
+      });
+    })));
+  });
+  it("marks the Engineer header bell and More menu", () => {
+    expect(findStep(findGuide("engineer"), "header")?.step.screenshots[0].markers?.map((marker) => marker.label)).toEqual([
+      "Notification bell", "Three-dot menu",
+    ]);
+  });
   it("customer import follows the approved 10-step guide", () => {
     expect(findGuide("customer-import")!.steps.map((s) => s.title)).toEqual([
       "Open Customer Import", "Download the BookedJobs template", "Upload your Excel file", "Check recognised fields",

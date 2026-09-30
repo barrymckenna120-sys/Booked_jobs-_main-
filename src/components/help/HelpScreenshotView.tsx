@@ -3,6 +3,21 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { HelpScreenshot } from "@/help/types";
 
+const ScreenshotMarkers = ({ shot }: { shot: HelpScreenshot }) => (
+  <>
+    {shot.markers?.map((marker) => (
+      <span
+        key={marker.number}
+        aria-hidden="true"
+        className="pointer-events-none absolute z-10 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-primary-foreground ring-1 ring-background shadow-sm"
+        style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+      >
+        {marker.number}
+      </span>
+    ))}
+  </>
+);
+
 /** Large screenshot; tap to enlarge full-screen, tap/Escape/X to dismiss.
  *  With mobileCrop, phones see the cropped area; enlarge always shows the full image. */
 export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
@@ -35,10 +50,24 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
                 top: `${(-c.y * 100) / c.height}%`,
               }}
             />
+            <ScreenshotMarkers shot={shot} />
           </span>
         ) : null}
-        <img src={shot.src} alt={c ? "" : shot.alt} loading="lazy" className={c ? "hidden h-auto w-full md:block" : "block h-auto w-full"} />
+        <span className={c ? "relative hidden md:block" : "relative block"}>
+          <img src={shot.src} alt={c ? "" : shot.alt} loading="lazy" className="block h-auto w-full" />
+          <ScreenshotMarkers shot={shot} />
+        </span>
       </button>
+      {shot.markers?.length ? (
+        <ol className="mt-3 space-y-2 text-sm md:hidden" aria-label="Screenshot callouts">
+          {shot.markers.map((marker) => (
+            <li key={marker.number} className="flex gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{marker.number}</span>
+              <span><strong>{marker.label}:</strong> {marker.text}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
       <figcaption className="mt-2 text-center text-sm text-muted-foreground">
         {shot.caption ?? (c ? <><span className="md:hidden">Tap to see the full screen</span><span className="hidden md:inline">Tap to enlarge</span></> : "Tap to enlarge")}
       </figcaption>
@@ -55,11 +84,10 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
               className="flex min-h-full items-start justify-center px-[2.5vw] pb-6 pt-14"
               onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
             >
-              <img
-                src={shot.src}
-                alt={shot.alt}
-                className={shot.device === "mobile" ? "block h-auto w-[95vw] max-w-[720px] rounded-lg" : "block h-auto w-[95vw] rounded-lg"}
-              />
+              <div className={shot.device === "mobile" ? "relative w-[95vw] max-w-[720px]" : "relative w-[95vw]"}>
+                <img src={shot.src} alt={shot.alt} className="block h-auto w-full rounded-lg" />
+                <ScreenshotMarkers shot={shot} />
+              </div>
             </div>
             <DialogPrimitive.Close
               className="fixed right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
