@@ -41,7 +41,7 @@ describe("help registry", () => {
   });
   it("marks the four Engineer header controls", () => {
     expect(findStep(findGuide("engineer"), "header")?.step.screenshots[0].markers?.map((marker) => marker.label)).toEqual([
-      "Engineer", "Office", "Notifications", "More",
+      "Engineer", "Office", "Notifications", "Three dots (⋮)",
     ]);
   });
   it("customer import follows the approved 10-step guide", () => {
