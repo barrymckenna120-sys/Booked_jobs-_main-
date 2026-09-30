@@ -1,41 +1,39 @@
-# Fix: invoices showing €0.00 owed when money is still due
+# Deploy the corrected job-invoice balance
 
-## Root cause (confirmed from live data and code)
-The wrong zero comes from the amount calculation in the invoice creator (`create-job-invoice`). That same calculation feeds the invoice record, the PDF and the WhatsApp message. Two faults:
+## Final change before deployment
+- Change the invoice PDF label from **Deposit Paid** to **Payments received**.
+- Change the matching WhatsApp line from **Deposit paid** to **Payments received**.
+- Make no calculation, template, route, or other wording changes.
+- Keep the office preview aligned by using **Payments received** there as well, because it displays the same all-payments figure.
 
-1. **No quote and no job price gives a €0 total, even when a balance is owed.** Without a linked quote, the invoice total is taken only from the job's price (`revenue`). If that is empty, the total becomes €0 and the balance becomes €0. The job's own stored balance owed (`balance_due`) is ignored.
-   - Real case: INV-2026-0004 (K&N, job KN-191). The job has no price and no quote, but €184.50 owed. The invoice was stored and sent as total €0 and balance €0.
-2. **A required deposit is treated as already paid.** With a quote, "deposit paid" is set to the quote's *required* deposit, whether or not the customer paid it. When the deposit equals the whole price, the balance drops to €0.
-   - Four live invoices (INV-0001, 0008, 0011, 0012) record the deposit as paid while the job says it was not. Their balances are understated today, though not zero.
+## Deployment sequence
+1. Run the focused invoice tests and confirm the preview build is healthy.
+2. Record the currently deployed `create-job-invoice` version as the exact rollback target.
+3. Deploy **only** `create-job-invoice`; do not deploy any other function.
+4. Immediately tell Barry to click **Publish → Update** so the frontend invoice-preview change is released alongside the function. The function deployment is immediate; the frontend does not become public until Update is clicked.
+5. Do not send any customer WhatsApp messages during verification.
 
-The office invoice screen reads the job's own balance, so it can disagree with the PDF.
+## K&N TEST verification only
+Use organisation `c0aa41ac-41ab-42d8-8085-972c072b0279` and scratch records only.
 
-## Fix (1 file: `supabase/functions/create-job-invoice/index.ts`)
-- **Deposit:** count it as paid only when the job says the deposit was paid. Otherwise it is €0 paid.
-- **Total with no quote:** use the job price. If that is missing, use the job's stored balance owed plus any deposit actually paid, so it is never €0 when money is owed.
-- **Balance owed:** total minus deposit actually paid, never below €0. The same value is used for the invoice record, the PDF "Balance Due" line and the WhatsApp message, so all three always match.
-- **Fully paid jobs** (job balance 0 and marked paid) still show €0.00.
-- **Unchanged:** the job price is never written (revenue rule), and the payment history, access checks, tenant check and message wording are untouched.
+- **Preview and PDF agreement:** open the invoice preview in the browser, create/open the test PDF without sending it, and confirm both show the same total, Payments received, and balance due. Read back the invoice record and confirm its balance matches.
+- **Missing price:** use a scratch job with no price and no linked quote. Confirm the preview visibly shows **“Set a job price before invoicing”**, and confirm the deployed creator refuses the request with that same error.
+- **Deposit plus part-payment:** use a scratch job with both payments recorded in the payment ledger. Confirm the preview, generated PDF, and invoice record all show the same correct remainder, with both payments subtracted once.
+- Check the deployed function logs and relevant invoice data after each test. Confirm no customer message was sent.
+- Do not inspect, edit, recreate, reissue, or message **INV-2026-0008 (Aisling Power)**.
 
-Small pure helper inside the same file for the sums, plus one test file for it (so 2 files).
-
-## Verification
-- Unit tests for the helper:
-  - unpaid, no deposit: full amount
-  - deposit paid: remainder
-  - deposit required but unpaid: full amount
-  - no price, balance €184.50: €184.50
-  - fully paid: €0.00
-  - partly paid: correct remainder
-- Deploy only `create-job-invoice` after approval, then create an invoice for a scratch job on the K&N TEST tenant. No messages go to real customers.
-  - Read back the invoice row.
-  - Open the PDF and confirm Balance Due matches the office screen.
-- Tenant check: a user from another company gets refused when creating or reading that invoice. The existing access check is untouched; this is a read-back only.
-- Type check, focused tests, build.
-
-## Not in this fix (flagged for you)
-- INV-2026-0004 and the four understated invoices already went out with wrong figures. Correcting or reissuing them is a separate data change needing your approval.
-- Invoice status never moving past "unpaid" (BJ-0077) is a separate known bug and is not touched.
+## Separate issue to record only
+- Add a new backlog item for **“two different TOTAL lines on quote-job PDFs”**.
+- Record it as a separate investigation/fix; do not alter quote-job PDF code in this deployment.
 
 ## Rollback
-Restore the version before this change and redeploy `create-job-invoice` only.
+- Report the exact pre-deployment function version before deploying.
+- If rollback is needed, restore the application source version from immediately before this invoice change and redeploy only the recorded prior `create-job-invoice` function version.
+- Publish the restored frontend only if the invoice-preview frontend change also needs to be rolled back.
+
+## Final report
+- Deployed function and version, plus the previous rollback version.
+- When Barry should click **Publish → Update**.
+- PASS/FAIL for each K&N TEST check, including the browser-visible result, PDF values, invoice-row values, and no-message confirmation.
+- The separate quote-job PDF bug reference.
+- Explicit confirmation that INV-2026-0008 was untouched.
