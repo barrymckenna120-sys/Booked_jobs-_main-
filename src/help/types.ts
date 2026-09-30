@@ -14,6 +14,14 @@ export type HelpScreenshotMarker = {
   icon?: "engineer" | "office" | "bell" | "more";
 };
 
+/** One slice of a stitched screenshot. Sizes/crop in source-image pixels. */
+export type HelpScreenshotSegment = {
+  src: string;
+  naturalWidth: number;
+  naturalHeight: number;
+  crop: { x: number; y: number; width: number; height: number };
+};
+
 export type HelpScreenshot = {
   src: string;
   alt: string;
@@ -21,6 +29,8 @@ export type HelpScreenshot = {
   caption?: string;
   mobileCrop?: HelpCrop;
   markers?: HelpScreenshotMarker[];
+  /** Render these slices stacked seamlessly as one continuous screen (originals untouched). */
+  segments?: HelpScreenshotSegment[];
 };
 
 export type HelpCallout = { number?: number; label: string; text: string };

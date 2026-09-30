@@ -1,3 +1,4 @@
+import { segmentStyles } from "@/components/help/HelpScreenshotView";
 import { describe, it, expect } from "vitest";
 import { findGuide, findStep, searchHelp, HELP_GUIDES } from "./registry";
 
@@ -43,8 +44,18 @@ describe("help registry", () => {
     const g = findGuide("engineer")!;
     expect(g.steps).toHaveLength(11);
     expect(g.steps.slice(2, 5).map((s) => s.slug)).toEqual(["todays-jobs", "customer-job-details", "travel"]);
-    const srcs = g.steps.slice(2, 5).flatMap((s) => s.screenshots.map((x) => x.src));
+    const srcs = g.steps.slice(2, 5).flatMap((s) => s.screenshots.flatMap((x) => x.segments ? x.segments.map((p) => p.src) : [x.src]));
     expect(new Set(srcs).size).toBe(srcs.length);
+    const today = g.steps[2].screenshots;
+    expect(today).toHaveLength(1);
+    expect(today[0].segments).toHaveLength(2);
+  });
+
+  it("computes segment crop styles", () => {
+    const st = segmentStyles({ src: "x", naturalWidth: 412, naturalHeight: 842, crop: { x: 1, y: 53, width: 401, height: 789 } });
+    expect(st.box.aspectRatio).toBe("401 / 789");
+    expect(parseFloat(st.img.width)).toBeCloseTo(102.74, 1);
+    expect(parseFloat(st.img.top)).toBeCloseTo(-6.72, 1);
   });
 
   it("marks the four Engineer header controls", () => {

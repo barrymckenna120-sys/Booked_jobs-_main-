@@ -80,7 +80,16 @@ export const engineerGuide: HelpGuide = {
         "Jobs are created and scheduled in the Office App and assigned directly to the engineer.",
         "Press Open on the Details button to view the customer and job information.",
       ],
-      screenshots: [{ src: e01.url, device: "mobile", alt: "Today's Jobs with job counts and the next job card" }, { src: e03.url, device: "mobile", alt: "Lower Today screen with Rest of Day, Outstanding Balances, Needs Attention and the bottom navigation" }],
+      screenshots: [{
+        src: e01.url,
+        device: "mobile",
+        alt: "Today's Jobs with job counts and the next job card, continuing down to Rest of Day, Outstanding Balances, Needs Attention and the bottom navigation",
+        // One continuous Today screen: e01 without its bottom nav, then e03 without its repeated header.
+        segments: [
+          { src: e01.url, naturalWidth: 401, naturalHeight: 871, crop: { x: 0, y: 0, width: 401, height: 779 } },
+          { src: e03.url, naturalWidth: 412, naturalHeight: 842, crop: { x: 1, y: 53, width: 401, height: 789 } },
+        ],
+      }],
       keywords: ["today", "jobs", "assigned", "rest of day", "needs attention"],
     },
     {
