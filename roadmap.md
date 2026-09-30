@@ -169,3 +169,6 @@
 - [x] Help image detail viewer — iPhone-safe Help header/close control, obvious Enlarge image action, 5× pinch/pan zoom, desktop +/−/Fit controls, and shared verification across Customer Profile and Engineer screenshots.
 - [x] Tour exit control — shared 44px X on every Office/Engineer tour pop-up, desktop Escape, backdrop close, and 390px/1280px verification.
 - [x] Overlay safety: mobile tour X outside scroll area + 390/1280 open/close cycle verification
+- [ ] Help nav clears real iPhone status bar (non-sticky) — awaiting real-device check
+- [ ] WhatsApp test mode Stage 1 (schema/security) — then stop for review
+- [ ] WhatsApp test mode Stages 2-6 — blocked on Stage 1 review
