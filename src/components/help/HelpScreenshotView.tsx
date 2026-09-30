@@ -100,7 +100,7 @@ const ScreenshotViewer = ({ shot, open, onOpenChange }: { shot: HelpScreenshot; 
             keyboard={{ disabled: false, panStep: 50, zoomStep: 0.5 }}
             onTransform={(_ref, state) => setScale(state.scale)}
           >
-            {({ zoomIn, zoomOut, fitToView }) => (
+            {({ zoomIn, zoomOut, resetTransform }) => (
               <>
                 <div
                   className="fixed left-3 z-[60] flex items-center gap-1 rounded-lg bg-background p-1 shadow-lg md:left-1/2 md:-translate-x-1/2"
@@ -114,7 +114,7 @@ const ScreenshotViewer = ({ shot, open, onOpenChange }: { shot: HelpScreenshot; 
                   <Button type="button" variant="ghost" size="icon" onClick={() => zoomIn(0.5)} disabled={scale >= HELP_SCREENSHOT_MAX_ZOOM - 0.01} aria-label="Zoom in">
                     <Plus className="h-5 w-5" />
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => fitToView({ mode: "contain" })} disabled={scale <= 1.01} aria-label="Fit image to screen">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => resetTransform()} disabled={scale <= 1.01} aria-label="Fit image to screen">
                     <RotateCcw className="h-5 w-5" />
                   </Button>
                 </div>
