@@ -10,6 +10,8 @@ export type HelpScreenshotMarker = {
   y: number;
   label: string;
   text: string;
+  /** Show the real BookedJobs control beside the explanation. */
+  icon?: "engineer" | "office" | "bell" | "more";
 };
 
 export type HelpScreenshot = {
