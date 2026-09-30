@@ -39,9 +39,9 @@ describe("help registry", () => {
       });
     })));
   });
-  it("marks the Engineer header bell and More menu", () => {
+  it("marks the four Engineer header controls", () => {
     expect(findStep(findGuide("engineer"), "header")?.step.screenshots[0].markers?.map((marker) => marker.label)).toEqual([
-      "Notification bell", "Three-dot menu",
+      "Engineer", "Office", "Notifications", "More",
     ]);
   });
   it("customer import follows the approved 10-step guide", () => {
