@@ -139,5 +139,5 @@
 - [ ] organisations.is_test is FALSE for c0aa41ac — reset/clear tooling will refuse; confirm intended
 
 ## Tenant detail fails on first click (/admin → tenant)
-- [ ] Step 1 diagnose: runs A, B, B2, C — capture organisations request (read-only), then stop
+- [x] Step 1 diagnose 30/09/26: A, B, B2 not reproduced; C inconclusive (expired session → /auth). Awaiting Barry browser capture
 - [ ] Step 2 fix in TenantDetail.tsx + test file — blocked on Step 1 approval
