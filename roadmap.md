@@ -166,3 +166,4 @@
 - [ ] Full visual QA at 390px + 1280px for every step of all four guides, then sign-off table (after screenshots arrive)
 - [ ] Login return URL for Help deep links — future improvement
 - [x] Help access: Office desktop direct link, Engineer desktop button, role-aware Help home + Report an issue (done 30/09/26)
+- [ ] Help image detail viewer — iPhone-safe Help header/close control, obvious Enlarge image action, 5× pinch/pan zoom, desktop +/−/Fit controls, and shared verification across Customer Profile and Engineer screenshots.

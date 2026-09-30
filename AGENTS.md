@@ -7,3 +7,4 @@
 - Help Centre content is version-controlled data in `src/help/guides/*.ts`, registered in `src/help/registry.ts`; one generic renderer under `src/pages/help/`. Why: new guides need no new page code (no CMS, no DB).
 - Help screenshot callouts are percentage-positioned renderer overlays, never baked into source images. Why: clean screenshots stay reusable and markers scale in normal and enlarged views.
 - Continuous Help screens are stitched in the renderer via `HelpScreenshot.segments` (pixel crops per source), never merged files. Why: clean source screenshots stay reusable.
+- All Help screenshots use the shared full-resolution zoom/pan viewer with a 5× maximum and safe-area-fixed controls. Why: desktop UI details must remain readable on iPhone.
