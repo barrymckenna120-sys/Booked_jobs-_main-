@@ -68,3 +68,10 @@ export function hasInvoiceablePrice(revenue: unknown, hasQuote: boolean): boolea
   if (hasQuote) return true;
   return revenue != null && revenue !== "" && num(revenue) > 0;
 }
+
+/** Zero-invoice rule: the invoice total must be a real number above 0. */
+export function isInvoiceableTotal(total: unknown): boolean {
+  if (total == null || total === "") return false;
+  const n = typeof total === "number" ? total : Number(total);
+  return Number.isFinite(n) && n > 0;
+}

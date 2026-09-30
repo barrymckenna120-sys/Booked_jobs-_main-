@@ -1,4 +1,4 @@
-import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../_shared/invoiceBalance.ts";
+import { hasInvoiceablePrice, isInvoiceableTotal, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../_shared/invoiceBalance.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.2";
 import { getWhatsAppConfig, normalisePhone, logWhatsAppFailure, sendWhatsAppGuarded } from "../_shared/whatsapp.ts";
@@ -126,6 +126,13 @@ Deno.serve(async (req) => {
       totalAmount = Number(job.revenue || 0);
       depositPaid = received;
       balanceDue = jobInvoiceBalance(totalAmount, job, ledgerRows ?? []);
+    }
+
+    // Zero-invoice rule: never create an invoice whose total is missing or <= 0.
+    if (!isInvoiceableTotal(totalAmount)) {
+      return new Response(JSON.stringify({ error: MISSING_PRICE_ERROR }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ── Create invoice record ──
