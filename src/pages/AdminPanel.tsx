@@ -894,7 +894,24 @@ export default function AdminPanel() {
       (json.organisations as any[]) ||
       [];
 
-    setTenants(list as any);
+    const { data: modeRows, error: modeError } = await supabase
+      .from("organisations")
+      .select("id, whatsapp_test_mode");
+
+    if (modeError) {
+      toast.error("Could not load WhatsApp test-mode badges");
+    }
+
+    const modeByOrganisation = new Map(
+      (modeRows ?? []).map((row) => [row.id, row.whatsapp_test_mode]),
+    );
+
+    const organisationsWithMode = list.map((tenant) => ({
+      ...tenant,
+      whatsapp_test_mode: modeByOrganisation.get(tenant.id) === true,
+    }));
+
+    setTenants(organisationsWithMode as any);
     setLoadingTenants(false);
 
     try {

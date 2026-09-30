@@ -6,7 +6,8 @@
 
 - Help Centre content is version-controlled data in `src/help/guides/*.ts`, registered in `src/help/registry.ts`; one generic renderer under `src/pages/help/`. Why: new guides need no new page code (no CMS, no DB).
 - Help screenshot callouts are percentage-positioned renderer overlays, never baked into source images. Why: clean screenshots stay reusable and markers scale in normal and enlarged views.
-- Continuous Help screens are stitched in the renderer via `HelpScreenshot.segments` (pixel crops per source), never merged files. Why: clean source screenshots stay reusable.
+- Help screenshot callouts and continuous screens are renderer overlays/segments, never modified source images. Why: clean screenshots stay reusable.
 - All Help screenshots use the shared full-resolution zoom/pan viewer with a 5× maximum and safe-area-fixed controls. Why: desktop UI details must remain readable on iPhone.
 - WhatsApp test-mode allow-list lives in `organisation_whatsapp_allowed_numbers` (superadmin-only RLS), not a column on `organisations`. Why: tenant members can read their whole organisations row, so a column would expose the list.
 - `organisations.whatsapp_test_mode` is guarded by the SECURITY INVOKER trigger `protect_whatsapp_test_mode` (only superadmin/backend may change it). Why: a SECURITY DEFINER trigger sees current_user as the owner and let tenant owners through.
+- Cross-tenant `message_log` access is superadmin SELECT-only for `suppressed_test_mode`; ordinary history stays tenant-scoped. Why: oversight must not expose customer communications.
