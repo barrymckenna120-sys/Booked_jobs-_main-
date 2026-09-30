@@ -177,3 +177,5 @@
 - [ ] WhatsApp test mode Stage 2 — shared guarded send, move all senders (sent-marker rule), tests, report; no deploy
 - [ ] Stage 2 UI — office manual-send success toast shows "Not sent: WhatsApp test mode is on" when suppressed
 - [x] Super Admin WhatsApp test-mode controls — tenant badges; per-tenant Messaging controls, allow-list and suppressed log; Office read-only banner; SELECT-only suppressed-message policy verified for tenant isolation. No send-guard or tenant-setting changes.
+- [x] Booking retry fix: release claim on failure, 409 while in progress, orphan-customer cleanup, failed_booking_intakes table and dashboard Failed Bookings row (code done, not deployed)
+- [ ] Booking retry fix: deploy tally-incoming-job + tally-boiler-rebook, then live checks on K&N TEST tenant (awaiting deploy approval)
