@@ -134,6 +134,10 @@
 - [ ] BJ — Undo footer rebuild: Business Information saves write only company_phone (never message_footer); settings data for real K&N + TEST K&N awaiting approval; evidence on TEST K&N (booking confirmation footer, receipt/quote PDF header). Done: code, data, footer + quote PDF verified. Open: receipt PDF text read-back (private file, sandbox session is a different org).
 
 ## TEST K&N (c0aa41ac) data clear addendum
-- [ ] G4/G5 listing run 30/09/26: all 5 enquiries + 2 customers created after cutoff — awaiting Barry approval before any delete
-- [ ] G6 lead-photo storage removal (5 files) — blocked on same approval
+- [x] G4/G5: 5 enquiries + 2 customers deleted 30/09/26 (approved), audit 80f1d43f
+- [x] G6: 5 lead-photo files + rows removed, 0 orphans
 - [ ] organisations.is_test is FALSE for c0aa41ac — reset/clear tooling will refuse; confirm intended
+
+## Tenant detail fails on first click (/admin → tenant)
+- [x] Step 1 diagnose 30/09/26: A, B, B2 not reproduced; C inconclusive (expired session → /auth). Awaiting Barry browser capture
+- [ ] Step 2 fix in TenantDetail.tsx + test file — blocked on Step 1 approval
