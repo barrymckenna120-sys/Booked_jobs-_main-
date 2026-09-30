@@ -1,12 +1,32 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, LifeBuoy, Search } from "lucide-react";
 import { HELP_COMING_SOON, HELP_GUIDES, searchHelp } from "@/help/registry";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 
 const HelpHome = () => {
   const [query, setQuery] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const { user } = useAuth();
   const results = searchHelp(query);
   const searching = query.trim().length > 1;
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("role").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => setRole((data?.role as string | null) ?? null));
+  }, [user]);
+
+  const isEngineer = role === "engineer";
+  const guides = useMemo(() => {
+    // Role-aware ordering: engineers see the Engineer App first, office roles see
+    // the office/customer guides first. Nothing is hidden — order only.
+    const key = isEngineer ? "engineer" : "customer-profile";
+    return [...HELP_GUIDES].sort((a, b) => (a.slug === key ? -1 : 0) - (b.slug === key ? -1 : 0));
+  }, [isEngineer]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -48,7 +68,7 @@ const HelpHome = () => {
       ) : null}
 
       <section className="mt-8 space-y-3">
-        {HELP_GUIDES.map((g) => (
+        {guides.map((g) => (
           <Link key={g.slug} to={`/help/${g.slug}`} className="block rounded-2xl border border-border bg-card p-5 hover:border-primary">
             <p className="text-xl font-bold">{g.title}</p>
             <p className="mt-1 text-foreground/80">{g.description}</p>
@@ -64,7 +84,19 @@ const HelpHome = () => {
             <span className="mt-3 inline-block rounded-full bg-muted px-3 py-1 text-sm font-medium">Coming soon</span>
           </div>
         ))}
+        <button
+          type="button"
+          onClick={() => setReportOpen(true)}
+          className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-5 text-left hover:border-primary"
+        >
+          <LifeBuoy className="h-5 w-5 shrink-0 text-primary" />
+          <span>
+            <span className="block text-lg font-bold">Report an issue</span>
+            <span className="block text-foreground/80">Tell us about a problem or something that looks wrong.</span>
+          </span>
+        </button>
       </section>
+      <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} app={isEngineer ? "engineer" : "office"} />
     </div>
   );
 };

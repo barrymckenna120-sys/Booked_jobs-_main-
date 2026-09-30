@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { LifeBuoy, HelpCircle, CircleHelp } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import ReportIssueDialog from "@/components/support/ReportIssueDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -353,18 +352,14 @@ const AppLayoutInner = () => {
               >
                 <HelpCircle />
               </HeaderIconButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <HeaderIconButton label="Help" title="Help" aria-label="Help">
-                    <LifeBuoy />
-                  </HeaderIconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => startTour()}>Take the tour</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => guardedNavigate("/help")}>Help & Training</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setReportOpen(true)}>Report an issue</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <HeaderIconButton
+                onClick={() => guardedNavigate("/help")}
+                label="Help & Training"
+                title="Help & Training"
+                aria-label="Help & Training"
+              >
+                <LifeBuoy />
+              </HeaderIconButton>
               <NotificationBell unreadCount={unreadCount} onClick={() => setNotifOpen(true)} showLabel={false} />
               <HeaderIconButton
                 onClick={() => guardedNavigate("/settings")}
