@@ -147,6 +147,13 @@
 - [ ] Engineer guide (header, controls, todays-jobs, travel, messages, media, fault-finder, request-parts, complete-job, payment) — confirmed wording only
 - [ ] Team & Users guide at /help/team-users (add-member, engineer-availability, job-time-blocks, manage-user, block-unblock)
 - [ ] Search, step progress, prev/next, tap-to-enlarge screenshots, Help item in engineer overflow + office user menu
+- [x] Customer Import re-imported from approved PDF (10 steps, before-you-start, checklist, results table) + phone crops (30/09/26)
+- [ ] Customer Import visual sign-off in real preview at 390px and 1280px (user check)
+- [ ] Customer Import step 10 "Check the import result" has no screenshot yet (needs completion-screen image)
+- [ ] Re-import Customer Profile text from approved PDF
+- [ ] Re-import Team & Users text from approved PDF
+- [ ] Build Engineer App guide from approved PDF (needs clean original screenshots)
+- [ ] Future: return signed-out users to the Help link after login (no auth change now)
 - [x] Framework + Customer Import guide (7 steps, 9 screenshots) live at /help/customer-import — 30/09/26
 - [ ] Demo checks at 390px + 1280px, completion report
 - Blocked: Engineer + Team & Users guides waiting on Barry's clean mobile screenshots (test/demo data only)

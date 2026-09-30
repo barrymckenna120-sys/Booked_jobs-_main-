@@ -72,13 +72,13 @@ const HelpStep = () => {
           </dl>
         ) : null}
 
-        {step.note ? (
-          <div className={cn("mt-4 flex gap-3 rounded-xl border p-3",
-            step.note.tone === "warning" ? "border-destructive/30 bg-destructive/5" : "border-primary/20 bg-primary/5")}>
-            {step.note.tone === "warning" ? <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-destructive" /> : <Info className="mt-1 h-5 w-5 shrink-0 text-primary" />}
-            <p>{step.note.text}</p>
+        {[...(step.note ? [step.note] : []), ...(step.notes ?? [])].map((n) => (
+          <div key={n.text} className={cn("mt-4 flex gap-3 rounded-xl border p-3",
+            n.tone === "warning" ? "border-destructive/30 bg-destructive/5" : "border-primary/20 bg-primary/5")}>
+            {n.tone === "warning" ? <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-destructive" /> : <Info className="mt-1 h-5 w-5 shrink-0 text-primary" />}
+            <p>{n.text}</p>
           </div>
-        ) : null}
+        ))}
 
         <div className="mt-6 space-y-6">
           {step.screenshots.map((s) => <HelpScreenshotView key={s.src} shot={s} />)}

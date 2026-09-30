@@ -22,6 +22,17 @@ const HelpGuide = () => {
       <p className="mt-1 text-sm text-muted-foreground">
         {guide.steps.length} steps · Last updated: {guide.lastUpdated}
       </p>
+      {guide.intro?.map((p) => (
+        <p key={p} className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">{p}</p>
+      ))}
+      {guide.beforeYouStart?.length ? (
+        <section className="mt-5">
+          <h2 className="text-lg font-bold">Before you start</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {guide.beforeYouStart.map((t) => <li key={t}>{t}</li>)}
+          </ul>
+        </section>
+      ) : null}
       <Link
         to={`/help/${guide.slug}/${guide.steps[0].slug}`}
         className="mt-5 flex h-14 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground"
@@ -47,6 +58,22 @@ const HelpGuide = () => {
           </li>
         ))}
       </ol>
+      {guide.quickReference?.map((r) => (
+        <section key={r.title} className="mt-8">
+          <h2 className="text-lg font-bold">{r.title}</h2>
+          {r.items ? (
+            <ul className="mt-2 space-y-1">
+              {r.items.map((t) => <li key={t} className="flex gap-2"><span aria-hidden className="text-primary">☐</span>{t}</li>)}
+            </ul>
+          ) : null}
+          {r.table ? (
+            <table className="mt-2 w-full overflow-hidden rounded-xl border border-border text-left">
+              <thead className="bg-muted"><tr>{r.table.head.map((h) => <th key={h} className="p-2 font-semibold">{h}</th>)}</tr></thead>
+              <tbody>{r.table.rows.map(([a, b]) => <tr key={a} className="border-t border-border"><td className="p-2 font-medium align-top">{a}</td><td className="p-2">{b}</td></tr>)}</tbody>
+            </table>
+          ) : null}
+        </section>
+      ))}
     </div>
   );
 };
