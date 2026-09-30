@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import AppLogo from "@/components/shared/AppLogo";
 import PageSeo from "@/components/seo/PageSeo";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLandingPath } from "@/lib/resolveLandingPath";
 import { withRequestTimeout } from "@/lib/queryDefaults";
@@ -41,7 +41,8 @@ import {
   lockedUntilMessage,
   lockedUntilModalCopy,
 } from "@/lib/authLockout";
-import { reportSignInNetworkFailure } from "@/lib/authFailureReport";
+import { isStandaloneDisplay, reportSignInNetworkFailure } from "@/lib/authFailureReport";
+import { shouldShowIphoneSetupLink } from "@/lib/setupGuideHost";
 import { classifyFailureReason, logAuthActivity } from "@/lib/authActivity";
 
 /** Only same-origin relative paths are honoured as a post-login redirect. */
@@ -59,6 +60,9 @@ const Auth = () => {
   const [isForgotPassword, setIsForgotPassword] =
     useState(false);
 
+  const [showIphoneSetupLink] = useState(() =>
+    shouldShowIphoneSetupLink(navigator.userAgent, isStandaloneDisplay())
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] =
@@ -934,6 +938,16 @@ const Auth = () => {
               )}
             </div>
           </form>
+          {showIphoneSetupLink && (
+            <div className="flex justify-center">
+              <Link
+                to="/help/iphone-setup"
+                className="inline-flex min-h-[44px] items-center justify-center text-center text-sm text-primary underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+              >
+                New iPhone? Set up BookedJobs on your phone ›
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
 
