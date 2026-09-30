@@ -1,31 +1,41 @@
-# Fix: a failed booking is silently lost when the form resends it
+# Fix: invoices showing €0.00 owed when money is still due
 
-## Root cause (confirmed by reading the code)
-Both booking intake functions (`tally-incoming-job`, `tally-boiler-rebook`) call `claimBookingIntake`, which inserts a row into `booking_intake_claims` **before** the customer/job is created. When customer or job creation then fails, the function returns 500 but **never removes the claim**. The row stays for 10 minutes with `service_call_id = null`. Any resend within the window hits the unique index (23505), is classed as `duplicate`, and gets `200 { success: true, id: null, duplicate: true }`. The sender stops retrying and no job exists.
+## Root cause (confirmed from live data and code)
+The wrong zero comes from the amount calculation in the invoice creator (`create-job-invoice`). That same calculation feeds the invoice record, the PDF and the WhatsApp message. Two faults:
 
-A second, smaller gap: while the first copy is still running (claim present, no job attached yet), a second copy also gets `success: true` with no job id. If the first copy then fails, that booking is also lost.
+1. **No quote and no job price gives a €0 total, even when a balance is owed.** Without a linked quote, the invoice total is taken only from the job's price (`revenue`). If that is empty, the total becomes €0 and the balance becomes €0. The job's own stored balance owed (`balance_due`) is ignored.
+   - Real case: INV-2026-0004 (K&N, job KN-191). The job has no price and no quote, but €184.50 owed. The invoice was stored and sent as total €0 and balance €0.
+2. **A required deposit is treated as already paid.** With a quote, "deposit paid" is set to the quote's *required* deposit, whether or not the customer paid it. When the deposit equals the whole price, the balance drops to €0.
+   - Four live invoices (INV-0001, 0008, 0011, 0012) record the deposit as paid while the job says it was not. Their balances are understated today, though not zero.
 
-## Fix (3 files)
-1. `supabase/functions/_shared/bookingIntakeClaim.ts`
-   - Add `releaseBookingIntakeClaim(supabase, claimId, logLabel)`: deletes that one claim row by id. Failures are logged, never thrown.
-   - When a duplicate is found but the existing claim has no job attached yet, return a new outcome `pending` instead of `duplicate`.
-2. `supabase/functions/tally-incoming-job/index.ts` and `supabase/functions/tally-boiler-rebook/index.ts`
-   - On every failure after a successful claim (customer insert fails, job insert fails, unexpected error in the outer catch), call `releaseBookingIntakeClaim` before returning the existing error response. That way a retry can create the job.
-   - When the outcome is `pending`, return a retryable `409 { success: false, reason: "booking_in_progress" }` instead of false success. The sender retries. By then the job is attached (the retry gets a true duplicate carrying the real job id) or the claim has been released (the retry creates the job).
-   - True duplicates, where the claim has a job attached, behave exactly as today.
+The office invoice screen reads the job's own balance, so it can disagree with the PDF.
 
-Unchanged: the 10-minute window, the unique index, submission-id guards, RLS, auth, tenant scoping and message content. No database migration.
+## Fix (1 file: `supabase/functions/create-job-invoice/index.ts`)
+- **Deposit:** count it as paid only when the job says the deposit was paid. Otherwise it is €0 paid.
+- **Total with no quote:** use the job price. If that is missing, use the job's stored balance owed plus any deposit actually paid, so it is never €0 when money is owed.
+- **Balance owed:** total minus deposit actually paid, never below €0. The same value is used for the invoice record, the PDF "Balance Due" line and the WhatsApp message, so all three always match.
+- **Fully paid jobs** (job balance 0 and marked paid) still show €0.00.
+- **Unchanged:** the job price is never written (revenue rule), and the payment history, access checks, tenant check and message wording are untouched.
+
+Small pure helper inside the same file for the sums, plus one test file for it (so 2 files).
 
 ## Verification
-- Unit tests (Deno, with a mocked Supabase client) for the claim helper covering claimed, duplicate-with-job, pending and release.
-- Scratch run against the Cavan / K&N TEST tenant only, with no messages to real customers:
-  - Force the job insert to fail (invalid payload), then resend within 10 minutes. The first attempt returns 500 and the claim is gone. The retry creates exactly one job.
-  - A successful booking creates one job. A resend returns `duplicate: true` with the same job id and no second job.
-  - Two rapid parallel posts produce one job. The other copy gets a duplicate or 409, never a second job.
-  - SQL read-back of `service_calls` and `booking_intake_claims` for each case.
-- Tenant isolation: the claim lookup stays filtered by `organisation_id`. Confirm with a read-back that a tenant user cannot read another tenant's claims or jobs.
-- Type check, focused tests, build. Deploy only these two functions, after approval, and report the version to roll back to.
+- Unit tests for the helper:
+  - unpaid, no deposit: full amount
+  - deposit paid: remainder
+  - deposit required but unpaid: full amount
+  - no price, balance €184.50: €184.50
+  - fully paid: €0.00
+  - partly paid: correct remainder
+- Deploy only `create-job-invoice` after approval, then create an invoice for a scratch job on the K&N TEST tenant. No messages go to real customers.
+  - Read back the invoice row.
+  - Open the PDF and confirm Balance Due matches the office screen.
+- Tenant check: a user from another company gets refused when creating or reading that invoice. The existing access check is untouched; this is a read-back only.
+- Type check, focused tests, build.
 
-## Remaining risk
-- The sender must treat 409 as retryable. If Tally does not retry on 409, a pending copy is dropped. That is still safe, because the first copy either creates the job or its 500 triggers a retry. This will be confirmed from the function logs after deployment.
-- If the function crashes hard mid-run (timeout or kill), the release code never runs. The claim then expires on the normal 10-minute window, the same as today.
+## Not in this fix (flagged for you)
+- INV-2026-0004 and the four understated invoices already went out with wrong figures. Correcting or reissuing them is a separate data change needing your approval.
+- Invoice status never moving past "unpaid" (BJ-0077) is a separate known bug and is not touched.
+
+## Rollback
+Restore the version before this change and redeploy `create-job-invoice` only.
