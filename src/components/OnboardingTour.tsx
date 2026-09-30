@@ -6,6 +6,7 @@ import TourFeedbackForm from "@/components/onboarding/TourFeedbackForm";
 import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "@/components/onboarding/officeTourSteps";
 import { ENGINEER_TOUR_STEPS } from "@/components/onboarding/engineerTourSteps";
 import { useOrgBrandName } from "@/hooks/useOrgBrandName";
+import TourCloseButton from "@/components/onboarding/TourCloseButton";
 
 interface Props {
   open: boolean;
@@ -20,7 +21,7 @@ interface Props {
 
 type Phase = "intro" | "steps" | "feedback";
 
-const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }: Props) => {
+const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip, onClose }: Props) => {
   const steps = tourType === "office" ? OFFICE_TOUR_STEPS : ENGINEER_TOUR_STEPS;
   const brandName = useOrgBrandName();
   const [phase, setPhase] = useState<Phase>("intro");
@@ -76,14 +77,14 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
 
   // Desktop office: dialog only; its final screen is the shared feedback form.
   if (useDesktopDialog) {
-    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} steps={steps} onFinish={handleFinish} onSkip={handleSkip} />;
+    return <OfficeTourDesktop tourType={tourType} isReplay={isReplay} steps={steps} onFinish={handleFinish} onSkip={handleSkip} onClose={onClose} />;
   }
 
   // ─── Intro Sheet ───
   if (phase === "intro") {
     const IntroIcon = isOffice ? Monitor : Smartphone;
     return (
-      <Sheet maxHeight="56vh" backdrop={isOffice}>
+      <Sheet maxHeight="56vh" backdrop={isOffice} onClose={onClose}>
         <div className="flex flex-col items-center text-center gap-3">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: isOffice ? "#4A86E8" : "#22c55e" }}>
             <IntroIcon className="w-8 h-8 text-white" />
@@ -114,7 +115,7 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
   // ─── Feedback (final screen) ───
   if (phase === "feedback") {
     return (
-      <Sheet maxHeight="56vh" backdrop={isOffice}>
+      <Sheet maxHeight="56vh" backdrop={isOffice} onClose={onClose}>
         <TourFeedbackForm tourType={tourType} isReplay={isReplay} onDone={handleFinish} />
       </Sheet>
     );
@@ -128,12 +129,13 @@ const OnboardingTour = ({ open, tourType, isReplay = false, onComplete, onSkip }
       onNext={handleNext}
       onBack={handleBack}
       onSkip={handleSkip}
+      onClose={onClose}
     />
   );
 };
 
 // ─── Mobile step sheet (same layout as the office tour) ───
-const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: OfficeTourStep[]; index: number; onNext: () => void; onBack: () => void; onSkip: () => void }) => {
+const TourMobileStep = ({ steps, index, onNext, onBack, onSkip, onClose }: { steps: OfficeTourStep[]; index: number; onNext: () => void; onBack: () => void; onSkip: () => void; onClose: () => void }) => {
   const step = steps[index];
   const touch = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
@@ -168,6 +170,10 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: Offic
           padding: "12px 20px calc(20px + env(safe-area-inset-bottom)) 20px",
         }}
       >
+        <TourCloseButton
+          onClose={onClose}
+          className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
+        />
         <div className="flex justify-center mb-3">
           <div className="w-9 h-1 rounded-full bg-border" />
         </div>
@@ -220,7 +226,7 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip }: { steps: Offic
 };
 
 // ─── Bottom Sheet wrapper ───
-const Sheet = ({ children, maxHeight = "44vh", backdrop = false }: { children: React.ReactNode; maxHeight?: string; backdrop?: boolean }) => {
+const Sheet = ({ children, maxHeight = "44vh", backdrop = false, onClose }: { children: React.ReactNode; maxHeight?: string; backdrop?: boolean; onClose: () => void }) => {
   // On md+ screens, cap at 320px (or 56vh equivalent for intro/feedback)
   const desktopMax = maxHeight === "56vh" ? "400px" : "320px";
   return (
@@ -237,6 +243,10 @@ const Sheet = ({ children, maxHeight = "44vh", backdrop = false }: { children: R
         width: "100%",
       }}
     >
+      <TourCloseButton
+        onClose={onClose}
+        className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
+      />
       {/* Handle bar */}
       <div className="flex justify-center mb-4">
         <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />

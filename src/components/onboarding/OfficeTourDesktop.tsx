@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { OFFICE_TOUR_STEPS, type OfficeTourStep } from "./officeTourSteps";
 import TourFeedbackForm from "./TourFeedbackForm";
 import type { TourType } from "@/hooks/useOnboardingTour";
+import TourCloseButton from "./TourCloseButton";
 
 interface Props {
   tourType: TourType;
@@ -13,10 +14,11 @@ interface Props {
   steps?: OfficeTourStep[];
   onFinish: () => void;
   onSkip: () => void;
+  onClose: () => void;
 }
 
 /** Desktop (≥1024px) tour: centred dialog over the live app. Never navigates. */
-const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFinish, onSkip }: Props) => {
+const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFinish, onSkip, onClose }: Props) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [index, setIndex] = useState(0);
   const step = steps[index];
@@ -54,16 +56,20 @@ const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFi
   };
 
   return (
-    <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onSkip(); }}>
+    <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-[rgba(15,23,42,0.5)] motion-safe:animate-in motion-safe:fade-in-0" />
         <DialogPrimitive.Content
           aria-labelledby={showFeedback ? "office-tour-feedback-title" : "office-tour-title"}
           aria-describedby={showFeedback ? undefined : "office-tour-body"}
           onKeyDown={onKeyDown}
-          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(event) => {
+            event.preventDefault();
+            onClose();
+          }}
           className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-48px)] max-w-[960px] max-h-[calc(100vh-48px)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl focus:outline-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
         >
+          <TourCloseButton onClose={onClose} className="absolute right-2 top-2 z-10" />
           <div className="flex items-start justify-between gap-4">
             <div role="tablist" aria-label="Tour steps" className="flex flex-wrap gap-2">
               {steps.map((s, i) => {
@@ -100,7 +106,7 @@ const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFi
             </div>
             <button
               onClick={onSkip}
-              className="shrink-0 whitespace-nowrap py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+              className="mr-10 shrink-0 whitespace-nowrap py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
             >
               Skip tour
             </button>
