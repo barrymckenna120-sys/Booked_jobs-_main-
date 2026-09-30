@@ -5,7 +5,13 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { bearerToken, hasSharedSecret, isMachineCaller, providedSecret } from "../_shared/machineAuth.ts";
 import { describeOrgBinding } from "../_shared/bindingDiagnostics.ts";
 import { flagDuplicateJob } from "../_shared/duplicateJob.ts";
-import { attachServiceCallToClaim, claimBookingIntake } from "../_shared/bookingIntakeClaim.ts";
+import {
+  attachServiceCallToClaim,
+  bookingInProgressResponse,
+  claimBookingIntake,
+  recordFailedBookingIntake,
+  releaseBookingIntakeClaim,
+} from "../_shared/bookingIntakeClaim.ts";
 
 
 // The phone number is trusted as submitted: country-code formatting is done
@@ -70,6 +76,20 @@ Deno.serve(async (req) => {
   );
 
   let body: any = null;
+  // Set once this arrival owns a booking claim; used to undo it on failure.
+  let failure: { orgId: string; submissionId: string | null; claimId: string | null } | null = null;
+  const handleFinalFailure = async (message: string) => {
+    if (!failure) return;
+    if (failure.claimId) await releaseBookingIntakeClaim(supabase, failure.claimId, "tally-boiler-rebook");
+    await recordFailedBookingIntake(supabase, {
+      organisationId: failure.orgId,
+      submissionId: failure.submissionId,
+      sourceFunction: "tally-boiler-rebook",
+      errorMessage: message,
+      payload: body,
+    });
+    failure = null;
+  };
 
   try {
     body = await req.json();
@@ -271,6 +291,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (claim.outcome === "pending") {
+      await logInvocation(supabase, body, organisation_id, "booking_in_progress");
+      return bookingInProgressResponse(corsHeaders);
+    }
+
+    failure = {
+      orgId: organisation_id,
+      submissionId,
+      claimId: claim.outcome === "claimed" ? claim.claimId : null,
+    };
+
     // Create service call
     const { data: job, error: jobErr } = await supabase
       .from("service_calls")
@@ -331,6 +362,7 @@ Deno.serve(async (req) => {
         organisation_id,
         `job_insert_failed:${jobErr?.message ?? "unknown"}`,
       );
+      await handleFinalFailure(`job_insert_failed:${jobErr?.message ?? "unknown"}`);
       return new Response(JSON.stringify({ error: "Failed to create job" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -341,6 +373,7 @@ Deno.serve(async (req) => {
     if (claim.outcome === "claimed") {
       await attachServiceCallToClaim(supabase, claim.claimId, job.id, "tally-boiler-rebook");
     }
+    failure = null;
 
 
     // Update customer next_service_due and advance renewal_stage
@@ -398,6 +431,7 @@ Deno.serve(async (req) => {
       (body && typeof body === "object" && (body as any).organisation_id) || null,
       `exception:${err instanceof Error ? err.message : String(err)}`,
     );
+    await handleFinalFailure(`exception:${err instanceof Error ? err.message : String(err)}`);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
