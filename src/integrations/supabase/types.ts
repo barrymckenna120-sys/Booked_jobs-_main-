@@ -1834,6 +1834,47 @@ export type Database = {
           },
         ]
       }
+      failed_booking_intakes: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          organisation_id: string
+          payload: Json | null
+          resolved_at: string | null
+          source_function: string
+          submission_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          organisation_id: string
+          payload?: Json | null
+          resolved_at?: string | null
+          source_function: string
+          submission_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          organisation_id?: string
+          payload?: Json | null
+          resolved_at?: string | null
+          source_function?: string
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "failed_booking_intakes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fault_draft_test_orgs: {
         Row: {
           created_at: string

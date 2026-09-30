@@ -63,8 +63,10 @@ export function claimIsStale(
 export type BookingClaim =
   /** This arrival owns the booking — carry on and create the job. */
   | { outcome: "claimed"; fingerprint: string; claimId: string }
-  /** An identical booking arrived within the window. */
-  | { outcome: "duplicate"; fingerprint: string; existingServiceCallId: string | null }
+  /** An identical booking already produced a job within the window. */
+  | { outcome: "duplicate"; fingerprint: string; existingServiceCallId: string }
+  /** An identical booking is still being processed (no job attached yet). */
+  | { outcome: "pending"; fingerprint: string }
   /** Not enough content to fingerprint, or the guard itself failed — carry on. */
   | { outcome: "skipped"; reason: string };
 
@@ -122,11 +124,10 @@ export async function claimBookingIntake(
         .eq("organisation_id", organisationId)
         .eq("fingerprint", fingerprint)
         .maybeSingle();
-      return {
-        outcome: "duplicate",
-        fingerprint,
-        existingServiceCallId: (existing as { service_call_id?: string } | null)?.service_call_id ?? null,
-      };
+      const existingId = (existing as { service_call_id?: string | null } | null)?.service_call_id ?? null;
+      // Only a claim that actually produced a job counts as a duplicate.
+      if (existingId) return { outcome: "duplicate", fingerprint, existingServiceCallId: existingId };
+      return { outcome: "pending", fingerprint };
     }
 
     console.error(`[${logLabel}] claim insert failed:`, (error as { message?: string } | null)?.message ?? error);
@@ -156,4 +157,60 @@ export async function attachServiceCallToClaim(
   } catch (_e) {
     console.error(`[${logLabel}] claim update threw:`, (_e as Error)?.message ?? _e);
   }
+}
+
+/**
+ * Releases a claim whose booking failed, so a resend can create the job.
+ * Never throws.
+ */
+export async function releaseBookingIntakeClaim(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  claimId: string,
+  logLabel = "booking-intake-claim",
+): Promise<void> {
+  try {
+    const { error } = await supabase.from("booking_intake_claims").delete().eq("id", claimId);
+    if (error) console.error(`[${logLabel}] claim release failed:`, error.message ?? error);
+  } catch (_e) {
+    console.error(`[${logLabel}] claim release threw:`, (_e as Error)?.message ?? _e);
+  }
+}
+
+/**
+ * Records a booking that could not become a job, so the office sees it even
+ * if the sender never retries. Never throws.
+ */
+export async function recordFailedBookingIntake(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  row: {
+    organisationId: string | null;
+    submissionId: string | null;
+    sourceFunction: string;
+    errorMessage: string | null;
+    payload: unknown;
+  },
+): Promise<void> {
+  if (!row.organisationId) return;
+  try {
+    const { error } = await supabase.from("failed_booking_intakes").insert({
+      organisation_id: row.organisationId,
+      submission_id: row.submissionId,
+      source_function: row.sourceFunction,
+      error_message: row.errorMessage,
+      payload: row.payload ?? null,
+    });
+    if (error) console.error(`[${row.sourceFunction}] failed-intake record failed:`, error.message ?? error);
+  } catch (_e) {
+    console.error(`[${row.sourceFunction}] failed-intake record threw:`, (_e as Error)?.message ?? _e);
+  }
+}
+
+/** Retryable response for a copy that arrived while the first is still running. */
+export function bookingInProgressResponse(headers: Record<string, string>): Response {
+  return new Response(
+    JSON.stringify({ success: false, reason: "booking_in_progress", error: "Booking is still being processed; retry shortly." }),
+    { status: 409, headers: { ...headers, "Content-Type": "application/json" } },
+  );
 }
