@@ -134,6 +134,7 @@ const InvoicePreview = () => {
       if (!invoiceNumberForLookup) {
         if (!hasPrice) {
           toast({ title: MISSING_PRICE_ERROR, variant: "destructive" });
+          setSending(false);
           return;
         }
         const { data: created } = await supabase.functions.invoke("create-job-invoice", {
