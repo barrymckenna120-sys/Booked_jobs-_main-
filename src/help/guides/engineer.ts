@@ -54,21 +54,22 @@ export const engineerGuide: HelpGuide = {
           { number: 1, x: 37.5, y: 8.4, label: "Engineer", text: "Your Engineer App.", icon: "engineer" },
           { number: 2, x: 58, y: 8.4, label: "Office", text: "Owners and managers can switch to the Office App.", icon: "office" },
           { number: 3, x: 80, y: 8.4, label: "Notifications", text: "Shows alerts and updates from the office.", icon: "bell" },
-          { number: 4, x: 91.5, y: 8.4, label: "More", text: "Opens additional Engineer tools.", icon: "more" },
+          { number: 4, x: 91.5, y: 8.4, label: "Three dots (⋮)", text: "Tap to open the More Options menu.", icon: "more" },
         ],
       }],
       keywords: ["engineer", "office", "switch", "bell", "notifications", "three dots", "more"],
     },
     {
       slug: "controls",
-      title: "Engineer App Controls",
+      title: "More Options Menu",
       shortDescription: "Switch views, check notifications and open extra tools.",
       body: [
         "Owners and managers can switch between Engineer and Office at the top of the screen.",
         "The bell icon shows notifications and changes from the office.",
         "Tap the three dots in the top-right corner for additional tools.",
       ],
-      screenshots: [{ src: e01.url, device: "mobile", alt: "Engineer App top strip with Engineer / Office switch, bell and three dots" }],
+      // The More Options menu shot is dimmed by the open sheet — used here deliberately.
+      screenshots: [{ src: e07.url, device: "mobile", alt: "The More Options menu open over the Engineer App" }],
       keywords: ["controls", "switch", "office", "engineer", "bell"],
     },
     {
