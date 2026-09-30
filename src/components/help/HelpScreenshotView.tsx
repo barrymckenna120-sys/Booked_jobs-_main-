@@ -51,7 +51,7 @@ const StitchedImage = ({ segments, alt }: { segments: HelpScreenshotSegment[]; a
       const st = segmentStyles(s);
       return (
         <span key={i} className="relative block w-full overflow-hidden" style={st.box}>
-          <img src={s.src} alt="" loading="lazy" className="absolute h-auto max-w-none" style={st.img} />
+          <img src={s.src} alt="" className="absolute h-auto max-w-none" style={st.img} />
         </span>
       );
     })}
