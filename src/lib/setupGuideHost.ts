@@ -4,3 +4,7 @@ export const FALLBACK_SETUP_HOST = "yourcompany.bookedjobs.ie";
 export const getSetupGuideHost = (
   hostname: string = typeof window !== "undefined" ? window.location.hostname : "",
 ): string => (hostname.endsWith(".bookedjobs.ie") ? hostname : FALLBACK_SETUP_HOST);
+
+/** Show the sign-in page's iPhone setup link: iPhone/iPod in a browser tab only. */
+export const shouldShowIphoneSetupLink = (userAgent: string, standalone: boolean): boolean =>
+  /iPhone|iPod/.test(userAgent) && !standalone;
