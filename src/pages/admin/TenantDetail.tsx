@@ -29,6 +29,7 @@ import { useAdminViewAs } from "@/hooks/useAdminViewAs";
 import AdminWorkspaceShell, { type AdminSection } from "@/components/admin/AdminWorkspaceShell";
 import { normalisePublicDomain, publicDomainSaveError } from "@/lib/publicDomain";
 import BackupsRestoreCard from "@/components/admin/restore/BackupsRestoreCard";
+import WhatsAppTestModeSection from "@/components/admin/WhatsAppTestModeSection";
 import {
   ArrowLeft,
   Copy,
@@ -56,6 +57,7 @@ type Org = {
   owner_user_id: string | null;
   owner_name: string | null;
   owner_phone: string | null;
+  whatsapp_test_mode: boolean;
 };
 
 type Integration = {
@@ -238,7 +240,7 @@ export default function TenantDetail() {
       const { data: orgRow, error: orgErr } = await supabase
         .from("organisations")
         .select(
-          "id, name, slug, public_domain, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone" as any,
+          "id, name, slug, public_domain, subscription_status, bookedjobs_plan, created_at, is_archived, archived_at, owner_user_id, owner_name, owner_phone, whatsapp_test_mode" as any,
         )
         .eq("id", orgId)
         .maybeSingle();
@@ -888,6 +890,15 @@ export default function TenantDetail() {
           </div>
         </CardContent>
       </Card>
+
+      <WhatsAppTestModeSection
+        organisationId={org.id}
+        testMode={org.whatsapp_test_mode}
+        integrations={integrations}
+        onTestModeChanged={(whatsapp_test_mode) =>
+          setOrg((current) => current ? { ...current, whatsapp_test_mode } : current)
+        }
+      />
 
       {/* Integrations */}
       <Card>

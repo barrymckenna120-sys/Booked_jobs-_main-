@@ -76,6 +76,7 @@ type Tenant = {
   is_blocked: boolean | null;
   is_archived?: boolean | null;
   archived_at?: string | null;
+  whatsapp_test_mode: boolean;
 };
 
 type ActivityEntry = {
@@ -2162,6 +2163,17 @@ export default function AdminPanel() {
                                 >
                                   {t.name}
                                 </button>
+
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    t.whatsapp_test_mode
+                                      ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                                      : "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  }
+                                >
+                                  WhatsApp: {t.whatsapp_test_mode ? "TEST" : "LIVE"}
+                                </Badge>
 
                                 {blocked &&
                                   !archived && (

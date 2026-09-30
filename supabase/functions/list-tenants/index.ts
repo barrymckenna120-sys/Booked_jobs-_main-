@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const { data, error } = await admin
       .from("organisations")
       .select(
-        "id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at",
+        "id, name, slug, subscription_status, owner_name, owner_phone, industry, created_at, owner_user_id, is_blocked, is_archived, archived_at, whatsapp_test_mode",
       )
       .order("created_at", { ascending: false });
 
