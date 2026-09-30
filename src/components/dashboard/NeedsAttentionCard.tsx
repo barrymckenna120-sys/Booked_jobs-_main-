@@ -1,9 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Inbox, AlertTriangle, Clock, ChevronRight, CalendarClock } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, ChevronRight, CalendarClock, FileWarning } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
 import { endOfWeek, format, startOfWeek } from "date-fns";
 
@@ -20,6 +23,45 @@ const NeedsAttentionCard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [failedOpen, setFailedOpen] = useState(false);
+
+  // Bookings that could not become a job (RLS: own organisation, office only).
+  const { data: failedIntakes = [] } = useQuery({
+    queryKey: ["failed-booking-intakes", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("failed_booking_intakes")
+        .select("id, created_at, source_function, submission_id, error_message, payload")
+        .is("resolved_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user,
+  });
+
+  const resolveFailedIntake = async (id: string) => {
+    const { error } = await supabase
+      .from("failed_booking_intakes")
+      .update({ resolved_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("Could not mark as handled");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["failed-booking-intakes", user?.id] });
+  };
+
+  const payloadField = (payload: unknown, keys: string[]): string => {
+    if (!payload || typeof payload !== "object") return "";
+    const p = payload as Record<string, unknown>;
+    for (const k of keys) {
+      const v = p[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
 
   // Realtime: refresh when incoming jobs change
   useEffect(() => {
@@ -120,6 +162,21 @@ const NeedsAttentionCard = () => {
         </h3>
       </div>
       <div className="divide-y divide-border/50">
+        {failedIntakes.length > 0 && (
+          <button
+            onClick={() => setFailedOpen(true)}
+            className="w-full flex items-center gap-3.5 px-5 py-4 bg-destructive/5 hover:bg-destructive/10 transition-colors text-left group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <FileWarning className="w-4 h-4 text-destructive" strokeWidth={2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-bold font-mono text-foreground leading-none">{failedIntakes.length}</p>
+              <p className="text-xs font-medium text-muted-foreground mt-1">Failed Bookings</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+          </button>
+        )}
         {rows.map((row) => (
           <button
             key={row.label}
@@ -150,6 +207,36 @@ const NeedsAttentionCard = () => {
           <ChevronRight className="w-4 h-4 text-primary/50 group-hover:text-primary transition-colors shrink-0" />
         </button>
       </div>
+      <Dialog open={failedOpen} onOpenChange={setFailedOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Failed Bookings</DialogTitle>
+            <DialogDescription>
+              These online bookings could not be turned into a job. Contact the customer or add the job manually, then mark it as handled.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {failedIntakes.map((f: any) => {
+              const name = payloadField(f.payload, ["customer_name", "name", "full_name"]);
+              const phone = payloadField(f.payload, ["mobile_number", "phone", "customer_phone"]);
+              const address = payloadField(f.payload, ["address", "full_address"]);
+              return (
+                <div key={f.id} className="rounded-lg border border-border p-3 text-sm">
+                  <p className="font-semibold text-foreground">{name || "Name not captured"}</p>
+                  {phone && <p className="text-muted-foreground font-mono">{phone}</p>}
+                  {address && <p className="text-muted-foreground">{address}</p>}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(f.created_at), "dd/MM/yy HH:mm")} · {f.source_function === "tally-boiler-rebook" ? "Rebooking form" : "Booking form"}
+                  </p>
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => resolveFailedIntake(f.id)}>
+                    Mark as handled
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
