@@ -1,4 +1,4 @@
-import { segmentStyles } from "@/components/help/HelpScreenshotView";
+import { HELP_SCREENSHOT_MAX_ZOOM, segmentStyles } from "@/components/help/HelpScreenshotView";
 import { describe, it, expect } from "vitest";
 import { findGuide, findStep, searchHelp, HELP_GUIDES } from "./registry";
 
@@ -56,6 +56,10 @@ describe("help registry", () => {
     expect(st.box.aspectRatio).toBe("401 / 789");
     expect(parseFloat(st.img.width)).toBeCloseTo(102.74, 1);
     expect(parseFloat(st.img.top)).toBeCloseTo(-6.72, 1);
+  });
+
+  it("allows Help screenshots to zoom well beyond phone-width fit", () => {
+    expect(HELP_SCREENSHOT_MAX_ZOOM).toBeGreaterThanOrEqual(5);
   });
 
   it("marks the four Engineer header controls", () => {

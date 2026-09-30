@@ -1,7 +1,11 @@
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Wrench, ArrowLeft, Bell, MoreVertical } from "lucide-react";
+import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
+import { Expand, Minus, Plus, RotateCcw, X, Wrench, ArrowLeft, Bell, MoreVertical } from "lucide-react";
 import type { HelpScreenshot, HelpScreenshotMarker, HelpScreenshotSegment } from "@/help/types";
+import { Button } from "@/components/ui/button";
+
+export const HELP_SCREENSHOT_MAX_ZOOM = 5;
 
 /** Static copies of the real Engineer App top controls (same icons/styles), non-interactive. */
 const ControlPreview = ({ icon }: { icon: NonNullable<HelpScreenshotMarker["icon"]> }) => {
@@ -46,7 +50,7 @@ export const segmentStyles = (s: HelpScreenshotSegment) => ({
 
 /** Slices stacked with no gap — reads as one long capture. Outer container supplies rounding. */
 const StitchedImage = ({ segments, alt }: { segments: HelpScreenshotSegment[]; alt: string }) => (
-  <span role="img" aria-label={alt} className="block w-full">
+  <span role="img" aria-label={alt} className="block w-full select-none">
     {segments.map((s, i) => {
       const st = segmentStyles(s);
       return (
@@ -56,6 +60,107 @@ const StitchedImage = ({ segments, alt }: { segments: HelpScreenshotSegment[]; a
       );
     })}
   </span>
+);
+
+const FullScreenshot = ({ shot }: { shot: HelpScreenshot }) => {
+  if (shot.segments) return <StitchedImage segments={shot.segments} alt={shot.alt} />;
+  return (
+    <span className="relative block w-full">
+      <img src={shot.src} alt={shot.alt} draggable={false} className="block h-auto w-full select-none" />
+      <ScreenshotMarkers shot={shot} />
+    </span>
+  );
+};
+
+const ScreenshotViewer = ({ shot, open, onOpenChange }: { shot: HelpScreenshot; open: boolean; onOpenChange: (open: boolean) => void }) => {
+  const [scale, setScale] = useState(1);
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => {
+      if (!next) setScale(1);
+      onOpenChange(next);
+    }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/90" />
+        <DialogPrimitive.Content className="fixed inset-0 z-50 overflow-hidden focus:outline-none">
+          <DialogPrimitive.Title className="sr-only">{shot.alt}</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">Full-resolution screenshot. Pinch or use the controls to zoom, then drag to move around it.</DialogPrimitive.Description>
+          <TransformWrapper
+            initialScale={1}
+            minScale={1}
+            maxScale={HELP_SCREENSHOT_MAX_ZOOM}
+            centerOnInit
+            centerZoomedOut
+            limitToBounds
+            smooth
+            wheel={{ step: 0.15 }}
+            pinch={{ step: 5, allowPanning: true }}
+            panning={{ velocityDisabled: true }}
+            doubleClick={{ mode: "toggle", step: 1.5 }}
+            keyboard={{ disabled: false, panStep: 50, zoomStep: 0.5 }}
+            onTransform={(_ref, state) => setScale(state.scale)}
+          >
+            {({ zoomIn, zoomOut, resetTransform }) => (
+              <>
+                <div
+                  className="fixed left-3 z-[60] flex items-center gap-1 rounded-lg bg-background p-1 shadow-lg md:left-1/2 md:-translate-x-1/2"
+                  style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+                  aria-label="Image zoom controls"
+                >
+                  <Button type="button" variant="ghost" size="icon" onClick={() => zoomOut(0.5)} disabled={scale <= 1.01} aria-label="Zoom out">
+                    <Minus className="h-5 w-5" />
+                  </Button>
+                  <span className="w-12 text-center text-xs font-semibold tabular-nums" aria-live="polite">{Math.round(scale * 100)}%</span>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => zoomIn(0.5)} disabled={scale >= HELP_SCREENSHOT_MAX_ZOOM - 0.01} aria-label="Zoom in">
+                    <Plus className="h-5 w-5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => resetTransform()} disabled={scale <= 1.01} aria-label="Fit image to screen">
+                    <RotateCcw className="h-5 w-5" />
+                  </Button>
+                </div>
+                <TransformComponent
+                  wrapperClass="!fixed !inset-x-0 !bottom-0 !w-full !overflow-hidden !touch-none"
+                  contentClass="!w-full !items-start !justify-center"
+                  wrapperStyle={{ top: "calc(env(safe-area-inset-top) + 4.5rem)" }}
+                  wrapperProps={{
+                    "aria-label": "Zoomable screenshot",
+                    onClick: (event) => {
+                      if (event.target === event.currentTarget) onOpenChange(false);
+                    },
+                  }}
+                >
+                  <div className={shot.device === "mobile" ? "w-[95vw] max-w-[720px] overflow-hidden rounded-lg" : "w-[95vw] overflow-hidden rounded-lg"}>
+                    <FullScreenshot shot={shot} />
+                  </div>
+                </TransformComponent>
+              </>
+            )}
+          </TransformWrapper>
+          <DialogPrimitive.Close asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="fixed right-3 z-[70] h-11 w-11 rounded-full bg-background shadow-lg"
+              style={{ top: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+              aria-label="Close enlarged image"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+};
+
+const EnlargeControl = ({ onClick }: { onClick: () => void }) => (
+  <figcaption className="mt-2 flex justify-center">
+    <Button type="button" variant="outline" size="sm" onClick={onClick} className="font-semibold">
+      <Expand className="h-4 w-4" />
+      Enlarge image
+    </Button>
+  </figcaption>
 );
 
 /** Large screenshot; tap to enlarge full-screen, tap/Escape/X to dismiss.
@@ -76,30 +181,9 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
         >
           <StitchedImage segments={segs} alt={shot.alt} />
         </button>
-        <figcaption className="mt-2 text-center text-sm text-muted-foreground">{shot.caption ?? "Tap to enlarge"}</figcaption>
-        <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-          <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/90" />
-            <DialogPrimitive.Content
-              className="fixed inset-0 z-50 overflow-auto overscroll-contain focus:outline-none"
-              onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
-            >
-              <DialogPrimitive.Title className="sr-only">{shot.alt}</DialogPrimitive.Title>
-              <DialogPrimitive.Description className="sr-only">Enlarged screenshot. Tap outside or press Escape to close.</DialogPrimitive.Description>
-              <div className="flex min-h-full items-start justify-center px-[2.5vw] pb-6 pt-14" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-                <div className={shot.device === "mobile" ? "w-[95vw] max-w-[720px] overflow-hidden rounded-lg" : "w-[95vw] overflow-hidden rounded-lg"}>
-                  <StitchedImage segments={segs} alt={shot.alt} />
-                </div>
-              </div>
-              <DialogPrimitive.Close
-                className="fixed right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </DialogPrimitive.Close>
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        </DialogPrimitive.Root>
+        {shot.caption ? <p className="mt-2 text-center text-sm text-muted-foreground">{shot.caption}</p> : null}
+        <EnlargeControl onClick={() => setOpen(true)} />
+        <ScreenshotViewer shot={shot} open={open} onOpenChange={setOpen} />
       </figure>
     );
   }
@@ -150,36 +234,9 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
           ))}
         </ol>
       ) : null}
-      <figcaption className="mt-2 text-center text-sm text-muted-foreground">
-        {shot.caption ?? (c ? <><span className="md:hidden">Tap to see the full screen</span><span className="hidden md:inline">Tap to enlarge</span></> : "Tap to enlarge")}
-      </figcaption>
-      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/90" />
-          <DialogPrimitive.Content
-            className="fixed inset-0 z-50 overflow-auto overscroll-contain focus:outline-none"
-            onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
-          >
-            <DialogPrimitive.Title className="sr-only">{shot.alt}</DialogPrimitive.Title>
-            <DialogPrimitive.Description className="sr-only">Enlarged screenshot. Tap outside or press Escape to close.</DialogPrimitive.Description>
-            <div
-              className="flex min-h-full items-start justify-center px-[2.5vw] pb-6 pt-14"
-              onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
-            >
-              <div className={shot.device === "mobile" ? "relative w-[95vw] max-w-[720px]" : "relative w-[95vw]"}>
-                <img src={shot.src} alt={shot.alt} className="block h-auto w-full rounded-lg" />
-                <ScreenshotMarkers shot={shot} />
-              </div>
-            </div>
-            <DialogPrimitive.Close
-              className="fixed right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </DialogPrimitive.Close>
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      {shot.caption ? <p className="mt-2 text-center text-sm text-muted-foreground">{shot.caption}</p> : null}
+      <EnlargeControl onClick={() => setOpen(true)} />
+      <ScreenshotViewer shot={shot} open={open} onOpenChange={setOpen} />
     </figure>
   );
 };

@@ -21,8 +21,8 @@ const HelpLayout = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-3">
+      <header className="sticky top-0 z-20 border-b border-border bg-card/95 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur md:pt-0">
+        <div className="mx-auto flex min-h-14 max-w-5xl items-center gap-2 px-3 pb-2 md:h-14 md:pb-0">
           <button
             type="button"
             onClick={exitHelp}
