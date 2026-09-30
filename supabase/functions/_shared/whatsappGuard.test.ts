@@ -141,5 +141,5 @@ Deno.test("only whatsapp.ts, the inbound-reply handler, and the URL constant ref
       }
     }
   }
-  assertEquals(offenders.sort(), ["_shared/whatsapp.ts", "_shared/whatsappPayload.ts", "whatsapp-inbound/index.ts"].sort());
+  assertEquals(offenders.sort(), ["_shared/whatsappPayload.ts", "whatsapp-inbound/index.ts"].sort());
 });
