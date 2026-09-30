@@ -1,36 +1,56 @@
-# WhatsApp test mode (per tenant)
+# Two approved fixes
 
-## Goal
-Each tenant has a WhatsApp test mode. In test mode, messages go only to numbers on that tenant's allowed list. All other messages are blocked and logged, and automations still get a success response. Only the superadmin can change these settings. No screens are added in this work.
+## A. Help navigation overlaps the iPhone status bar (bug)
 
-## Decisions (from your answers)
-- New tenants start in test mode. K&N and Dublin Gas stay LIVE. Cavan Gas is switched to test mode.
-- Changes are rolled out in stages and reviewed one step at a time. Each step is tested on Cavan Gas before the next starts.
+### What is there today (checked)
+- The app viewport already includes `viewport-fit=cover`.
+- The shared Help navigation row is a sticky header, with top padding of `env(safe-area-inset-top) + 0.5rem`. That padding is removed on wider screens.
+- On your real iPhone the row still sits under the clock, so why it overlaps is **not yet confirmed**. The simulated test could not show it.
 
-## Corrections to the brief
-- The brief refers to "accounts", but the tenant table is `organisations`. The new settings go on that table.
-- Keys are stored per tenant, not as one shared `THREESIXTY_API_KEY`. The check reuses the existing per-tenant key lookup and does not change it.
-- The 360 Messenger API needs numbers as digits with no `+` (for example `353...`). Allowed numbers are stored in that form and compared after the same number clean-up used today. Otherwise a number stored as `+353...` would never match.
+### Fix (shared Help layout only)
+1. Confirm the cause first. Check what the installed app's status-bar setting does, whether any parent layout adds or cancels the safe-area padding, and whether the wider-screen rule fires on the iPhone.
+2. Make the navigation row part of the normal page, so it scrolls away with the page. It will no longer stick to the top.
+3. Leave a gap at the top equal to the real iPhone status-bar height, plus normal spacing, wherever that gap is needed. It will not be removed on wider screens unless that is proven safe.
+4. Help content, screenshots, guide order and page addresses stay unchanged.
 
-## Stages (each one is a separate, reviewed step)
-1. **Schema change**: add `whatsapp_test_mode` and `whatsapp_allowed_numbers` to `organisations`. The column is added with a default of false, so existing tenants stay LIVE. The default is then changed to true, so new tenants start in test mode. A protection trigger lets only the superadmin (checked with `is_superadmin`) change either column. Tenant users can read the test-mode flag. The allowed-numbers column is not exposed to them.
-2. **Data change**: set Cavan Gas to test mode and add your approved test number. Then read the rows back to confirm all three tenants.
-3. **Shared check** (`_shared/whatsappGuard.ts`): a single check that decides whether to send or block, with unit tests. When it blocks, it writes a `message_log` row with status `suppressed_test_mode` and the tenant, recipient, message type and time.
-4. **Make.com endpoint** `send-whatsapp-guarded`: it requires a matching `MAKE_WEBHOOK_SECRET` header, validates the tenant, recipient, template and variables, and checks `opted_out`. It then runs the shared check and sends only if allowed. The secret is created and shown to you only once this endpoint is live.
-5. **Move the sending functions** onto the check in small batches of about 5. Each batch is deployed and then tested on Cavan Gas:
-   - Batch A: `send-whatsapp-receipt`, `send-booking-confirmation`, `send-payment-link`, `_shared/depositLink.ts`, `send-renewal-reminder`
-   - Batches B to F: the remaining functions that call 360 Messenger. There are 33 in total, including `_shared/notifyAdmin.ts`, the reminders, quotes, invoices, hazard, certificates, bulk area, inbound replies and the SumUp webhook.
-   - Wording, logging and existing behaviour are kept exactly as they are.
-6. **Final audit**: list every place that calls 360 Messenger and mark each one as checked, or flagged with a reason. Report every file and migration changed, and confirm the backend functions were deployed.
+### Checks
+- On every guide and every step, `Back to BookedJobs` and `All Guides` are fully visible and tappable at a simulated iPhone safe area of 47px, and they scroll away normally.
+- Final pass or fail rests on your real-iPhone check, because the simulator gave a false pass before.
 
-## Flags to settle during the audit (not changed without asking)
-- `get-template-status` and `provision-whatsapp-templates` only manage templates and never message customers, so they are expected to be excluded.
-- Messages to the office or admin (`notifyAdmin`, `quote-accepted-alert`) go to staff numbers. In test mode they would be blocked unless those numbers are on the allowed list.
-- Make.com scenarios that call 360 Messenger directly are outside this code, so they stay unchecked until they switch to the new endpoint.
+## B. WhatsApp test mode — Stage 1 only (schema and security, nothing sent)
 
-## Verification
-- Stage 1: read the rows back to confirm the columns and defaults. A tenant user trying to change either column is rejected, and a superadmin change succeeds.
-- For each batch, on Cavan Gas only:
-  - Sending to an allowed number reaches the number, and the `message_log` row shows it was sent.
-  - Sending to a number not on the list is not sent to 360 Messenger. A `suppressed_test_mode` row is written and the function returns success.
-- K&N and Dublin Gas: logs are checked to confirm messages still send normally. No test messages go to real customers.
+### What is there today (checked)
+- Tenant users can read their whole organisation row, and owners can update it. A new column on that row would therefore let owners see the allow-list and change it.
+
+### Design (includes your 10 requirements)
+- **Test-mode flag** is a new column on `organisations`: `whatsapp_test_mode boolean NOT NULL`.
+  - It is added with a default of false, so existing tenants stay LIVE.
+  - The default is then changed to true, so only new tenants start in TEST.
+- **Allow-list** is stored in its own superadmin-only table, not as a column on `organisations` (this changes the brief). Otherwise every tenant member could read it.
+  - Table `organisation_whatsapp_allowed_numbers`: organisation, number, added at, added by.
+  - Each number belongs to one organisation, so being approved on one tenant never counts for another.
+  - Access: only the superadmin and the backend service can read or write it. Tenant users have no access.
+- **Write protection**: a database trigger on `organisations` rejects any change to `whatsapp_test_mode` unless the caller is superadmin or the backend service.
+  - It is enforced in the database, so hiding the setting in the app is not relied on.
+  - Other fields owners can edit today are unaffected.
+- **Rules for Stage 3's shared check**, written down now:
+  - Fail closed: if the tenant, flag, allow-list or cleaned-up number cannot be found, the message is not sent.
+  - `suppressed_test_mode` means a deliberate block only. Setup errors and bad input are logged under their own status.
+  - A success response is returned only for deliberate blocks.
+  - One shared number clean-up is used for both the recipient and the allowed numbers, reusing the existing one.
+- Stage 1 changes the database structure only and writes no data.
+
+### Stage 1 checks, then stop
+- Read the rows back:
+  - Column types and defaults.
+  - K&N = false and Dublin Gas = false.
+  - A test organisation created inside a rolled-back transaction defaults to true.
+- A tenant owner tries to change the flag inside a rolled-back test: expected to be rejected.
+- A tenant user tries to read the allow-list: expected to see nothing.
+- A superadmin changes the flag inside a rolled-back test: expected to succeed.
+- Report the migration, the columns and defaults, the security setup, the K&N, Dublin Gas and new-tenant values, the pass or fail results and the files changed. Then stop for your review before Stage 2.
+
+## Technical notes
+- Tests run as the owner and superadmin roles using a simulated login inside the database, and every test is rolled back. No real data changes and no messages are sent.
+- AGENTS.md will record why the allow-list is a separate table.
+- The roadmap will list the Help iPhone navigation fix and WhatsApp test mode Stages 1 to 6.
