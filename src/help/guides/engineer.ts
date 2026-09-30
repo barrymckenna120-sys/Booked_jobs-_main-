@@ -79,7 +79,7 @@ export const engineerGuide: HelpGuide = {
       shortDescription: "Your assigned jobs for the day.",
       body: [
         "Jobs are created and scheduled in the Office App and assigned directly to the engineer.",
-        "Open a job to see the customer, job type, boiler information, last engineer, service history, previous notes and photographs.",
+        "Press Open on the Details button to see the customer, job type, boiler information, last engineer, service history, previous notes and photographs.",
       ],
       screenshots: [{ src: e01.url, device: "mobile", alt: "Today's Jobs with job counts and the next job card" }, { src: e04.url, device: "mobile", alt: "Job details with contact, job type, time slot and boiler information" }, { src: e05.url, device: "mobile", alt: "Lower job details with last service, last engineer, notes and service history" }],
       keywords: ["today", "jobs", "assigned", "job details", "service history"],
