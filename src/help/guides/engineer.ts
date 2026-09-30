@@ -50,7 +50,15 @@ export const engineerGuide: HelpGuide = {
         { number: 2, label: "Bell", text: "Shows alerts, notifications and changes sent from the Office App." },
         { number: 3, label: "Three dots (•••) — More Options", text: "Fault Finder — find boiler fault codes and explanations; Order Parts — request parts needed for a customer job; Take a Tour — view a guided tour of the main BookedJobs screens; Sign Out — securely sign out of the app." },
       ],
-      screenshots: [{ src: e07.url, device: "mobile", alt: "More menu with Order Parts, Fault Finder, Take the tour, Report a Bug and Sign Out" }],
+      screenshots: [{
+        src: e07.url,
+        device: "mobile",
+        alt: "More menu with Order Parts, Fault Finder, Take the tour, Report a Bug and Sign Out",
+        markers: [
+          { number: 1, x: 79.5, y: 6.7, label: "Notification bell", text: "Shows alerts, notifications and changes sent from the Office App." },
+          { number: 2, x: 89.5, y: 6.7, label: "Three-dot menu", text: "Opens More Options, including Fault Finder, Order Parts, Take a Tour and Sign Out." },
+        ],
+      }],
       keywords: ["header", "bell", "notifications", "three dots", "more options", "sign out", "take a tour"],
     },
     {

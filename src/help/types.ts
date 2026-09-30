@@ -3,12 +3,22 @@ export type HelpAudience = "engineer" | "office" | "admin" | "owner";
 /** Crop of the SAME screenshot, in percent of the full image (0–100). Shown on phones only. */
 export type HelpCrop = { x: number; y: number; width: number; height: number };
 
+/** A numbered marker positioned as a percentage of the original screenshot. */
+export type HelpScreenshotMarker = {
+  number: number;
+  x: number;
+  y: number;
+  label: string;
+  text: string;
+};
+
 export type HelpScreenshot = {
   src: string;
   alt: string;
   device: "mobile" | "desktop";
   caption?: string;
   mobileCrop?: HelpCrop;
+  markers?: HelpScreenshotMarker[];
 };
 
 export type HelpCallout = { number?: number; label: string; text: string };
