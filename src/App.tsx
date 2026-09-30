@@ -39,6 +39,10 @@ import DevConsole from "@/components/dev/DevConsole";
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const HelpLayout = lazy(() => import("./pages/help/HelpLayout"));
+const HelpHome = lazy(() => import("./pages/help/HelpHome"));
+const HelpGuidePage = lazy(() => import("./pages/help/HelpGuide"));
+const HelpStepPage = lazy(() => import("./pages/help/HelpStep"));
 const Jobs = lazy(() => import("./pages/Jobs"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
 const Customers = lazy(() => import("./pages/Customers"));
@@ -494,6 +498,13 @@ function AppContent() {
               </OfficeRoute>
             }
           />
+        </Route>
+
+        {/* Help & Training — auth-protected via HelpLayout (useAuth) */}
+        <Route path="/help" element={<HelpLayout />}>
+          <Route index element={<HelpHome />} />
+          <Route path=":guideSlug" element={<HelpGuidePage />} />
+          <Route path=":guideSlug/:stepSlug" element={<HelpStepPage />} />
         </Route>
 
         {/* Engineer Mode */}

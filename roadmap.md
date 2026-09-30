@@ -147,5 +147,6 @@
 - [ ] Engineer guide (header, controls, todays-jobs, travel, messages, media, fault-finder, request-parts, complete-job, payment) — confirmed wording only
 - [ ] Team & Users guide at /help/team-users (add-member, engineer-availability, job-time-blocks, manage-user, block-unblock)
 - [ ] Search, step progress, prev/next, tap-to-enlarge screenshots, Help item in engineer overflow + office user menu
+- [x] Framework + Customer Import guide (7 steps, 9 screenshots) live at /help/customer-import — 30/09/26
 - [ ] Demo checks at 390px + 1280px, completion report
-- Blocked: waiting for Barry's clean mobile screenshots (test/demo data only)
+- Blocked: Engineer + Team & Users guides waiting on Barry's clean mobile screenshots (test/demo data only)
