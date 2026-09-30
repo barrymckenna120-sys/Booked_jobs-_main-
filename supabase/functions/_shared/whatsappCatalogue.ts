@@ -843,7 +843,7 @@ export const WHATSAPP_CATALOGUE: CatalogueEntry[] = [
       "Hand-builds the public URL instead of using getTenantPublicUrl.",
     ],
     build: (v) =>
-      `Hi ${raw(v.firstName)}, please find your invoice attached for ${s(v.jobType) || "your job"}.\n\nTotal: ${fmtGroupedEuro(v.total)}\nDeposit paid: ${fmtGroupedEuro(v.depositPaid)}\nBalance due: ${fmtGroupedEuro(v.balance)}\n\nInvoice ref: ${raw(v.invNum)}\nPayment due within 14 days.${v.invoiceUrl ? `\n\n📄 View invoice:\n${raw(v.invoiceUrl)}` : ""}${v.messageFooter ? `\n\nThank you, ${raw(v.messageFooter)}` : ""}`,
+      `Hi ${raw(v.firstName)}, please find your invoice attached for ${s(v.jobType) || "your job"}.\n\nTotal: ${fmtGroupedEuro(v.total)}\nPayments received: ${fmtGroupedEuro(v.depositPaid)}\nBalance due: ${fmtGroupedEuro(v.balance)}\n\nInvoice ref: ${raw(v.invNum)}\nPayment due within 14 days.${v.invoiceUrl ? `\n\n📄 View invoice:\n${raw(v.invoiceUrl)}` : ""}${v.messageFooter ? `\n\nThank you, ${raw(v.messageFooter)}` : ""}`,
   },
   {
     key: "outstanding_invoice",
