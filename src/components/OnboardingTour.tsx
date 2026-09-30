@@ -162,18 +162,19 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip, onClose }: { ste
         aria-labelledby="office-tour-m-title"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] w-full bg-card overflow-y-auto overscroll-contain motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-300"
+        className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] w-full flex flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:duration-300"
         style={{
           borderRadius: "16px 16px 0 0",
           boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
           maxHeight: "88vh",
-          padding: "12px 20px calc(20px + env(safe-area-inset-bottom)) 20px",
         }}
       >
+        {/* X lives outside the scroll area so it never scrolls away */}
         <TourCloseButton
           onClose={onClose}
           className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
         />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ padding: "12px 20px calc(20px + env(safe-area-inset-bottom)) 20px" }}>
         <div className="flex justify-center mb-3">
           <div className="w-9 h-1 rounded-full bg-border" />
         </div>
@@ -220,6 +221,7 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip, onClose }: { ste
         <button onClick={onSkip} className="block w-full min-h-[44px] text-xs text-center mt-1 text-muted-foreground">
           Skip tour
         </button>
+        </div>
       </div>
     </>
   );
@@ -233,25 +235,27 @@ const Sheet = ({ children, maxHeight = "44vh", backdrop = false, onClose }: { ch
     <>
     {backdrop && <div className="fixed inset-0 z-[99]" style={{ backgroundColor: "rgba(15,23,42,0.5)" }} aria-hidden="true" />}
     <div
-      className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] bg-white overflow-y-auto animate-in slide-in-from-bottom duration-300"
+      className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-[560px] z-[100] flex flex-col overflow-hidden bg-white animate-in slide-in-from-bottom duration-300"
       style={{
         borderRadius: "16px 16px 0 0",
         borderTop: "1px solid #e8edf2",
         boxShadow: "0 -4px 24px rgba(0,0,0,0.10)",
-        padding: "20px 20px 32px 20px",
         maxHeight: `min(${maxHeight}, ${desktopMax})`,
         width: "100%",
       }}
     >
+      {/* X lives outside the scroll area so it never scrolls away */}
       <TourCloseButton
         onClose={onClose}
         className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
       />
-      {/* Handle bar */}
-      <div className="flex justify-center mb-4">
-        <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ padding: "20px 20px 32px 20px" }}>
+        {/* Handle bar */}
+        <div className="flex justify-center mb-4">
+          <div className="w-9 h-1 rounded-full" style={{ backgroundColor: "#e2e8f0" }} />
+        </div>
+        {children}
       </div>
-      {children}
     </div>
     </>
   );
