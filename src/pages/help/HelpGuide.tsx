@@ -22,6 +22,17 @@ const HelpGuide = () => {
       <p className="mt-1 text-sm text-muted-foreground">
         {guide.steps.length} steps · Last updated: {guide.lastUpdated}
       </p>
+      {guide.intro?.map((p) => (
+        <p key={p} className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">{p}</p>
+      ))}
+      {guide.beforeYouStart?.length ? (
+        <section className="mt-5">
+          <h2 className="text-lg font-bold">Before you start</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {guide.beforeYouStart.map((t) => <li key={t}>{t}</li>)}
+          </ul>
+        </section>
+      ) : null}
       <Link
         to={`/help/${guide.slug}/${guide.steps[0].slug}`}
         className="mt-5 flex h-14 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground"
