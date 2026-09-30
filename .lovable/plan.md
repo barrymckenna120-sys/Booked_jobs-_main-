@@ -28,9 +28,12 @@ The two shared routines that send today each do one narrow job. One sends deposi
 - Test-mode settings and approved numbers for every company
 - Company names
 
-## Decisions to confirm
-- **Platform admin alerts.** These go to Barry's number when an account is locked, and they belong to no company. They will call the shared send step as "platform, no company", so tenant test mode does not apply to them. Otherwise security alerts would be silently blocked.
-- **Payment features.** Batch 2 includes payment code, which our rules require to go through the full review process. Only the send line changes in those files. Payment amounts, statuses and revenue logic are untouched, and each file gets a unit test. Please confirm this is acceptable.
+## Approved conditions
+1. **Sent markers.** Before changing each feature, check whether it records a send after sending, such as reminder-sent flags, last-sent dates, follow-up day flags or status changes. The shared step returns `sent` or `suppressed`. Features only record a send, or move the job to its next step, when the result is `sent`. A suppressed message leaves the customer unchanged, so it goes out normally once the company is LIVE. The report lists every feature where this applied.
+2. **Platform alerts.** Only the platform admin alert routine may use "platform". Any customer-facing feature that calls the shared step without a real company ID gets an error.
+3. **Payment features.** Approved. In those files only the send line and the sent-status check change, and each file gets a unit test.
+4. **Extra test.** A suppressed renewal reminder must not update any sent marker.
+5. Stop before deploying.
 
 ## Checks (no real sends)
 - Unit tests for the shared step, with 360 Messenger faked:
