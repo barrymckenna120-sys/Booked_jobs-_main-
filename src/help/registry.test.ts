@@ -39,6 +39,14 @@ describe("help registry", () => {
       });
     })));
   });
+  it("orders Engineer steps 3-5 with no shared screenshots", () => {
+    const g = findGuide("engineer")!;
+    expect(g.steps).toHaveLength(11);
+    expect(g.steps.slice(2, 5).map((s) => s.slug)).toEqual(["todays-jobs", "customer-job-details", "travel"]);
+    const srcs = g.steps.slice(2, 5).flatMap((s) => s.screenshots.map((x) => x.src));
+    expect(new Set(srcs).size).toBe(srcs.length);
+  });
+
   it("marks the four Engineer header controls", () => {
     expect(findStep(findGuide("engineer"), "header")?.step.screenshots[0].markers?.map((marker) => marker.label)).toEqual([
       "Engineer", "Office", "Notifications", "Three dots (⋮)",
