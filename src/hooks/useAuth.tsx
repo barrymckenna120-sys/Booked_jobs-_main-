@@ -98,9 +98,11 @@ const PUBLIC_PATH_PREFIXES = [
   "/terms-and-conditions",
   "/data-processing-agreement",
   "/offline",
+  // Public iPhone setup guide — matches the top-level <Route path="/help/iphone-setup"> in App.tsx
+  "/help/iphone-setup",
 ];
 
-const isPublicPath = (pathname: string) =>
+export const isPublicPath = (pathname: string) =>
   PUBLIC_PATH_PREFIXES.some(
     (p) => pathname === p || pathname === p.replace(/\/$/, "") || pathname.startsWith(p)
   );

@@ -68,6 +68,7 @@ const BoilerEnquiryDetail = lazy(() => import("./pages/BoilerEnquiryDetail"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Pipeline = lazy(() => import("./pages/Pipeline"));
 const InboxPage = lazy(() => import("./pages/Inbox"));
+const IphoneSetup = lazy(() => import("./pages/help/IphoneSetup"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const DataProcessingAgreement = lazy(() => import("./pages/DataProcessingAgreement"));
@@ -499,6 +500,9 @@ function AppContent() {
             }
           />
         </Route>
+
+        {/* Public iPhone setup guide — outside HelpLayout, no sign-in needed */}
+        <Route path="/help/iphone-setup" element={<IphoneSetup />} />
 
         {/* Help & Training — auth-protected via HelpLayout (useAuth) */}
         <Route path="/help" element={<HelpLayout />}>
