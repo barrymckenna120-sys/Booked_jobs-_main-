@@ -179,3 +179,4 @@
 - [x] Super Admin WhatsApp test-mode controls — tenant badges; per-tenant Messaging controls, allow-list and suppressed log; Office read-only banner; SELECT-only suppressed-message policy verified for tenant isolation. No send-guard or tenant-setting changes.
 - [x] Booking retry fix: release claim on failure, 409 while in progress, orphan-customer cleanup, failed_booking_intakes table and dashboard Failed Bookings row (code done, not deployed)
 - [ ] Booking retry fix: deploy tally-incoming-job + tally-boiler-rebook, then live checks on K&N TEST tenant (awaiting deploy approval)
+- [ ] Invoice €0 owed fix: shared balance helper (total minus all payments received), block unpriced jobs, preview uses same figure; report affected invoices only; deploy create-job-invoice after approval
