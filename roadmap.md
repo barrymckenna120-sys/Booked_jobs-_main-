@@ -181,3 +181,5 @@
 - [ ] Booking retry fix: deploy tally-incoming-job + tally-boiler-rebook, then live checks on K&N TEST tenant (awaiting deploy approval)
 - [x] Invoice €0 owed fix (BJ-0133): deployed create-job-invoice; K&N TEST preview/PDF/record verified for unpriced and deposit-plus-part-payment cases; no customer message sent; scratch data removed. Frontend awaiting Publish → Update.
 - [ ] Quote-job PDF shows two different TOTAL lines (BJ-0134): investigate separately later; do not change as part of BJ-0133
+- [x] BJ-NEW-AA (1 of 3): public /help/iphone-setup page, ported from iphone-setup.html; app fonts only
+- [ ] BJ-0133 H zero-invoice rule: deployed; the 5 live checks and scratch cleanup (b1340000… IDs, K&N TEST) are left for their own turn
