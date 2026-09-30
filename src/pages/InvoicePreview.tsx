@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolvePaymentPresentation } from "@/lib/paymentPresentation";
-import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR } from "../../supabase/functions/_shared/invoiceBalance";
+import { hasInvoiceablePrice, jobInvoiceBalance, MISSING_PRICE_ERROR, paymentsReceived } from "../../supabase/functions/_shared/invoiceBalance";
 
 const formatDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("en-IE", { day: "2-digit", month: "short", year: "numeric" });
@@ -103,8 +103,8 @@ const InvoicePreview = () => {
   const hasPrice = hasInvoiceablePrice(job.revenue, quoteTotal != null);
   const totalAmount = quoteTotal != null ? quoteTotal : job.revenue ? Number(job.revenue) : 0;
   const paymentPresentation = resolvePaymentPresentation(job);
-  const hasDeposit = paymentPresentation.showDepositBreakdown;
-  const depositAmount = hasDeposit ? Number(job.deposit_amount) : 0;
+  const receivedAmount = paymentsReceived(job, ledger);
+  const hasPayments = receivedAmount > 0;
   const balanceDue = jobInvoiceBalance(totalAmount, job, ledger);
 
   const handleDownloadPdf = () => {
@@ -279,15 +279,15 @@ const InvoicePreview = () => {
               <span className="font-bold text-foreground">Invoice</span>
             </div>
 
-            {hasDeposit && (
+            {hasPayments && (
               <>
                 <div className="flex justify-between items-center mt-2 text-sm">
                   <span className="text-muted-foreground">Job Total</span>
                   <span className="font-bold text-foreground">€{totalAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-1 text-sm">
-                  <span className="text-muted-foreground">Deposit Paid</span>
-                  <span className="font-bold text-success">−€{depositAmount.toFixed(2)} ✅</span>
+                  <span className="text-muted-foreground">Payments received</span>
+                  <span className="font-bold text-success">−€{receivedAmount.toFixed(2)} ✅</span>
                 </div>
               </>
             )}
@@ -301,7 +301,7 @@ const InvoicePreview = () => {
 
             <div className="flex justify-between items-center mt-2 pt-2 border-t border-[hsl(220,13%,91%)]">
               <span className="text-sm font-bold text-foreground">
-                {hasDeposit || paymentPresentation.isFullyPaid ? "Balance Due" : "Total Due"}
+                {hasPayments || paymentPresentation.isFullyPaid ? "Balance Due" : "Total Due"}
               </span>
               <span className="text-xl font-extrabold text-[hsl(35,92%,50%)]">
                 €{balanceDue.toFixed(2)}

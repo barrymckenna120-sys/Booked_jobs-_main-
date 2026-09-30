@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       .eq("service_call_id", job_id)
       .eq("organisation_id", job.organisation_id);
     const received = paymentsReceived(job, ledgerRows ?? []);
-    // Deposit Paid line: amount received (legacy paid jobs show the full total).
+    // Payments received line: amount received (legacy paid jobs show the full total).
 
     if (quote) {
       lineItems = (quote.quote_line_items || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -361,7 +361,7 @@ Deno.serve(async (req) => {
     y += 6;
 
     if (depositPaid > 0) {
-      totLine("Deposit Paid", `-${eur(depositPaid)}`, { bold: true, color: green });
+      totLine("Payments received", `-${eur(depositPaid)}`, { bold: true, color: green });
     }
     totLine("Balance Due", eur(balance), { bold: true, size: 11 });
     y += 3;
@@ -460,7 +460,7 @@ Deno.serve(async (req) => {
     const invoiceUrl = invOrgDomain && (invoice as any).access_token
       ? `https://${invOrgDomain}/invoice/${(invoice as any).access_token}`
       : null;
-    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nDeposit paid: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
+    const waMessage = `Hi ${firstName}, please find your invoice attached for ${job.job_type || "your job"}.\n\nTotal: ${eur(total)}\nPayments received: ${eur(depositPaid)}\nBalance due: ${eur(balance)}\n\nInvoice ref: ${invNum}\nPayment due within 14 days.${invoiceUrl ? `\n\n📄 View invoice:\n${invoiceUrl}` : ""}${messageFooter ? `\n\nThank you, ${messageFooter}` : ""}`;
 
     let whatsappSent = false;
     let whatsappSuppressed = false;
