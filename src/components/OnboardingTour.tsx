@@ -172,7 +172,7 @@ const TourMobileStep = ({ steps, index, onNext, onBack, onSkip, onClose }: { ste
       >
         <TourCloseButton
           onClose={onClose}
-          className="absolute right-2 top-2 z-10"
+          className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
         />
         <div className="flex justify-center mb-3">
           <div className="w-9 h-1 rounded-full bg-border" />
@@ -245,7 +245,7 @@ const Sheet = ({ children, maxHeight = "44vh", backdrop = false, onClose }: { ch
     >
       <TourCloseButton
         onClose={onClose}
-        className="absolute right-2 top-2 z-10"
+        className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10"
       />
       {/* Handle bar */}
       <div className="flex justify-center mb-4">

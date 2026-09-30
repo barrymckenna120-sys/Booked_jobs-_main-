@@ -63,7 +63,10 @@ const OfficeTourDesktop = ({ tourType, isReplay, steps = OFFICE_TOUR_STEPS, onFi
           aria-labelledby={showFeedback ? "office-tour-feedback-title" : "office-tour-title"}
           aria-describedby={showFeedback ? undefined : "office-tour-body"}
           onKeyDown={onKeyDown}
-          onEscapeKeyDown={onClose}
+          onEscapeKeyDown={(event) => {
+            event.preventDefault();
+            onClose();
+          }}
           className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-48px)] max-w-[960px] max-h-[calc(100vh-48px)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl focus:outline-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
         >
           <TourCloseButton onClose={onClose} className="absolute right-2 top-2 z-10" />
