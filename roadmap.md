@@ -165,3 +165,4 @@
 - [ ] NEEDS PRODUCTION UI VERIFICATION: exact Unblock/Restore wording, Team & Users step 6 (not a blocker)
 - [ ] Full visual QA at 390px + 1280px for every step of all four guides, then sign-off table (after screenshots arrive)
 - [ ] Login return URL for Help deep links — future improvement
+- [ ] Help access: Office desktop direct link, Engineer desktop button, role-aware Help home + Report an issue (approved 30/09/26)
