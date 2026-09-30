@@ -58,6 +58,22 @@ const HelpGuide = () => {
           </li>
         ))}
       </ol>
+      {guide.quickReference?.map((r) => (
+        <section key={r.title} className="mt-8">
+          <h2 className="text-lg font-bold">{r.title}</h2>
+          {r.items ? (
+            <ul className="mt-2 space-y-1">
+              {r.items.map((t) => <li key={t} className="flex gap-2"><span aria-hidden className="text-primary">☐</span>{t}</li>)}
+            </ul>
+          ) : null}
+          {r.table ? (
+            <table className="mt-2 w-full overflow-hidden rounded-xl border border-border text-left">
+              <thead className="bg-muted"><tr>{r.table.head.map((h) => <th key={h} className="p-2 font-semibold">{h}</th>)}</tr></thead>
+              <tbody>{r.table.rows.map(([a, b]) => <tr key={a} className="border-t border-border"><td className="p-2 font-medium align-top">{a}</td><td className="p-2">{b}</td></tr>)}</tbody>
+            </table>
+          ) : null}
+        </section>
+      ))}
     </div>
   );
 };
