@@ -78,10 +78,20 @@ export const engineerGuide: HelpGuide = {
       shortDescription: "Your assigned jobs for the day.",
       body: [
         "Jobs are created and scheduled in the Office App and assigned directly to the engineer.",
+        "Press Open on the Details button to view the customer and job information.",
+      ],
+      screenshots: [{ src: e01.url, device: "mobile", alt: "Today's Jobs with job counts and the next job card" }, { src: e03.url, device: "mobile", alt: "Lower Today screen with Rest of Day, Outstanding Balances, Needs Attention and the bottom navigation" }],
+      keywords: ["today", "jobs", "assigned", "rest of day", "needs attention"],
+    },
+    {
+      slug: "customer-job-details",
+      title: "Customer & Job Details",
+      shortDescription: "Open a job to see the customer and job information.",
+      body: [
         "Press Open on the Details button to see the customer, job type, boiler information, last engineer, service history, previous notes and photographs.",
       ],
-      screenshots: [{ src: e01.url, device: "mobile", alt: "Today's Jobs with job counts and the next job card" }, { src: e04.url, device: "mobile", alt: "Job details with contact, job type, time slot and boiler information" }, { src: e05.url, device: "mobile", alt: "Lower job details with last service, last engineer, notes and service history" }],
-      keywords: ["today", "jobs", "assigned", "job details", "service history"],
+      screenshots: [{ src: e04.url, device: "mobile", alt: "Job details with contact, job type, time slot and boiler information" }, { src: e05.url, device: "mobile", alt: "Lower job details with last service, last engineer, notes and service history" }],
+      keywords: ["job details", "customer", "boiler", "service history", "notes", "details"],
     },
     {
       slug: "travel",
@@ -93,7 +103,7 @@ export const engineerGuide: HelpGuide = {
         "When travelling to the customer, tap En Route so the office can see that you are on the way.",
       ],
       callouts: [{ label: "Nav", text: "Opens the customer's address in Google Maps." }],
-      screenshots: [{ src: e08.url, device: "mobile", alt: "Google Maps navigation to the customer's address" }, { src: e03.url, device: "mobile", alt: "En Route and Message Office buttons above the rest of the day's jobs" }],
+      screenshots: [{ src: e08.url, device: "mobile", alt: "Google Maps navigation to the customer's address" }],
       keywords: ["nav", "navigate", "google maps", "en route", "travel", "directions"],
     },
     {
