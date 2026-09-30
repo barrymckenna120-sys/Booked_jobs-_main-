@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import type { HelpScreenshot } from "@/help/types";
 
 /** Large screenshot; tap to enlarge full-screen, tap/Escape/X to dismiss.
@@ -41,17 +42,34 @@ export const HelpScreenshotView = ({ shot }: { shot: HelpScreenshot }) => {
       <figcaption className="mt-2 text-center text-sm text-muted-foreground">
         {shot.caption ?? (c ? <><span className="md:hidden">Tap to see the full screen</span><span className="hidden md:inline">Tap to enlarge</span></> : "Tap to enlarge")}
       </figcaption>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[98vw] w-auto p-2 sm:p-3">
-          <DialogTitle className="sr-only">{shot.alt}</DialogTitle>
-          <img
-            src={shot.src}
-            alt={shot.alt}
-            onClick={() => setOpen(false)}
-            className="max-h-[88vh] max-w-full h-auto w-auto mx-auto object-contain rounded-lg"
-          />
-        </DialogContent>
-      </Dialog>
+      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/90" />
+          <DialogPrimitive.Content
+            className="fixed inset-0 z-50 overflow-auto overscroll-contain focus:outline-none"
+            onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          >
+            <DialogPrimitive.Title className="sr-only">{shot.alt}</DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">Enlarged screenshot. Tap outside or press Escape to close.</DialogPrimitive.Description>
+            <div
+              className="flex min-h-full items-start justify-center px-[2.5vw] pb-6 pt-14"
+              onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+            >
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                className={shot.device === "mobile" ? "block h-auto w-[95vw] max-w-[720px] rounded-lg" : "block h-auto w-[95vw] rounded-lg"}
+              />
+            </div>
+            <DialogPrimitive.Close
+              className="fixed right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </figure>
   );
 };
