@@ -1,0 +1,1 @@
+REVOKE MAINTAIN ON public.fault_finder_settings FROM authenticated;
