@@ -1945,6 +1945,44 @@ export type Database = {
           },
         ]
       }
+      fault_finder_settings: {
+        Row: {
+          allowed_origins: string[]
+          created_at: string
+          cta_url: string | null
+          enabled: boolean
+          mode: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_origins?: string[]
+          created_at?: string
+          cta_url?: string | null
+          enabled?: boolean
+          mode?: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_origins?: string[]
+          created_at?: string
+          cta_url?: string | null
+          enabled?: boolean
+          mode?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fault_finder_settings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gdpr_erasures: {
         Row: {
           entity_id: string
