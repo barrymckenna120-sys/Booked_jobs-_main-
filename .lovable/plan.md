@@ -1,45 +1,39 @@
-# BJ-NEW-AA (1 of 3): Public iPhone setup page
+# Read-only audit: embeddable Fault Finder (facts only, nothing changed)
 
-The only design source is `iphone-setup.html`. None of the other HTML uploads are used, copied or referenced.
+## 1. public-fault-lookup
+a. Actions (handler.ts, GET only; OPTIONS for preflight):
+- `models&brand=` (76-88) returns `[{id, brand, model_name}]`, sorted by model_name (logic.ts 45-50). A brand that isn't allowed returns `[]`.
+- `codes&model_id=` (90-108) returns `[{code, category}]`, sorted fault → message → status, then by code (logic.ts 52-59).
+- `lookup&model_id=&code=` (110-131) returns `{found:true, code, category, explanation, manual_url}` or `{found:false, manual_url}` (logic.ts 61-75).
+- Any other action returns 400 `{error:"unknown_action"}`. Other errors: 400 invalid_brand / invalid_model_id / invalid_code, 403 origin_not_allowed, 405 method_not_allowed, 500 lookup_failed.
+- Public brands are hardcoded: Ideal, Baxi, Glow-worm, Vaillant, Worcester Bosch (logic.ts 11).
 
-## What engineers get
-A page at `/help/iphone-setup` that opens without signing in. It is a straight copy of the approved design:
-- Header: "BookedJobs · iPhone 14 and newer", the title, and "Follow the orange circles."
-- Three chips: Safari only / Not Private mode / iPhone updated.
-- The 8 phone mockups with their captions, in this order: Safari •••, Share, Add to Home Screen, Open as Web App + Add, new icon, Allow, Settings check, lock-screen alert. Each has pulsing orange tap circles and orange highlight outlines.
-- A "Not working?" box with the 5 fixes, and a Checklist box with 4 ticks, the "0 of 4 done" / "All done" counter and the one-phone warning.
-- Footer: "BookedJobs · iPhone setup · updated 30/09/26".
-- A "Back to sign in" link at the top that goes to `/auth`.
+b. Domain check: handler.ts 52-68 compares the exact Origin header against a list. The list comes from the backend setting `PUBLIC_FAULT_ALLOWED_ORIGINS`, a comma-separated value (index.ts 9-13). It isn't in the code or the database. Requests with no Origin header (curl) are allowed. `verify_jwt = false` (config.toml 166-167).
 
-All wording is copied exactly from the HTML. Nothing is redesigned.
+c. Rate limiting: not found. Responses are cached for 5 minutes (handler.ts 42).
 
-## Routing and access
-- `src/App.tsx`: add one lazy import and a top-level route `/help/iphone-setup`, placed before the `/help` HelpLayout block. The page is not wrapped in HelpLayout.
-- `src/hooks/useAuth.tsx`: add `"/help/iphone-setup"` to `PUBLIC_PATH_PREFIXES`, with a comment that matches the route. `/help` and `/help/engineer` stay protected. The prefix check does not match `/help` itself.
+d. It reads only `boiler_fault_models` and `boiler_fault_codes`. Responses are built from a fixed list of fields (logic.ts), so they can't include customers, jobs or organisation settings. Both tables have no `organisation_id` column.
 
-## Web address on the mockups
-- New `src/lib/setupGuideHost.ts`: `getSetupGuideHost(hostname = window.location.hostname)`. It returns the hostname when it ends in `.bookedjobs.ie`, otherwise `yourcompany.bookedjobs.ie`.
-- It is used in all 4 places the HTML shows `kngasservices.bookedjobs.ie` (steps 1, 2, 3 and 4). No tenant name or domain is hard-coded, and nothing is looked up in the database.
+e. Each code's type is stored in the data: `boiler_fault_codes.category`, checked to be `fault` / `status` / `message`, default `fault` (migrations 20260924194022 and 20260924194639).
 
-## Technical details
-- New `src/components/help/PhoneMockup.tsx`: the phone frame (bezel, island, status bar) plus a `TapMarker`, both built with Tailwind. The phone screens use fixed iOS light colours from the HTML because they must stay light in every theme. These colours are scoped to the mockup and are the only fixed colours. The orange accent `#e0561b` is scoped the same way, because it is part of the approved design.
-- New `src/pages/help/IphoneSetup.tsx`: the page around the phones uses theme tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, `text-muted-foreground`). The HTML's display and body fonts (Barlow Semi Condensed, Atkinson Hyperlegible) are applied to this page only, loaded through a Google Fonts `<link>` in the page.
-- Pulse animation: a Tailwind keyframe applied with `motion-safe:` only, so it stops under prefers-reduced-motion.
-- Each phone is `aria-hidden="true"`. The numbered steps are an `<ol>`, so screen readers read the captions.
-- Checklist: `useState` only, no localStorage. The counter is `aria-live="polite"`.
-- Layout is a mobile-first grid (`minmax(250px,1fr)`) with phones at `max-w-full`, `overflow-x-hidden`, and top padding that respects the safe area. No sideways scroll at 375–430px.
-- `PageSeo` title "iPhone setup — BookedJobs", path `/help/iphone-setup`, following the PrivacyPolicy pattern.
-- Not touched: Auth.tsx, HelpHome.tsx, registry.ts, InstallAppBanner, the service worker, any other page.
+f. Shared across all tenants. The fault code tables have no organisation tag.
 
-## Tests
-- `src/lib/setupGuideHost.test.ts`: the 5 hostnames from the brief.
-- `isPublicPath`: export it for testing (no behaviour change) and assert `/help/iphone-setup` true, `/help` false, `/help/engineer` false.
+## 2. Booking embed
+a-e. Not found. No embed or iframe route is in the app routes, and there's no frame-ancestors, X-Frame-Options or CSP header set anywhere. No height-resize postMessage exists either; the only postMessage is the auto-generated preview login sync. Tenant bookings come in through Tally forms (for example `https://tally.so/r/68qaMe`) and the `tally-*` functions. `booking_links` holds per-customer token links, not a website embed.
 
-## Evidence returned
-1. The files changed and the current revision hash. Lovable manages git internally, so I can report the project revision, but I cannot push to or confirm `origin/dev`. Please check the branch in GitHub.
-2. Raw vitest output.
-3. Signed-out Playwright check at 390px: `/help/iphone-setup` loads with no redirect to `/auth`, plus a screenshot and a check for sideways scroll.
-4. Signed-out `/help` still redirects to `/auth`.
+## 3. Tenant settings
+a. `organisations`: name, slug, company_phone, company_email, address, public_domain, owner_phone. `brand_settings`: colours and font_family, with no logo column. The logo storage path was not checked.
 
-## Still open from the previous task (H, zero-invoice rule)
-The rule is deployed, but its 5 live checks and the scratch-data cleanup on K&N TEST are not done yet. I'll finish them first, in the same turn, and report them separately.
+b. A public (signed-out) way to read these fields: not found. Existing public functions only cover quotes, receipts and certificates by token or number.
+
+## 4. New Gas Boilers Dublin (59bb0688…)
+a. `organisations.public_domain` is NULL. No website domain is stored. Company email is info@newgasboilers.ie.
+
+b. Enquiries arrive through `tally-boiler-enquiry`. The Tally integration has form `68qaMe`, new_booking_url `https://tally.so/r/68qaMe` and secret `TALLY_WEBHOOK_SECRET_NEWGASBOILERS`.
+- The organisation is decided by form ID and signature. An organisation_id sent with the form is only a hint and is rejected if it doesn't match (index.ts 108-187).
+- Fields come from the field-key map in `_shared/tallyFormMaps.ts` (36-49): Property, Bedrooms, Radiators, Boiler type/age/location, Bathrooms, showers, pressure, cylinder/pump, Boiler working, Priority, Extras, timing, plus contact details.
+- Any field not in the map is kept as label/value pairs in `other_answers` (tallyFormMaps.ts 120-124).
+- `boiler_enquiries` has no brand, model or fault columns. So brand, model and fault code can be sent without a schema change, but only as free-text answers in notes, not as structured fields.
+
+## Next step
+Nothing to build yet. Approving this only confirms the audit. The widget design will be a separate plan.
